@@ -330,6 +330,13 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
 .toggle-pill:disabled { opacity: .6; cursor: default; }
 .resend-message { margin-top: 6px; color: var(--muted-foreground); font-size: 11px; max-width: 160px; }
 
+.progress-chart { margin-top: 6px; }
+.admin-chart-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.admin-row { cursor: pointer; transition: background-color .15s ease; }
+.admin-row:hover { background: var(--surface-soft); }
+.admin-row-active { background: var(--surface-soft); }
+.admin-row-active td:first-child { box-shadow: inset 2px 0 0 var(--foreground); }
+
 .site-footer { padding: 45px 0; color: var(--muted-foreground); background: var(--background); }
 .footer-inner { display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 50px; font-size: 11px; }
 .footer-brand { color: var(--foreground); margin-bottom: 12px; }
