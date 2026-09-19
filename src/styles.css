@@ -286,6 +286,8 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
 .form-alert-notice a { color: var(--foreground); text-decoration: underline; }
 .start-submit { width: 100%; }
 .start-disclaimer { margin: 0; color: var(--muted-foreground); font-size: 11px; text-align: center; }
+.forgot-password-link { justify-self: start; margin-top: -6px; color: var(--muted-foreground); font: 500 12px/1 var(--font-sans); text-decoration: underline; text-underline-offset: 3px; }
+.forgot-password-link:hover { color: var(--foreground); }
 
 .success-main { min-height: calc(100svh - 74px); display: flex; align-items: center; text-align: center; }
 .success-inner { max-width: 640px; margin-inline: auto; }
@@ -325,12 +327,26 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
 .status-pill-success { color: var(--foreground); border-color: var(--foreground); }
 .toggle-pill { padding: 6px 12px; background: transparent; border: 1px solid var(--border); border-radius: 20px; color: var(--muted-foreground); font: 700 11px/1 var(--font-sans); cursor: pointer; transition: background-color .2s ease, color .2s ease; }
 .toggle-pill-active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.toggle-pill:disabled { opacity: .6; cursor: default; }
+.resend-message { margin-top: 6px; color: var(--muted-foreground); font-size: 11px; max-width: 160px; }
 
 .site-footer { padding: 45px 0; color: var(--muted-foreground); background: var(--background); }
 .footer-inner { display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 50px; font-size: 11px; }
 .footer-brand { color: var(--foreground); margin-bottom: 12px; }
 .footer-inner p { margin: 0; }
 .footer-inner > a { color: var(--foreground); text-decoration: underline; text-underline-offset: 4px; }
+.footer-inner > span a { color: var(--muted-foreground); text-decoration: underline; text-underline-offset: 3px; }
+.footer-inner > span a:hover { color: var(--foreground); }
+
+.legal-main { padding: 150px 0 100px; }
+.legal-page { max-width: 720px; }
+.legal-page h1 { margin: 14px 0 6px; font-family: var(--font-serif); font-size: clamp(32px, 4vw, 44px); font-weight: 700; letter-spacing: -0.01em; }
+.legal-updated { margin: 0 0 34px; color: var(--muted-foreground); font-size: 12px; }
+.legal-page h2 { margin: 34px 0 10px; font-family: var(--font-serif); font-size: 19px; font-weight: 700; }
+.legal-page p, .legal-page li { color: var(--muted-foreground); font-size: 14px; line-height: 1.75; }
+.legal-page ul { margin: 10px 0; padding-left: 20px; display: grid; gap: 6px; }
+.legal-page a { color: var(--foreground); text-decoration: underline; text-underline-offset: 3px; }
+.legal-page strong { color: var(--foreground); }
 
 [data-reveal] { opacity: 0; transform: translateY(28px); transition: opacity .75s ease, transform .75s cubic-bezier(.2,.8,.2,1); }
 [data-reveal].reveal-left { transform: translateX(-42px); }

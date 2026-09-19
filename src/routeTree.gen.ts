@@ -10,7 +10,15 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
+import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as StartSuccessRouteImport } from './routes/start.success'
 
 const IndexRoute = IndexRouteImport.update({
@@ -18,9 +26,49 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppRoute = AppRouteImport.update({
+  id: '/app',
+  path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StartRoute = StartRouteImport.update({
   id: '/start',
   path: '/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CronRemindersRoute = CronRemindersRouteImport.update({
+  id: '/cron/reminders',
+  path: '/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RTokenRoute = RTokenRouteImport.update({
+  id: '/r/$token',
+  path: '/r/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StartSuccessRoute = StartSuccessRouteImport.update({
@@ -31,31 +79,97 @@ const StartSuccessRoute = StartSuccessRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
+  '/terms': typeof TermsRoute
+  '/cron/reminders': typeof CronRemindersRoute
+  '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
+  '/terms': typeof TermsRoute
+  '/cron/reminders': typeof CronRemindersRoute
+  '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/app': typeof AppRoute
+  '/forgot-password': typeof ForgotPasswordRoute
+  '/login': typeof LoginRoute
+  '/privacy': typeof PrivacyRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
+  '/terms': typeof TermsRoute
+  '/cron/reminders': typeof CronRemindersRoute
+  '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/start' | '/start/success'
+  fullPaths:
+    | '/'
+    | '/app'
+    | '/forgot-password'
+    | '/login'
+    | '/privacy'
+    | '/reset-password'
+    | '/start'
+    | '/terms'
+    | '/cron/reminders'
+    | '/r/$token'
+    | '/start/success'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/start' | '/start/success'
-  id: '__root__' | '/' | '/start' | '/start/success'
+  to:
+    | '/'
+    | '/app'
+    | '/forgot-password'
+    | '/login'
+    | '/privacy'
+    | '/reset-password'
+    | '/start'
+    | '/terms'
+    | '/cron/reminders'
+    | '/r/$token'
+    | '/start/success'
+  id:
+    | '__root__'
+    | '/'
+    | '/app'
+    | '/forgot-password'
+    | '/login'
+    | '/privacy'
+    | '/reset-password'
+    | '/start'
+    | '/terms'
+    | '/cron/reminders'
+    | '/r/$token'
+    | '/start/success'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRoute
+  ForgotPasswordRoute: typeof ForgotPasswordRoute
+  LoginRoute: typeof LoginRoute
+  PrivacyRoute: typeof PrivacyRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   StartRoute: typeof StartRouteWithChildren
+  TermsRoute: typeof TermsRoute
+  CronRemindersRoute: typeof CronRemindersRoute
+  RTokenRoute: typeof RTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -67,11 +181,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app': {
+      id: '/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forgot-password': {
+      id: '/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/forgot-password'
+      preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/start': {
       id: '/start'
       path: '/start'
       fullPath: '/start'
       preLoaderRoute: typeof StartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cron/reminders': {
+      id: '/cron/reminders'
+      path: '/cron/reminders'
+      fullPath: '/cron/reminders'
+      preLoaderRoute: typeof CronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/r/$token': {
+      id: '/r/$token'
+      path: '/r/$token'
+      fullPath: '/r/$token'
+      preLoaderRoute: typeof RTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/start/success': {
@@ -96,7 +266,15 @@ const StartRouteWithChildren = StartRoute._addFileChildren(StartRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRoute,
+  ForgotPasswordRoute: ForgotPasswordRoute,
+  LoginRoute: LoginRoute,
+  PrivacyRoute: PrivacyRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   StartRoute: StartRouteWithChildren,
+  TermsRoute: TermsRoute,
+  CronRemindersRoute: CronRemindersRoute,
+  RTokenRoute: RTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
