@@ -33,6 +33,9 @@ import {
   reviewLinkFor,
   sendEmail,
   sendSms,
+  UPTREND_SUPPORT_EMAIL,
+  welcomeEmailHtml,
+  welcomeEmailSubject,
 } from "./messaging.server";
 
 const REMINDER_DELAY_MS = 48 * 60 * 60 * 1000;
@@ -144,8 +147,12 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       const passwordHash = await hashPassword(data.password);
 
       let businessId: string;
+      let welcomeBusinessName: string;
+      let welcomeContactName: string;
       if (existing) {
         businessId = existing.id;
+        welcomeBusinessName = existing.businessName;
+        welcomeContactName = existing.contactName;
         await db
           .update(businesses)
           .set({
@@ -156,11 +163,13 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
           })
           .where(eq(businesses.id, existing.id));
       } else {
+        welcomeBusinessName = businessName || "New business";
+        welcomeContactName = contactName || "Owner";
         const [created] = await db
           .insert(businesses)
           .values({
-            businessName: businessName || "New business",
-            contactName: contactName || "Owner",
+            businessName: welcomeBusinessName,
+            contactName: welcomeContactName,
             email,
             phone: phone || "",
             locations,
@@ -178,6 +187,21 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
           };
         }
         businessId = created.id;
+      }
+
+      // Best-effort: a failed welcome email should never block account
+      // creation. Dormant until RESEND_API_KEY is configured, same as the
+      // rest of the messaging pipeline.
+      if (isResendConfigured()) {
+        const result = await sendEmail(
+          email,
+          welcomeEmailSubject(),
+          welcomeEmailHtml(welcomeBusinessName, welcomeContactName),
+          UPTREND_SUPPORT_EMAIL,
+        );
+        if (!result.ok) {
+          console.error("[reviews] failed to send welcome email", result.error);
+        }
       }
 
       await createBusinessSession(businessId);

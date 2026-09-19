@@ -6,6 +6,11 @@
 
 import { CANONICAL_SITE_URL } from "./site";
 
+// The address UpTrend Scaling's own account emails (welcome, receipts, etc.)
+// send from -- distinct from RESEND_FROM_EMAIL, which is whatever address a
+// signed-up business's own review-request texts/emails go out under.
+export const UPTREND_SUPPORT_EMAIL = "hello@uptrendscaling.com";
+
 export function isTwilioConfigured(): boolean {
   return Boolean(
     process.env["TWILIO_ACCOUNT_SID"] &&
@@ -64,11 +69,19 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
   }
 }
 
-// Sends a single email via Resend's REST API.
-export async function sendEmail(to: string, subject: string, html: string): Promise<SendResult> {
+// Sends a single email via Resend's REST API. Pass `from` to override the
+// sender for account/system emails (see UPTREND_SUPPORT_EMAIL); otherwise
+// falls back to RESEND_FROM_EMAIL, the address a business's own review
+// requests go out under.
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  from?: string,
+): Promise<SendResult> {
   const apiKey = process.env["RESEND_API_KEY"];
-  const from = process.env["RESEND_FROM_EMAIL"];
-  if (!apiKey || !from) {
+  const fromAddress = from ?? process.env["RESEND_FROM_EMAIL"];
+  if (!apiKey || !fromAddress) {
     return { ok: false, error: "Resend is not configured yet." };
   }
 
@@ -79,7 +92,7 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to, subject, html }),
+      body: JSON.stringify({ from: fromAddress, to, subject, html }),
     });
 
     const payload = (await response.json().catch(() => null)) as {
@@ -129,4 +142,16 @@ export function reminderEmailHtml(
   link: string,
 ): string {
   return `<p>Hi ${customerName},</p><p>Just a quick reminder, if you have 30 seconds we'd love your feedback:</p><p><a href="${link}">${link}</a></p><p>Thank you,<br/>${businessName}</p>`;
+}
+
+// Sent once, the moment a business finishes signing up (sets their password
+// on /start/success after checkout) -- their welcome to UpTrend Scaling
+// itself, not a review request. Always goes out from UPTREND_SUPPORT_EMAIL.
+export function welcomeEmailSubject(): string {
+  return "Welcome to UpTrend Scaling";
+}
+
+export function welcomeEmailHtml(businessName: string, contactName: string): string {
+  const loginUrl = `${CANONICAL_SITE_URL}/login`;
+  return `<p>Hi ${contactName},</p><p>Welcome to UpTrend Scaling! Your account for ${businessName} is set up and ready to go.</p><p>Here's what to do next:</p><ul><li>Add your Google review link in your dashboard settings</li><li>Add your first customer, their review request goes out the moment you save it</li></ul><p><a href="${loginUrl}">Log in to your dashboard</a></p><p>Questions? Just reply to this email, it comes straight to us.</p><p>Thanks for signing up,<br/>The UpTrend Scaling team</p>`;
 }
