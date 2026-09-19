@@ -76,6 +76,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .nav-links a { position: relative; padding: 8px 0; }
 .nav-links a::after { content: ""; position: absolute; inset: auto 0 2px; height: 1px; background: var(--primary); transform: scaleX(0); transform-origin: right; transition: transform .25s ease; }
 .nav-links a:hover::after { transform: scaleX(1); transform-origin: left; }
+.nav-actions { display: flex; align-items: center; gap: 12px; }
 .scroll-progress { position: absolute; inset: auto 0 -1px; height: 2px; background: linear-gradient(90deg, var(--primary) var(--scroll-progress, 0%), transparent var(--scroll-progress, 0%)); }
 
 .button { display: inline-flex; min-height: 48px; align-items: center; justify-content: center; gap: 10px; padding: 0 21px; border: 1px solid transparent; border-radius: 4px; font: 700 13px/1 var(--font-sans); transition: transform .25s ease, box-shadow .25s ease, background-color .25s ease; }
@@ -379,6 +380,7 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
   .page-width { width: min(100% - 30px, 1180px); }
   .site-nav { height: 66px; }
   .nav-inner { width: calc(100% - 24px); gap: 10px; }
+  .nav-actions { gap: 8px; }
   .brand { font-size: 16px; gap: 7px; }
   .brand-mark { width: 25px; height: 25px; }
   .brand em { display: none; }

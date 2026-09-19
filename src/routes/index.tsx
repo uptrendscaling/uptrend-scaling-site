@@ -99,7 +99,10 @@ function Index() {
             <a href="#industries">Industries</a>
             <a href="#why-us">Why us</a>
           </nav>
-          <a className="button button-primary nav-cta" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
+          <div className="nav-actions">
+            <a className="button button-ghost nav-cta" href="/login">Log in</a>
+            <a className="button button-primary nav-cta" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
+          </div>
         </div>
         <div ref={progressRef} className="scroll-progress" aria-hidden="true" />
       </header>
