@@ -373,7 +373,7 @@ function Index() {
         <div className="page-width footer-inner">
           <div><a className="brand footer-brand" href="#top"><span className="brand-mark"><svg viewBox="0 0 28 28"><path d="M4 20 11 13l4 4 9-10M17 7h7v7" /></svg></span><span>UpTrend <em>Scaling</em></span></a><p>Google review automation for local businesses.</p></div>
           <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>
-          <span>© 2026 UpTrend Scaling, LLC. All rights reserved.</span>
+          <span>© 2026 UpTrend Scaling, LLC. All rights reserved. · <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a></span>
         </div>
       </footer>
     </div>

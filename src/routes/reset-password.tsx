@@ -1,29 +1,52 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import { z } from "zod";
 
-import { loginBusiness } from "../lib/reviews.server";
+import { resetPassword } from "../lib/reviews.server";
 
-export const Route = createFileRoute("/login")({
-  head: () => ({
-    meta: [{ title: "Sign in | UpTrend Scaling" }],
-  }),
-  component: LoginPage,
+const searchSchema = z.object({
+  token: z.string().trim().optional(),
 });
 
-function LoginPage() {
+export const Route = createFileRoute("/reset-password")({
+  validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
+  head: () => ({
+    meta: [{ title: "Set a new password | UpTrend Scaling" }],
+  }),
+  component: ResetPasswordPage,
+});
+
+function ResetPasswordPage() {
+  const { token } = Route.useSearch();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    if (!token) {
+      setError("This reset link is missing its token. Request a new one from the sign-in page.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Use at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const result = await loginBusiness({ data: { email, password } });
+      const result = await resetPassword({ data: { token, password } });
       if (result.ok) {
+        setDone(true);
         void navigate({ to: "/app" });
         return;
       }
@@ -50,8 +73,8 @@ function LoginPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/">
-            Back to site
+          <a className="button button-ghost nav-cta" href="/login">
+            Back to sign in
           </a>
         </div>
       </header>
@@ -59,46 +82,53 @@ function LoginPage() {
       <main className="start-main success-main">
         <div className="page-width" style={{ maxWidth: 440, marginInline: "auto" }}>
           <p className="eyebrow">
-            <span /> CRM sign in
+            <span /> Reset password
           </p>
-          <h1 className="start-heading">Welcome back.</h1>
+          <h1 className="start-heading">Choose a new password.</h1>
           <p className="start-lead" style={{ marginBottom: 28 }}>
-            Sign in to see your review requests, track clicks, and manage customers.
+            Pick something you haven't used before.
           </p>
+
+          {!token && (
+            <p className="form-alert form-alert-error" style={{ marginBottom: 16 }}>
+              This link is missing its token. Request a new one from the{" "}
+              <a href="/forgot-password">forgot password page</a>.
+            </p>
+          )}
 
           <form className="start-form" onSubmit={handleSubmit}>
             <label>
-              <span>Work email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                autoComplete="email"
-                required
-              />
-            </label>
-            <label>
-              <span>Password</span>
+              <span>New password</span>
               <input
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
+                autoComplete="new-password"
                 required
               />
             </label>
-            <a href="/forgot-password" className="forgot-password-link">
-              Forgot your password?
-            </a>
+            <label>
+              <span>Confirm password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
 
             {error && <p className="form-alert form-alert-error">{error}</p>}
+            {done && (
+              <p className="form-alert form-alert-notice">Password updated — redirecting…</p>
+            )}
 
             <button
               className="button button-primary start-submit"
               type="submit"
               disabled={submitting}
             >
-              {submitting ? "Signing in…" : "Sign in"}
+              {submitting ? "Saving…" : "Set new password"}
             </button>
           </form>
         </div>

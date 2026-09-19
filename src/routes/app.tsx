@@ -8,6 +8,7 @@ import {
   listCustomers,
   logoutBusiness,
   markCustomerReviewed,
+  resendReviewRequest,
   updateGoogleReviewUrl,
   type CustomerRow,
   type DashboardStats,
@@ -265,9 +266,36 @@ function CustomerTable({
   customers: CustomerRow[];
   onToggleReviewed: () => void;
 }) {
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<{ id: string; text: string } | null>(null);
+
   async function toggle(customerId: string) {
     await markCustomerReviewed({ data: { customerId } });
     onToggleReviewed();
+  }
+
+  async function resend(customerId: string) {
+    setResendingId(customerId);
+    setResendMessage(null);
+    try {
+      const result = await resendReviewRequest({ data: { customerId } });
+      if (result.ok) {
+        const parts: string[] = [];
+        if (result.smsSent === true) parts.push("text sent");
+        if (result.smsSent === false) parts.push("text failed");
+        if (result.emailSent === true) parts.push("email sent");
+        if (result.emailSent === false) parts.push("email failed");
+        setResendMessage({ id: customerId, text: parts.length > 0 ? parts.join(", ") : "Sent." });
+        onToggleReviewed();
+      } else {
+        setResendMessage({ id: customerId, text: result.message });
+      }
+    } catch (err) {
+      console.error(err);
+      setResendMessage({ id: customerId, text: "Something went wrong." });
+    } finally {
+      setResendingId(null);
+    }
   }
 
   return (
@@ -285,6 +313,7 @@ function CustomerTable({
                 <th>Sent</th>
                 <th>Clicked</th>
                 <th>Reviewed</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
@@ -323,6 +352,19 @@ function CustomerTable({
                     >
                       {customer.markedReviewedAt ? "Reviewed ✓" : "Mark reviewed"}
                     </button>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="toggle-pill"
+                      onClick={() => resend(customer.id)}
+                      disabled={resendingId === customer.id}
+                    >
+                      {resendingId === customer.id ? "Sending…" : "Resend"}
+                    </button>
+                    {resendMessage && resendMessage.id === customer.id && (
+                      <div className="resend-message">{resendMessage.text}</div>
+                    )}
                   </td>
                 </tr>
               ))}
