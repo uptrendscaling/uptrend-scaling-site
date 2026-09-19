@@ -22,7 +22,14 @@ import {
   verifyPasswordResetToken,
 } from "./auth.server";
 import { getDb, isDbConfigured } from "./db/client";
-import { businesses, customers, messages, type Business, type Customer } from "./db/schema";
+import {
+  businesses,
+  customers,
+  messages,
+  type Business,
+  type Customer,
+  type Message,
+} from "./db/schema";
 import { CANONICAL_SITE_URL } from "./site";
 import {
   initialEmailHtml,
@@ -59,6 +66,7 @@ export type PublicBusiness = {
   locations: number;
   plan: string | null;
   googleReviewUrl: string | null;
+  isAdmin: boolean;
 };
 
 function toPublicBusiness(business: Business): PublicBusiness {
@@ -71,6 +79,7 @@ function toPublicBusiness(business: Business): PublicBusiness {
     locations: business.locations,
     plan: business.plan,
     googleReviewUrl: business.googleReviewUrl,
+    isAdmin: business.isAdmin,
   };
 }
 
@@ -688,6 +697,200 @@ export const getDashboardStats = createServerFn({ method: "GET" }).handler(
     };
   },
 );
+
+// ---- Progress-over-time chart data -----------------------------------
+// Powers the "customer progress" graph on both the business dashboard and
+// the admin master view. Buckets by calendar week (Monday start, UTC) over
+// a fixed trailing window -- computed in JS rather than SQL date_trunc so
+// the exact same logic can run against either one business's rows or every
+// business's rows combined, with no query duplication.
+
+const SERIES_WEEKS = 12;
+
+export type ProgressPoint = {
+  weekStart: string; // ISO date (yyyy-mm-dd), Monday of that week
+  customersAdded: number;
+  cumulativeCustomers: number;
+  messagesSent: number;
+  linkClicks: number;
+  reviewed: number;
+};
+
+function startOfWeekUtc(date: Date): Date {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const daysSinceMonday = (day + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  return d;
+}
+
+type ProgressCustomerRow = Pick<Customer, "createdAt" | "linkClickedAt" | "markedReviewedAt">;
+type ProgressMessageRow = Pick<Message, "sentAt" | "status">;
+
+function buildWeeklySeries(
+  customerRows: ProgressCustomerRow[],
+  messageRows: ProgressMessageRow[],
+): ProgressPoint[] {
+  const now = new Date();
+  const currentWeekStart = startOfWeekUtc(now);
+  const weekStarts: Date[] = [];
+  for (let i = SERIES_WEEKS - 1; i >= 0; i--) {
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setUTCDate(weekStart.getUTCDate() - i * 7);
+    weekStarts.push(weekStart);
+  }
+
+  const firstWeekStart = weekStarts[0]!;
+  let cumulative = customerRows.filter((c) => new Date(c.createdAt) < firstWeekStart).length;
+
+  return weekStarts.map((weekStart) => {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+    const inWeek = (value: Date | string) => {
+      const d = new Date(value);
+      return d >= weekStart && d < weekEnd;
+    };
+
+    const customersAdded = customerRows.filter((c) => inWeek(c.createdAt)).length;
+    cumulative += customersAdded;
+
+    const linkClicks = customerRows.filter(
+      (c) => c.linkClickedAt && inWeek(c.linkClickedAt),
+    ).length;
+    const reviewed = customerRows.filter(
+      (c) => c.markedReviewedAt && inWeek(c.markedReviewedAt),
+    ).length;
+    const messagesSent = messageRows.filter((m) => m.status === "sent" && inWeek(m.sentAt)).length;
+
+    return {
+      weekStart: weekStart.toISOString().slice(0, 10),
+      customersAdded,
+      cumulativeCustomers: cumulative,
+      messagesSent,
+      linkClicks,
+      reviewed,
+    };
+  });
+}
+
+// The logged-in business's own progress over time, for the chart on /app.
+export const getCustomerProgressSeries = createServerFn({ method: "GET" }).handler(
+  async (): Promise<ProgressPoint[]> => {
+    if (!isCrmConfigured()) return [];
+    const businessId = await getSessionBusinessId();
+    if (!businessId) return [];
+
+    const db = getDb();
+    const [customerRows, messageRows] = await Promise.all([
+      db.select().from(customers).where(eq(customers.businessId, businessId)),
+      db.select().from(messages).where(eq(messages.businessId, businessId)),
+    ]);
+
+    return buildWeeklySeries(customerRows, messageRows);
+  },
+);
+
+// ---- Admin: every client at once ---------------------------------------
+// Gated on businesses.isAdmin -- today that's Colby's own account only.
+// Lets him see either the combined trend across every signed-up business,
+// or drill into any one client's own progress, from a single screen.
+
+async function requireAdminBusiness(): Promise<Business> {
+  const businessId = await requireBusinessId();
+  const db = getDb();
+  const [business] = await db
+    .select()
+    .from(businesses)
+    .where(eq(businesses.id, businessId))
+    .limit(1);
+  if (!business?.isAdmin) throw new Error("Not authorized.");
+  return business;
+}
+
+export type AdminBusinessSummary = {
+  id: string;
+  businessName: string;
+  contactName: string;
+  email: string;
+  plan: string | null;
+  createdAt: Date;
+  totalCustomers: number;
+  messagesSent: number;
+  linkClicks: number;
+  reviewedCount: number;
+};
+
+export type AdminOverviewResult =
+  { ok: true; businesses: AdminBusinessSummary[] } | { ok: false; message: string };
+
+export const getAdminOverview = createServerFn({ method: "GET" }).handler(
+  async (): Promise<AdminOverviewResult> => {
+    if (!isCrmConfigured()) return { ok: false, message: "Not configured yet." };
+    try {
+      await requireAdminBusiness();
+    } catch {
+      return { ok: false, message: "Not authorized." };
+    }
+
+    const db = getDb();
+    const [allBusinesses, allCustomers, allMessages] = await Promise.all([
+      db.select().from(businesses).orderBy(desc(businesses.createdAt)),
+      db.select().from(customers),
+      db.select().from(messages),
+    ]);
+
+    const summaries: AdminBusinessSummary[] = allBusinesses.map((business) => {
+      const bizCustomers = allCustomers.filter((c) => c.businessId === business.id);
+      const bizMessages = allMessages.filter((m) => m.businessId === business.id);
+      return {
+        id: business.id,
+        businessName: business.businessName,
+        contactName: business.contactName,
+        email: business.email,
+        plan: business.plan,
+        createdAt: business.createdAt,
+        totalCustomers: bizCustomers.length,
+        messagesSent: bizMessages.filter((m) => m.status === "sent").length,
+        linkClicks: bizCustomers.filter((c) => c.linkClickedAt).length,
+        reviewedCount: bizCustomers.filter((c) => c.markedReviewedAt).length,
+      };
+    });
+
+    return { ok: true, businesses: summaries };
+  },
+);
+
+const adminSeriesInputSchema = z.object({
+  businessId: z.string().trim().min(1).optional(),
+});
+
+export type AdminSeriesResult =
+  { ok: true; series: ProgressPoint[] } | { ok: false; message: string };
+
+// Omit businessId for the combined view across every client; pass one to
+// drill into that specific business's own progress.
+export const getAdminProgressSeries = createServerFn({ method: "GET" })
+  .validator((input: unknown) => adminSeriesInputSchema.parse(input))
+  .handler(async ({ data }): Promise<AdminSeriesResult> => {
+    if (!isCrmConfigured()) return { ok: false, message: "Not configured yet." };
+    try {
+      await requireAdminBusiness();
+    } catch {
+      return { ok: false, message: "Not authorized." };
+    }
+
+    const db = getDb();
+    const [customerRows, messageRows] = await Promise.all([
+      data.businessId
+        ? db.select().from(customers).where(eq(customers.businessId, data.businessId))
+        : db.select().from(customers),
+      data.businessId
+        ? db.select().from(messages).where(eq(messages.businessId, data.businessId))
+        : db.select().from(messages),
+    ]);
+
+    return { ok: true, series: buildWeeklySeries(customerRows, messageRows) };
+  });
 
 // ---- Public review-link redirect (/r/$token) ------------------------------
 
