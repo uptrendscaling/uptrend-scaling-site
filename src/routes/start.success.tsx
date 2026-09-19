@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
+import { claimBusinessAccount } from "../lib/reviews.server";
 
 const searchSchema = z.object({
   session_id: z.string().trim().optional(),
@@ -18,7 +19,13 @@ export const Route = createFileRoute("/start/success")({
 
 function SuccessPage() {
   const { session_id: sessionId } = Route.useSearch();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState<SessionSummary | null>(null);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [claimed, setClaimed] = useState(false);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -28,6 +35,40 @@ function SuccessPage() {
   }, [sessionId]);
 
   const email = summary && summary.ok ? summary.email : null;
+
+  async function handleClaim(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+
+    if (!sessionId) {
+      setError("Missing checkout session. Refresh this page from your confirmation email.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Use at least 8 characters.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Passwords don't match.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const result = await claimBusinessAccount({ data: { sessionId, password } });
+      if (result.ok) {
+        setClaimed(true);
+        void navigate({ to: "/app" });
+        return;
+      }
+      setError(result.message);
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <div className="site-shell start-shell">
@@ -52,15 +93,50 @@ function SuccessPage() {
             <span /> You're in
           </p>
           <h1 className="start-heading">
-            Thanks{email ? `, we'll be emailing ${email}` : ""}. Your account is on its way.
+            Thanks{email ? `, we'll be emailing ${email}` : ""}. Let's set up your dashboard.
           </h1>
           <p className="start-lead">
-            We're activating things on our end now, usually within one business day. Keep an eye on
-            your inbox for a receipt and a note from our team with next steps.
+            Create a password to get into your CRM, where you'll add customers and watch review
+            requests go out automatically.
           </p>
-          <a className="button button-primary" href="/">
-            Back to home
-            <ArrowIcon />
+
+          <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
+            <label>
+              <span>Create a password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+            <label>
+              <span>Confirm password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+
+            {error && <p className="form-alert form-alert-error">{error}</p>}
+            {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
+
+            <button
+              className="button button-primary start-submit"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting ? "Setting up…" : "Create my dashboard"}
+              <ArrowIcon />
+            </button>
+          </form>
+
+          <a className="button button-ghost" href="/" style={{ marginTop: 18 }}>
+            I'll do this later
           </a>
         </div>
       </main>

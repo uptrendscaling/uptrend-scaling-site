@@ -291,6 +291,40 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
 .success-inner .start-heading { margin-bottom: 16px; }
 .success-inner .button { margin-top: 10px; }
 
+.app-main { padding: 110px 0 90px; min-height: 100svh; }
+.app-business-name { color: var(--muted-foreground); font: 700 12px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .05em; }
+.app-grid { display: grid; gap: 22px; }
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.stat-card { padding: 22px; background: var(--surface); border: 1px solid var(--border); }
+.stat-card span { display: block; margin-bottom: 10px; color: var(--muted-foreground); font: 700 11px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; }
+.stat-card strong { font: 700 30px/1 var(--font-serif); }
+.stat-card strong small { color: var(--muted-foreground); font: 700 13px/1 var(--font-sans); }
+
+.app-panel { padding: 28px; background: var(--surface); border: 1px solid var(--border); }
+.app-panel h2 { margin-bottom: 6px; font-size: 19px; }
+.app-panel-hint { margin: 0 0 18px; color: var(--muted-foreground); font-size: 13px; }
+.app-panel-message { margin: 12px 0 0; color: var(--foreground); font-size: 13px; }
+.app-panel-message-error { color: oklch(0.85 0.06 25); }
+.app-panel-wide { grid-column: 1 / -1; }
+
+.app-inline-form { display: flex; gap: 10px; }
+.app-inline-form input { flex: 1; padding: 12px 14px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 3px; color: var(--foreground); font: 500 14px/1 var(--font-sans); }
+
+.app-add-form { display: grid; grid-template-columns: 1.2fr 1fr 1fr auto; gap: 10px; }
+.app-add-form input { padding: 12px 14px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 3px; color: var(--foreground); font: 500 14px/1 var(--font-sans); }
+
+.customer-table-wrap { overflow-x: auto; }
+.customer-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.customer-table th { padding: 10px 12px; text-align: left; color: var(--muted-foreground); font: 700 10px/1 var(--font-mono); text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--border); }
+.customer-table td { padding: 12px; vertical-align: middle; border-bottom: 1px solid var(--line-light); }
+.customer-name { font-weight: 650; }
+.customer-contact { color: var(--muted-foreground); font-size: 12px; }
+.status-pill { display: inline-block; margin: 0 6px 4px 0; padding: 4px 9px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 20px; font-size: 11px; color: var(--muted-foreground); }
+.status-pill-success { color: var(--foreground); border-color: var(--foreground); }
+.toggle-pill { padding: 6px 12px; background: transparent; border: 1px solid var(--border); border-radius: 20px; color: var(--muted-foreground); font: 700 11px/1 var(--font-sans); cursor: pointer; transition: background-color .2s ease, color .2s ease; }
+.toggle-pill-active { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+
 .site-footer { padding: 45px 0; color: var(--muted-foreground); background: var(--background); }
 .footer-inner { display: grid; grid-template-columns: 1fr auto auto; align-items: end; gap: 50px; font-size: 11px; }
 .footer-brand { color: var(--foreground); margin-bottom: 12px; }
@@ -327,6 +361,9 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
   .pricing-actions .button { width: 100%; }
   .start-grid { grid-template-columns: 1fr; gap: 50px; }
   .start-main { padding: 50px 0 80px; }
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .app-add-form { grid-template-columns: 1fr; }
+  .app-inline-form { flex-direction: column; }
   .step-card, .why-card { min-height: auto; border: 1px solid var(--border); border-top: 0; }
   .step-card:first-child { border-top: 1px solid var(--border); }
   .step-top { margin-bottom: 40px; }
@@ -363,6 +400,8 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
   .trust-item { border-right: 0; border-bottom: 1px solid var(--border); padding: 17px 22px; }
   .trust-item:first-child { border-left: 0; }
   .section { padding: 74px 0; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .app-main { padding: 90px 0 60px; }
   .section-heading { margin-bottom: 42px; }
   .section-heading h2, .feature-copy h2, .industries-copy h2, .closing-inner h2 { font-size: 38px; }
   .step-card { padding: 28px 25px 38px; }

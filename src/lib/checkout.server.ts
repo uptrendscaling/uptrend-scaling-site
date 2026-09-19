@@ -2,15 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
-
-// Only ever redirect Stripe back to a domain we control.
-const ALLOWED_ORIGIN_PATTERN =
-  /^https:\/\/([a-z0-9-]+\.)*uptrendscaling\.com$|^https:\/\/[a-z0-9-]+\.vercel\.app$|^http:\/\/localhost:\d+$/i;
-
-function resolveOrigin(origin: string | undefined): string {
-  if (origin && ALLOWED_ORIGIN_PATTERN.test(origin)) return origin;
-  return "https://www.uptrendscaling.com";
-}
+import { resolveOrigin } from "./site";
 
 const checkoutInputSchema = z.object({
   plan: z.enum(["trial", "membership"]),
