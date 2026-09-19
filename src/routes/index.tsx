@@ -1,7 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
-const DEMO_EMAIL = "mailto:hello@uptrendscaling.com?subject=Demo%20request";
+import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS, formatUsd } from "../lib/pricing";
+
+const START_TRIAL = "/start?plan=trial";
+const START_MEMBERSHIP = "/start?plan=membership";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -92,10 +95,11 @@ function Index() {
           </a>
           <nav className="nav-links" aria-label="Main navigation">
             <a href="#how-it-works">How it works</a>
+            <a href="#pricing">Pricing</a>
             <a href="#industries">Industries</a>
             <a href="#why-us">Why us</a>
           </nav>
-          <a className="button button-primary nav-cta" href={DEMO_EMAIL}>Get Started <ArrowIcon /></a>
+          <a className="button button-primary nav-cta" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
         </div>
         <div ref={progressRef} className="scroll-progress" aria-hidden="true" />
       </header>
@@ -122,9 +126,12 @@ function Index() {
                 UpTrend Scaling turns every finished job into a 5-star Google review with automatic SMS and email follow-ups, timed reminders, and in-person QR codes your customers actually use.
               </p>
               <div className="hero-actions">
-                <a className="button button-primary" href={DEMO_EMAIL}>Request a Demo <ArrowIcon /></a>
-                <a className="button button-ghost" href="#how-it-works">See How It Works <DownIcon /></a>
+                <a className="button button-primary" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
+                <a className="button button-ghost" href={START_MEMBERSHIP}>Start Membership</a>
               </div>
+              <p className="hero-price-note">
+                {formatUsd(MONTHLY_PRICE_CENTS)}/mo per location + {formatUsd(SETUP_FEE_CENTS)} one-time setup · {TRIAL_DAYS}-day free trial · cancel anytime
+              </p>
               <p className="honesty-note"><ShieldIcon /> Built for owner-operators. No review is ever purchased or faked. We only make it effortless to ask.</p>
             </div>
 
@@ -304,6 +311,32 @@ function Index() {
           </div>
         </section>
 
+        <section id="pricing" className="section pricing-section">
+          <div className="page-width">
+            <div className="pricing-card" data-reveal>
+              <div className="pricing-card-copy">
+                <p className="eyebrow"><span /> Simple pricing</p>
+                <h2>One plan. No demo required.</h2>
+                <p>Sign up in minutes and start requesting reviews today. Cancel anytime, no long-term contract.</p>
+                <ul className="pricing-features">
+                  <li><CheckIcon />SMS & email requests, reminders, and QR codes</li>
+                  <li><CheckIcon />Weekly reporting dashboard</li>
+                  <li><CheckIcon />{TRIAL_DAYS}-day free trial, nothing charged until it ends</li>
+                  <li><CheckIcon />Month-to-month, cancel anytime</li>
+                </ul>
+                <div className="pricing-actions">
+                  <a className="button button-primary" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
+                  <a className="button button-ghost" href={START_MEMBERSHIP}>Start Membership</a>
+                </div>
+              </div>
+              <div className="pricing-figures">
+                <span className="pricing-amount">{formatUsd(MONTHLY_PRICE_CENTS)}<small>/mo per location</small></span>
+                <p className="pricing-setup">+ {formatUsd(SETUP_FEE_CENTS)} one-time setup fee</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section className="closing-cta">
           <video
             ref={closingVideoRef}
@@ -321,11 +354,14 @@ function Index() {
           <div className="page-width closing-inner" data-reveal>
             <p className="eyebrow eyebrow-light"><span /> Ready when you are</p>
             <h2>Stop hoping customers remember to leave a review.</h2>
-            <p>Tell us about your business and we'll show you exactly what the first week of automated requests looks like.</p>
+            <p>Start your free trial in under two minutes. No demo, no sales call, just sign up and go.</p>
             <div className="hero-actions closing-actions">
-              <a className="button button-primary" href={DEMO_EMAIL}>Request a Demo <ArrowIcon /></a>
-              <a className="button button-ghost" href="mailto:hello@uptrendscaling.com?subject=Question%20about%20UpTrend%20Scaling">Ask a Question <MailIcon /></a>
+              <a className="button button-primary" href={START_TRIAL}>Start Free Trial <ArrowIcon /></a>
+              <a className="button button-ghost" href={START_MEMBERSHIP}>Start Membership</a>
             </div>
+            <p className="closing-secondary">
+              Have questions first? <a href="mailto:hello@uptrendscaling.com?subject=Question%20about%20UpTrend%20Scaling">Email us <MailIcon /></a>
+            </p>
           </div>
         </section>
       </main>
@@ -363,7 +399,6 @@ function DecorativeQR() {
 }
 
 function ArrowIcon() { return <svg className="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12m-5-5 5 5-5 5" /></svg>; }
-function DownIcon() { return <svg className="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v13m-5-5 5 5 5-5" /></svg>; }
 function ArrowUpIcon() { return <svg className="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="m4 13 5-5 3 3 4-5m-4 0h4v4" /></svg>; }
 function MailIcon() { return <svg className="icon" viewBox="0 0 20 20" aria-hidden="true"><rect x="2.5" y="4" width="15" height="12" rx="1"/><path d="m3 5 7 6 7-6" /></svg>; }
 function ShieldIcon() { return <svg className="icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5 16 5v4.5c0 3.8-2.5 6.4-6 8-3.5-1.6-6-4.2-6-8V5l6-2.5Z"/><path d="m7 10 2 2 4-4" /></svg>; }

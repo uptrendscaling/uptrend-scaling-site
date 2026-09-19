@@ -10,33 +10,52 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as StartRouteImport } from './routes/start'
+import { Route as StartSuccessRouteImport } from './routes/start.success'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StartRoute = StartRouteImport.update({
+  id: '/start',
+  path: '/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StartSuccessRoute = StartSuccessRouteImport.update({
+  id: '/success',
+  path: '/success',
+  getParentRoute: () => StartRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/start': typeof StartRouteWithChildren
+  '/start/success': typeof StartSuccessRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/start': typeof StartRouteWithChildren
+  '/start/success': typeof StartSuccessRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/start': typeof StartRouteWithChildren
+  '/start/success': typeof StartSuccessRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/start' | '/start/success'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/start' | '/start/success'
+  id: '__root__' | '/' | '/start' | '/start/success'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  StartRoute: typeof StartRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +67,36 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/start': {
+      id: '/start'
+      path: '/start'
+      fullPath: '/start'
+      preLoaderRoute: typeof StartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/start/success': {
+      id: '/start/success'
+      path: '/success'
+      fullPath: '/start/success'
+      preLoaderRoute: typeof StartSuccessRouteImport
+      parentRoute: typeof StartRoute
+    }
   }
 }
 
+interface StartRouteChildren {
+  StartSuccessRoute: typeof StartSuccessRoute
+}
+
+const StartRouteChildren: StartRouteChildren = {
+  StartSuccessRoute: StartSuccessRoute,
+}
+
+const StartRouteWithChildren = StartRoute._addFileChildren(StartRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  StartRoute: StartRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
