@@ -577,7 +577,13 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
       }
 
       if (smsSent === null && emailSent === null) {
-        return { ok: false, message: "No phone or email on file, and no provider connected." };
+        const hasContact = Boolean(customer.phone || customer.email);
+        return {
+          ok: false,
+          message: hasContact
+            ? "No messaging provider is connected yet -- check back soon."
+            : "This customer has no phone number or email on file.",
+        };
       }
 
       return { ok: true, smsSent, emailSent };
