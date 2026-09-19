@@ -54,7 +54,7 @@ export const messages = pgTable(
       .notNull()
       .references(() => customers.id, { onDelete: "cascade" }),
     channel: text("channel", { enum: ["sms", "email"] }).notNull(),
-    kind: text("kind", { enum: ["initial", "reminder"] }).notNull(),
+    kind: text("kind", { enum: ["initial", "reminder", "manual"] }).notNull(),
     status: text("status", { enum: ["sent", "failed"] }).notNull(),
     providerMessageId: text("provider_message_id"),
     errorMessage: text("error_message"),
