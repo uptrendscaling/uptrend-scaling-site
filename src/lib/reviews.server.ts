@@ -14,13 +14,16 @@ import { z } from "zod";
 import {
   clearBusinessSession,
   createBusinessSession,
+  createPasswordResetToken,
   getSessionBusinessId,
   hashPassword,
   isAuthConfigured,
   verifyPassword,
+  verifyPasswordResetToken,
 } from "./auth.server";
 import { getDb, isDbConfigured } from "./db/client";
 import { businesses, customers, messages, type Business, type Customer } from "./db/schema";
+import { CANONICAL_SITE_URL } from "./site";
 import {
   initialEmailHtml,
   initialEmailSubject,
@@ -30,6 +33,8 @@ import {
   reminderEmailHtml,
   reminderEmailSubject,
   reminderSmsBody,
+  resetPasswordEmailHtml,
+  resetPasswordEmailSubject,
   reviewLinkFor,
   sendEmail,
   sendSms,
@@ -280,6 +285,113 @@ async function requireBusinessId(): Promise<string> {
   return businessId;
 }
 
+// ---- Forgot / reset password -----------------------------------------
+// Stateless reset tokens (see auth.server.ts) -- no extra database table.
+// requestPasswordReset always returns the same generic result regardless of
+// whether the email matches an account, so this can't be used to check
+// which emails have signed up.
+
+const requestResetSchema = z.object({ email: z.string().trim().email() });
+
+export type RequestResetResult =
+  { ok: true } | { ok: false; reason: "not_configured"; message: string };
+
+export const requestPasswordReset = createServerFn({ method: "POST" })
+  .validator((input: unknown) => requestResetSchema.parse(input))
+  .handler(async ({ data }): Promise<RequestResetResult> => {
+    if (!isCrmConfigured()) {
+      return {
+        ok: false,
+        reason: "not_configured",
+        message: "Password reset isn't switched on yet -- check back soon.",
+      };
+    }
+    if (!isResendConfigured()) {
+      return {
+        ok: false,
+        reason: "not_configured",
+        message:
+          "Automatic reset emails aren't live yet. Email hello@uptrendscaling.com and we'll reset it by hand.",
+      };
+    }
+
+    try {
+      const db = getDb();
+      const [business] = await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.email, data.email))
+        .limit(1);
+
+      // Always looks like success to the caller -- only actually sends when
+      // there's a claimed account with that email.
+      if (business?.passwordHash) {
+        const token = createPasswordResetToken(business.id);
+        const resetUrl = `${CANONICAL_SITE_URL}/reset-password?token=${encodeURIComponent(token)}`;
+        const result = await sendEmail(
+          business.email,
+          resetPasswordEmailSubject(),
+          resetPasswordEmailHtml(business.contactName, resetUrl),
+          UPTREND_SUPPORT_EMAIL,
+        );
+        if (!result.ok) {
+          console.error("[reviews] failed to send password reset email", result.error);
+        }
+      }
+
+      return { ok: true };
+    } catch (error) {
+      console.error("[reviews] failed to request password reset", error);
+      // Still reports success so as not to leak whether the email exists.
+      return { ok: true };
+    }
+  });
+
+const resetPasswordSchema = z.object({
+  token: z.string().trim().min(1),
+  password: z.string().min(8, "Use at least 8 characters").max(200),
+});
+
+export type ResetPasswordResult =
+  | { ok: true }
+  | { ok: false; reason: "invalid_token" | "not_configured" | "error"; message: string };
+
+export const resetPassword = createServerFn({ method: "POST" })
+  .validator((input: unknown) => resetPasswordSchema.parse(input))
+  .handler(async ({ data }): Promise<ResetPasswordResult> => {
+    if (!isCrmConfigured()) {
+      return {
+        ok: false,
+        reason: "not_configured",
+        message: "Password reset isn't switched on yet -- check back soon.",
+      };
+    }
+
+    const verified = verifyPasswordResetToken(data.token);
+    if (!verified) {
+      return {
+        ok: false,
+        reason: "invalid_token",
+        message: "This reset link is invalid or has expired. Request a new one.",
+      };
+    }
+
+    try {
+      const db = getDb();
+      const passwordHash = await hashPassword(data.password);
+      await db
+        .update(businesses)
+        .set({ passwordHash })
+        .where(eq(businesses.id, verified.businessId));
+
+      await createBusinessSession(verified.businessId);
+      return { ok: true };
+    } catch (error) {
+      console.error("[reviews] failed to reset password", error);
+      return { ok: false, reason: "error", message: "Something went wrong. Please try again." };
+    }
+  });
+
 // ---- Settings --------------------------------------------------------
 
 const updateReviewUrlSchema = z.object({
@@ -389,6 +501,88 @@ export const addCustomer = createServerFn({ method: "POST" })
       return { ok: true, smsSent, emailSent };
     } catch (error) {
       console.error("[reviews] failed to add customer", error);
+      return { ok: false, message: "Something went wrong. Please try again." };
+    }
+  });
+
+const resendInputSchema = z.object({ customerId: z.string().trim().min(1) });
+
+export type ResendResult =
+  { ok: true; smsSent: boolean | null; emailSent: boolean | null } | { ok: false; message: string };
+
+// Manually re-fires the same review request a customer already got -- for
+// the "they never saw it" case. Logged as its own "manual" message kind so
+// it's distinguishable from the automatic initial send in the message log.
+export const resendReviewRequest = createServerFn({ method: "POST" })
+  .validator((input: unknown) => resendInputSchema.parse(input))
+  .handler(async ({ data }): Promise<ResendResult> => {
+    if (!isCrmConfigured()) {
+      return { ok: false, message: "The CRM isn't switched on yet -- check back soon." };
+    }
+
+    try {
+      const businessId = await requireBusinessId();
+      const db = getDb();
+      const [customer] = await db
+        .select()
+        .from(customers)
+        .where(and(eq(customers.id, data.customerId), eq(customers.businessId, businessId)))
+        .limit(1);
+      if (!customer) return { ok: false, message: "Customer not found." };
+
+      const [business] = await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .limit(1);
+      if (!business) return { ok: false, message: "Your account could not be found." };
+
+      const link = reviewLinkFor(customer.reviewToken);
+      let smsSent: boolean | null = null;
+      let emailSent: boolean | null = null;
+
+      if (customer.phone && isTwilioConfigured()) {
+        const result = await sendSms(
+          customer.phone,
+          initialSmsBody(business.businessName, customer.name, link),
+        );
+        smsSent = result.ok;
+        await db.insert(messages).values({
+          businessId,
+          customerId: customer.id,
+          channel: "sms",
+          kind: "manual",
+          status: result.ok ? "sent" : "failed",
+          providerMessageId: result.ok ? result.providerMessageId : null,
+          errorMessage: result.ok ? null : result.error,
+        });
+      }
+
+      if (customer.email && isResendConfigured()) {
+        const result = await sendEmail(
+          customer.email,
+          initialEmailSubject(business.businessName),
+          initialEmailHtml(business.businessName, customer.name, link),
+        );
+        emailSent = result.ok;
+        await db.insert(messages).values({
+          businessId,
+          customerId: customer.id,
+          channel: "email",
+          kind: "manual",
+          status: result.ok ? "sent" : "failed",
+          providerMessageId: result.ok ? result.providerMessageId : null,
+          errorMessage: result.ok ? null : result.error,
+        });
+      }
+
+      if (smsSent === null && emailSent === null) {
+        return { ok: false, message: "No phone or email on file, and no provider connected." };
+      }
+
+      return { ok: true, smsSent, emailSent };
+    } catch (error) {
+      console.error("[reviews] failed to resend review request", error);
       return { ok: false, message: "Something went wrong. Please try again." };
     }
   });

@@ -155,3 +155,13 @@ export function welcomeEmailHtml(businessName: string, contactName: string): str
   const loginUrl = `${CANONICAL_SITE_URL}/login`;
   return `<p>Hi ${contactName},</p><p>Welcome to UpTrend Scaling! Your account for ${businessName} is set up and ready to go.</p><p>Here's what to do next:</p><ul><li>Add your Google review link in your dashboard settings</li><li>Add your first customer, their review request goes out the moment you save it</li></ul><p><a href="${loginUrl}">Log in to your dashboard</a></p><p>Questions? Just reply to this email, it comes straight to us.</p><p>Thanks for signing up,<br/>The UpTrend Scaling team</p>`;
 }
+
+// Sent when a business requests a password reset from /forgot-password.
+// Always goes out from UPTREND_SUPPORT_EMAIL, same as the welcome email.
+export function resetPasswordEmailSubject(): string {
+  return "Reset your UpTrend Scaling password";
+}
+
+export function resetPasswordEmailHtml(contactName: string, resetUrl: string): string {
+  return `<p>Hi ${contactName},</p><p>We got a request to reset your UpTrend Scaling password. Click below to choose a new one:</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email, your password won't change.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
+}

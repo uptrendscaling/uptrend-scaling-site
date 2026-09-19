@@ -3,6 +3,7 @@
 // outside a component. Renaming it here sidesteps that false positive.
 import { getSession, useSession as getSessionManager } from "@tanstack/react-start/server";
 import bcrypt from "bcryptjs";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SessionConfig } from "@tanstack/react-start/server";
 
 type SessionData = { businessId: string };
@@ -53,4 +54,46 @@ export async function clearBusinessSession(): Promise<void> {
   if (!isAuthConfigured()) return;
   const session = await getSessionManager<SessionData>(sessionConfig());
   await session.clear();
+}
+
+// ---- Password reset tokens -------------------------------------------
+// Stateless by design (no database table to manage): a reset link is just
+// businessId + expiry, HMAC-signed with SESSION_SECRET so it can't be forged
+// or tampered with. Anyone holding a valid, unexpired token can set that
+// business's password -- exactly what a normal emailed reset link allows.
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+export function createPasswordResetToken(businessId: string): string {
+  const secret = process.env["SESSION_SECRET"] ?? "";
+  const expiresAt = Date.now() + RESET_TOKEN_TTL_MS;
+  const payload = `${businessId}.${expiresAt}`;
+  const signature = createHmac("sha256", secret).update(payload).digest("hex");
+  return Buffer.from(`${payload}.${signature}`, "utf8").toString("base64url");
+}
+
+export function verifyPasswordResetToken(token: string): { businessId: string } | null {
+  const secret = process.env["SESSION_SECRET"] ?? "";
+  if (!secret) return null;
+
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf8");
+    const parts = decoded.split(".");
+    if (parts.length !== 3) return null;
+    const [businessId, expiresAtRaw, signature] = parts as [string, string, string];
+
+    const expected = createHmac("sha256", secret)
+      .update(`${businessId}.${expiresAtRaw}`)
+      .digest("hex");
+    const signatureBuf = Buffer.from(signature, "hex");
+    const expectedBuf = Buffer.from(expected, "hex");
+    if (signatureBuf.length !== expectedBuf.length) return null;
+    if (!timingSafeEqual(signatureBuf, expectedBuf)) return null;
+
+    const expiresAt = Number(expiresAtRaw);
+    if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
+
+    return { businessId };
+  } catch {
+    return null;
+  }
 }
