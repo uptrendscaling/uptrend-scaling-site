@@ -1,9 +1,11 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
+import { ProgressChart } from "../components/progress-chart";
 import {
   addCustomer,
   getCurrentBusiness,
+  getCustomerProgressSeries,
   getDashboardStats,
   listCustomers,
   logoutBusiness,
@@ -12,6 +14,7 @@ import {
   updateGoogleReviewUrl,
   type CustomerRow,
   type DashboardStats,
+  type ProgressPoint,
   type PublicBusiness,
 } from "../lib/reviews.server";
 
@@ -24,8 +27,12 @@ export const Route = createFileRoute("/app")({
     if (!business) {
       throw redirect({ to: "/login" });
     }
-    const [stats, customerRows] = await Promise.all([getDashboardStats(), listCustomers()]);
-    return { business, stats, customers: customerRows };
+    const [stats, customerRows, series] = await Promise.all([
+      getDashboardStats(),
+      listCustomers(),
+      getCustomerProgressSeries(),
+    ]);
+    return { business, stats, customers: customerRows, series };
   },
   component: Dashboard,
 });
@@ -43,11 +50,17 @@ function Dashboard() {
   const [business, setBusiness] = useState<PublicBusiness>(initial.business);
   const [stats, setStats] = useState<DashboardStats | null>(initial.stats);
   const [customers, setCustomers] = useState<CustomerRow[]>(initial.customers);
+  const [series, setSeries] = useState<ProgressPoint[]>(initial.series);
 
   async function refresh() {
-    const [nextStats, nextCustomers] = await Promise.all([getDashboardStats(), listCustomers()]);
+    const [nextStats, nextCustomers, nextSeries] = await Promise.all([
+      getDashboardStats(),
+      listCustomers(),
+      getCustomerProgressSeries(),
+    ]);
     setStats(nextStats);
     setCustomers(nextCustomers);
+    setSeries(nextSeries);
   }
 
   async function handleLogout() {
@@ -71,6 +84,11 @@ function Dashboard() {
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             <span className="app-business-name">{business.businessName}</span>
+            {business.isAdmin && (
+              <a className="button button-ghost nav-cta" href="/admin">
+                Admin
+              </a>
+            )}
             <button className="button button-ghost nav-cta" type="button" onClick={handleLogout}>
               Log out
             </button>
@@ -81,6 +99,13 @@ function Dashboard() {
       <main className="app-main">
         <div className="page-width app-grid">
           <StatsPanel stats={stats} />
+          <section className="app-panel app-panel-wide">
+            <h2>Your progress</h2>
+            <p className="app-panel-hint">
+              Customers added, messages sent, link clicks, and reviews marked complete, by week.
+            </p>
+            <ProgressChart series={series} />
+          </section>
           <SettingsPanel business={business} onUpdated={setBusiness} />
           <AddCustomerPanel onAdded={refresh} />
           <CustomerTable customers={customers} onToggleReviewed={refresh} />
