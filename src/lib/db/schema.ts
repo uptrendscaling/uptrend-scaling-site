@@ -18,6 +18,9 @@ export const businesses = pgTable("businesses", {
   // Profile short link). Customers get redirected here through our own
   // tracked /r/:token route. Null until they fill it in during setup.
   googleReviewUrl: text("google_review_url"),
+  // Colby's own account only, for now. Gates the /admin dashboard that shows
+  // every client's progress at once, not just this business's own.
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
