@@ -177,6 +177,7 @@ function AdminDashboard() {
                     <tr>
                       <th>Business</th>
                       <th>Plan</th>
+                      <th>Access</th>
                       <th>Signed up</th>
                       <th>Customers</th>
                       <th>Sent</th>
@@ -196,6 +197,13 @@ function AdminDashboard() {
                           <div className="customer-contact">{b.email}</div>
                         </td>
                         <td>{b.plan ?? "—"}</td>
+                        <td>
+                          {b.accessRevoked ? (
+                            <span className="status-pill">Revoked</span>
+                          ) : (
+                            <span className="status-pill status-pill-success">Active</span>
+                          )}
+                        </td>
                         <td>{formatDate(b.createdAt)}</td>
                         <td>{b.totalCustomers}</td>
                         <td>{b.messagesSent}</td>

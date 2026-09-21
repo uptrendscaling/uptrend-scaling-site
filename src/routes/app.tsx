@@ -27,6 +27,11 @@ export const Route = createFileRoute("/app")({
     if (!business) {
       throw redirect({ to: "/login" });
     }
+    // Canceled/unpaid subscription (set by the Stripe webhook) -- show the
+    // paused-access panel instead of pulling their customer data.
+    if (business.accessRevoked) {
+      return { business, stats: null, customers: [], series: [] };
+    }
     const [stats, customerRows, series] = await Promise.all([
       getDashboardStats(),
       listCustomers(),
@@ -97,21 +102,41 @@ function Dashboard() {
       </header>
 
       <main className="app-main">
-        <div className="page-width app-grid">
-          <StatsPanel stats={stats} />
-          <section className="app-panel app-panel-wide">
-            <h2>Your progress</h2>
-            <p className="app-panel-hint">
-              Customers added, messages sent, link clicks, and reviews marked complete, by week.
-            </p>
-            <ProgressChart series={series} />
-          </section>
-          <SettingsPanel business={business} onUpdated={setBusiness} />
-          <AddCustomerPanel onAdded={refresh} />
-          <CustomerTable customers={customers} onToggleReviewed={refresh} />
-        </div>
+        {business.accessRevoked ? (
+          <div className="page-width app-grid">
+            <AccessPausedPanel />
+          </div>
+        ) : (
+          <div className="page-width app-grid">
+            <StatsPanel stats={stats} />
+            <section className="app-panel app-panel-wide">
+              <h2>Your progress</h2>
+              <p className="app-panel-hint">
+                Customers added, messages sent, link clicks, and reviews marked complete, by week.
+              </p>
+              <ProgressChart series={series} />
+            </section>
+            <SettingsPanel business={business} onUpdated={setBusiness} />
+            <AddCustomerPanel onAdded={refresh} />
+            <CustomerTable customers={customers} onToggleReviewed={refresh} />
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+function AccessPausedPanel() {
+  return (
+    <section className="app-panel app-panel-wide">
+      <h2>Your subscription has ended</h2>
+      <p className="app-panel-hint">
+        Your dashboard is paused because your UpTrend Scaling subscription was canceled. Your
+        customer data is safe, and everything comes right back once your subscription is active
+        again. Email <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a> if you
+        would like to reactivate or have questions about your billing.
+      </p>
+    </section>
   );
 }
 
