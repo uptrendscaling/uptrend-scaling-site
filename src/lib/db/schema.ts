@@ -21,6 +21,10 @@ export const businesses = pgTable("businesses", {
   // Colby's own account only, for now. Gates the /admin dashboard that shows
   // every client's progress at once, not just this business's own.
   isAdmin: boolean("is_admin").notNull().default(false),
+  // Set automatically by the Stripe webhook when this business's
+  // subscription is canceled (or goes unpaid), and cleared again if it
+  // becomes active again. Blocks /app dashboard access while true.
+  accessRevoked: boolean("access_revoked").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
