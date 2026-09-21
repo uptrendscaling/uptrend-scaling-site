@@ -67,6 +67,7 @@ export type PublicBusiness = {
   plan: string | null;
   googleReviewUrl: string | null;
   isAdmin: boolean;
+  accessRevoked: boolean;
 };
 
 function toPublicBusiness(business: Business): PublicBusiness {
@@ -80,6 +81,7 @@ function toPublicBusiness(business: Business): PublicBusiness {
     plan: business.plan,
     googleReviewUrl: business.googleReviewUrl,
     isAdmin: business.isAdmin,
+    accessRevoked: business.accessRevoked,
   };
 }
 
@@ -813,6 +815,7 @@ export type AdminBusinessSummary = {
   contactName: string;
   email: string;
   plan: string | null;
+  accessRevoked: boolean;
   createdAt: Date;
   totalCustomers: number;
   messagesSent: number;
@@ -848,6 +851,7 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
         contactName: business.contactName,
         email: business.email,
         plan: business.plan,
+        accessRevoked: business.accessRevoked,
         createdAt: business.createdAt,
         totalCustomers: bizCustomers.length,
         messagesSent: bizMessages.filter((m) => m.status === "sent").length,
