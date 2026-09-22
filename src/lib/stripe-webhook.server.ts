@@ -1,8 +1,9 @@
 // Automatically revokes a business's CRM dashboard access when their Stripe
 // subscription actually ends (status becomes "canceled" or "unpaid"), and
-// restores it if the subscription becomes active again. Dormant-safe like
-// the rest of the integrations: with STRIPE_WEBHOOK_SECRET unset, every
-// request is rejected before touching the database.
+// restores it if the subscription becomes active again. Also queues the
+// one-time setup fee for trial signups (see handleSubscriptionCreated below).
+// Dormant-safe like the rest of the integrations: with STRIPE_WEBHOOK_SECRET
+// unset, every request is rejected before touching the database.
 //
 // This lives behind a real server route (see ../routes/stripe.webhook.tsx)
 // that returns a raw Response, not a page-route loader. Stripe reads the
@@ -16,6 +17,7 @@ import type Stripe from "stripe";
 
 import { getDb, isDbConfigured } from "./db/client";
 import { businesses } from "./db/schema";
+import { SETUP_FEE_CENTS } from "./pricing";
 
 export function isStripeWebhookConfigured(): boolean {
   return Boolean(
@@ -48,7 +50,38 @@ async function setAccessRevokedForSubscription(
   await db.update(businesses).set({ accessRevoked: revoked }).where(eq(businesses.id, business.id));
 }
 
-async function handleStripeEvent(event: Stripe.Event): Promise<void> {
+// Trial signups reach Stripe Checkout with the $20 setup fee left out of
+// line_items entirely (see ../lib/checkout.server.ts) -- Checkout charges
+// one-time line items immediately, even on a trialing subscription, so
+// including it there would defeat "nothing charged for 7 days." Instead,
+// once the subscription actually exists and is trialing, we queue the fee as
+// a pending invoice item tied to that customer + subscription. Stripe
+// automatically folds pending items into a subscription's next invoice, and
+// for a fresh trialing subscription that's the invoice generated at trial
+// end -- so the $20 lands on the same invoice as the first month's charge,
+// exactly once, with nothing due today.
+async function handleSubscriptionCreated(stripe: Stripe, subscription: Stripe.Subscription): Promise<void> {
+  if (subscription.status !== "trialing") return;
+  if (subscription.metadata?.["plan"] !== "trial") return;
+
+  const customerId =
+    typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
+
+  await stripe.invoiceItems.create({
+    customer: customerId,
+    subscription: subscription.id,
+    currency: "usd",
+    amount: SETUP_FEE_CENTS,
+    description: "One-time account setup fee",
+  });
+}
+
+async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<void> {
+  if (event.type === "customer.subscription.created") {
+    await handleSubscriptionCreated(stripe, event.data.object as Stripe.Subscription);
+    return;
+  }
+
   if (
     event.type !== "customer.subscription.deleted" &&
     event.type !== "customer.subscription.updated"
@@ -99,7 +132,7 @@ export async function handleStripeWebhookRequest(request: Request): Promise<Resp
       process.env["STRIPE_WEBHOOK_SECRET"] as string,
     );
 
-    await handleStripeEvent(event);
+    await handleStripeEvent(stripe, event);
 
     return jsonResponse(200, true);
   } catch (error) {

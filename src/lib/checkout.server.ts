@@ -24,6 +24,16 @@ export type CheckoutResult =
 // pre-configured in the Stripe dashboard — everything is defined inline via
 // price_data. The moment STRIPE_SECRET_KEY is set in the deploy environment,
 // this goes live with no further code changes.
+//
+// Trial signups: Stripe Checkout charges one-time line items immediately at
+// checkout, even when the subscription itself has a trial -- trial_period_days
+// only defers *recurring* line items. So for plan === "trial" the $20 setup
+// fee is left out of line_items entirely (nothing is due today, matching the
+// "Nothing charged for 7 days" copy on /start), and is instead added as a
+// pending invoice item once the subscription exists (see
+// handleSubscriptionCreated in stripe-webhook.server.ts), which Stripe
+// automatically rolls into that subscription's first invoice -- generated
+// when the trial ends -- alongside the first month's charge.
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .validator((input: unknown) => checkoutInputSchema.parse(input))
   .handler(async ({ data }): Promise<CheckoutResult> => {
@@ -68,14 +78,22 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             },
             quantity: data.locations,
           },
-          {
-            price_data: {
-              currency: "usd",
-              product_data: { name: "One-time account setup fee" },
-              unit_amount: SETUP_FEE_CENTS,
-            },
-            quantity: 1,
-          },
+          // Trial signups don't pay the setup fee at checkout -- see the
+          // comment above createCheckoutSession. Non-trial ("membership")
+          // signups have no trial to defer to, so the fee is charged now,
+          // same as before.
+          ...(data.plan === "trial"
+            ? []
+            : [
+                {
+                  price_data: {
+                    currency: "usd" as const,
+                    product_data: { name: "One-time account setup fee" },
+                    unit_amount: SETUP_FEE_CENTS,
+                  },
+                  quantity: 1,
+                },
+              ]),
         ],
         subscription_data:
           data.plan === "trial"
