@@ -454,3 +454,21 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
   .bar { transform: scaleY(1); }
   .section-video { display: none; }
 }
+
+/* ---- Outreach map (admin) ---------------------------------------------- */
+
+.outreach-map-wrap { display: flex; flex-direction: column; gap: 14px; }
+.outreach-map-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.outreach-industry-select { padding: 8px 12px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); font: 600 12px/1 var(--font-sans); }
+.outreach-legend { display: flex; flex-wrap: wrap; gap: 14px; }
+.outreach-legend-item { display: flex; align-items: center; gap: 6px; color: var(--muted-foreground); font-size: 12px; }
+.outreach-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.outreach-map { width: 100%; height: 460px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.outreach-map-loading { display: flex; align-items: center; justify-content: center; width: 100%; height: 460px; border: 1px solid var(--border); border-radius: 10px; color: var(--muted-foreground); font-size: 13px; background: var(--surface-soft); }
+.outreach-pin-wrap { background: transparent !important; border: none !important; }
+.outreach-pin { display: block; width: 16px; height: 16px; border-radius: 50%; border: 2px solid oklch(1 0 0 / 85%); box-shadow: 0 1px 4px oklch(0 0 0 / 45%); }
+.outreach-popup { display: flex; flex-direction: column; gap: 4px; min-width: 180px; font: 500 13px/1.4 var(--font-sans); color: var(--ink); }
+.outreach-popup-line { color: oklch(0.32 0 0); font-size: 12px; }
+.outreach-popup-status { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; font-weight: 700; color: oklch(0.32 0 0); }
+.outreach-popup-button { margin-top: 8px; padding: 6px 10px; font-size: 12px; align-self: flex-start; }
+.outreach-lead-table-cell-muted { color: var(--muted-foreground); font-size: 12px; }

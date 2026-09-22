@@ -7,7 +7,10 @@
 import { randomUUID } from "node:crypto";
 
 import { createServerFn } from "@tanstack/react-start";
-import { getRequestHeader, setResponseStatus } from "@tanstack/react-start/server";
+import {
+  getRequestHeader,
+  setResponseStatus,
+} from "@tanstack/react-start/server";
 import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 
@@ -121,7 +124,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       const stripe = new Stripe(secretKey);
       const session = await stripe.checkout.sessions.retrieve(data.sessionId);
 
-      const email = session.customer_details?.email ?? session.customer_email ?? null;
+      const email =
+        session.customer_details?.email ?? session.customer_email ?? null;
       if (!email) {
         return {
           ok: false,
@@ -132,16 +136,27 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
 
       const metadata = session.metadata ?? {};
       const businessName =
-        typeof metadata["businessName"] === "string" ? metadata["businessName"] : "";
+        typeof metadata["businessName"] === "string"
+          ? metadata["businessName"]
+          : "";
       const contactName =
-        typeof metadata["contactName"] === "string" ? metadata["contactName"] : "";
-      const phone = typeof metadata["phone"] === "string" ? metadata["phone"] : "";
+        typeof metadata["contactName"] === "string"
+          ? metadata["contactName"]
+          : "";
+      const phone =
+        typeof metadata["phone"] === "string" ? metadata["phone"] : "";
       const locationsRaw =
-        typeof metadata["locations"] === "string" ? Number(metadata["locations"]) : 1;
+        typeof metadata["locations"] === "string"
+          ? Number(metadata["locations"])
+          : 1;
       const locations =
-        Number.isFinite(locationsRaw) && locationsRaw > 0 ? Math.round(locationsRaw) : 1;
-      const plan = typeof metadata["plan"] === "string" ? metadata["plan"] : null;
-      const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
+        Number.isFinite(locationsRaw) && locationsRaw > 0
+          ? Math.round(locationsRaw)
+          : 1;
+      const plan =
+        typeof metadata["plan"] === "string" ? metadata["plan"] : null;
+      const stripeCustomerId =
+        typeof session.customer === "string" ? session.customer : null;
       const stripeSubscriptionId =
         typeof session.subscription === "string" ? session.subscription : null;
 
@@ -156,7 +171,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         return {
           ok: false,
           reason: "already_claimed",
-          message: "This account already has a password. Try logging in instead.",
+          message:
+            "This account already has a password. Try logging in instead.",
         };
       }
 
@@ -175,7 +191,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
             passwordHash,
             stripeCustomerId,
             stripeSubscriptionId,
-            plan: plan === "trial" || plan === "membership" ? plan : existing.plan,
+            plan:
+              plan === "trial" || plan === "membership" ? plan : existing.plan,
           })
           .where(eq(businesses.id, existing.id));
       } else {
@@ -224,7 +241,11 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (error) {
       console.error("[reviews] failed to claim business account", error);
-      return { ok: false, reason: "error", message: "Something went wrong. Please try again." };
+      return {
+        ok: false,
+        reason: "error",
+        message: "Something went wrong. Please try again.",
+      };
     }
   });
 
@@ -241,7 +262,10 @@ export const loginBusiness = createServerFn({ method: "POST" })
   .validator((input: unknown) => loginInputSchema.parse(input))
   .handler(async ({ data }): Promise<LoginResult> => {
     if (!isCrmConfigured()) {
-      return { ok: false, message: "Sign-in isn't switched on yet -- check back soon." };
+      return {
+        ok: false,
+        message: "Sign-in isn't switched on yet -- check back soon.",
+      };
     }
 
     try {
@@ -269,10 +293,12 @@ export const loginBusiness = createServerFn({ method: "POST" })
     }
   });
 
-export const logoutBusiness = createServerFn({ method: "POST" }).handler(async () => {
-  await clearBusinessSession();
-  return { ok: true };
-});
+export const logoutBusiness = createServerFn({ method: "POST" }).handler(
+  async () => {
+    await clearBusinessSession();
+    return { ok: true };
+  },
+);
 
 export const getCurrentBusiness = createServerFn({ method: "GET" }).handler(
   async (): Promise<PublicBusiness | null> => {
@@ -346,7 +372,10 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
           UPTREND_SUPPORT_EMAIL,
         );
         if (!result.ok) {
-          console.error("[reviews] failed to send password reset email", result.error);
+          console.error(
+            "[reviews] failed to send password reset email",
+            result.error,
+          );
         }
       }
 
@@ -365,7 +394,11 @@ const resetPasswordSchema = z.object({
 
 export type ResetPasswordResult =
   | { ok: true }
-  | { ok: false; reason: "invalid_token" | "not_configured" | "error"; message: string };
+  | {
+      ok: false;
+      reason: "invalid_token" | "not_configured" | "error";
+      message: string;
+    };
 
 export const resetPassword = createServerFn({ method: "POST" })
   .validator((input: unknown) => resetPasswordSchema.parse(input))
@@ -383,7 +416,8 @@ export const resetPassword = createServerFn({ method: "POST" })
       return {
         ok: false,
         reason: "invalid_token",
-        message: "This reset link is invalid or has expired. Request a new one.",
+        message:
+          "This reset link is invalid or has expired. Request a new one.",
       };
     }
 
@@ -399,7 +433,11 @@ export const resetPassword = createServerFn({ method: "POST" })
       return { ok: true };
     } catch (error) {
       console.error("[reviews] failed to reset password", error);
-      return { ok: false, reason: "error", message: "Something went wrong. Please try again." };
+      return {
+        ok: false,
+        reason: "error",
+        message: "Something went wrong. Please try again.",
+      };
     }
   });
 
@@ -412,7 +450,8 @@ const updateReviewUrlSchema = z.object({
 export const updateGoogleReviewUrl = createServerFn({ method: "POST" })
   .validator((input: unknown) => updateReviewUrlSchema.parse(input))
   .handler(async ({ data }) => {
-    if (!isCrmConfigured()) return { ok: false as const, message: "Not configured yet." };
+    if (!isCrmConfigured())
+      return { ok: false as const, message: "Not configured yet." };
     try {
       const businessId = await requireBusinessId();
       const db = getDb();
@@ -433,14 +472,20 @@ const addCustomerSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(200),
     phone: z.string().trim().max(30).optional(),
-    email: z.string().trim().email("Enter a valid email").optional().or(z.literal("")),
+    email: z
+      .string()
+      .trim()
+      .email("Enter a valid email")
+      .optional()
+      .or(z.literal("")),
   })
   .refine((value) => Boolean(value.phone) || Boolean(value.email), {
     message: "Add a phone number or an email so we can reach them.",
   });
 
 export type AddCustomerResult =
-  { ok: true; smsSent: boolean | null; emailSent: boolean | null } | { ok: false; message: string };
+  | { ok: true; smsSent: boolean | null; emailSent: boolean | null }
+  | { ok: false; message: string };
 
 // Creates a customer AND immediately fires off their review request on
 // every channel we have contact info + a live provider for. This is the
@@ -450,7 +495,10 @@ export const addCustomer = createServerFn({ method: "POST" })
   .validator((input: unknown) => addCustomerSchema.parse(input))
   .handler(async ({ data }): Promise<AddCustomerResult> => {
     if (!isCrmConfigured()) {
-      return { ok: false, message: "The CRM isn't switched on yet -- check back soon." };
+      return {
+        ok: false,
+        message: "The CRM isn't switched on yet -- check back soon.",
+      };
     }
 
     try {
@@ -461,7 +509,8 @@ export const addCustomer = createServerFn({ method: "POST" })
         .from(businesses)
         .where(eq(businesses.id, businessId))
         .limit(1);
-      if (!business) return { ok: false, message: "Your account could not be found." };
+      if (!business)
+        return { ok: false, message: "Your account could not be found." };
 
       const phone = data.phone?.trim() || null;
       const email = data.email?.trim() || null;
@@ -471,14 +520,18 @@ export const addCustomer = createServerFn({ method: "POST" })
         .insert(customers)
         .values({ businessId, name: data.name, phone, email, reviewToken })
         .returning();
-      if (!customer) return { ok: false, message: "Could not create that customer." };
+      if (!customer)
+        return { ok: false, message: "Could not create that customer." };
 
       const link = reviewLinkFor(reviewToken);
       let smsSent: boolean | null = null;
       let emailSent: boolean | null = null;
 
       if (phone && isTwilioConfigured()) {
-        const result = await sendSms(phone, initialSmsBody(business.businessName, data.name, link));
+        const result = await sendSms(
+          phone,
+          initialSmsBody(business.businessName, data.name, link),
+        );
         smsSent = result.ok;
         await db.insert(messages).values({
           businessId,
@@ -519,7 +572,8 @@ export const addCustomer = createServerFn({ method: "POST" })
 const resendInputSchema = z.object({ customerId: z.string().trim().min(1) });
 
 export type ResendResult =
-  { ok: true; smsSent: boolean | null; emailSent: boolean | null } | { ok: false; message: string };
+  | { ok: true; smsSent: boolean | null; emailSent: boolean | null }
+  | { ok: false; message: string };
 
 // Manually re-fires the same review request a customer already got -- for
 // the "they never saw it" case. Logged as its own "manual" message kind so
@@ -528,7 +582,10 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
   .validator((input: unknown) => resendInputSchema.parse(input))
   .handler(async ({ data }): Promise<ResendResult> => {
     if (!isCrmConfigured()) {
-      return { ok: false, message: "The CRM isn't switched on yet -- check back soon." };
+      return {
+        ok: false,
+        message: "The CRM isn't switched on yet -- check back soon.",
+      };
     }
 
     try {
@@ -537,7 +594,12 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
       const [customer] = await db
         .select()
         .from(customers)
-        .where(and(eq(customers.id, data.customerId), eq(customers.businessId, businessId)))
+        .where(
+          and(
+            eq(customers.id, data.customerId),
+            eq(customers.businessId, businessId),
+          ),
+        )
         .limit(1);
       if (!customer) return { ok: false, message: "Customer not found." };
 
@@ -546,7 +608,8 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
         .from(businesses)
         .where(eq(businesses.id, businessId))
         .limit(1);
-      if (!business) return { ok: false, message: "Your account could not be found." };
+      if (!business)
+        return { ok: false, message: "Your account could not be found." };
 
       const link = reviewLinkFor(customer.reviewToken);
       let smsSent: boolean | null = null;
@@ -633,10 +696,14 @@ export const listCustomers = createServerFn({ method: "GET" }).handler(
     return rows.map((row) => ({
       ...row,
       smsCount: messageRows.filter(
-        (m) => m.customerId === row.id && m.channel === "sms" && m.status === "sent",
+        (m) =>
+          m.customerId === row.id && m.channel === "sms" && m.status === "sent",
       ).length,
       emailCount: messageRows.filter(
-        (m) => m.customerId === row.id && m.channel === "email" && m.status === "sent",
+        (m) =>
+          m.customerId === row.id &&
+          m.channel === "email" &&
+          m.status === "sent",
       ).length,
     }));
   },
@@ -654,13 +721,20 @@ export const markCustomerReviewed = createServerFn({ method: "POST" })
       const [customer] = await db
         .select()
         .from(customers)
-        .where(and(eq(customers.id, data.customerId), eq(customers.businessId, businessId)))
+        .where(
+          and(
+            eq(customers.id, data.customerId),
+            eq(customers.businessId, businessId),
+          ),
+        )
         .limit(1);
       if (!customer) return { ok: false as const };
 
       await db
         .update(customers)
-        .set({ markedReviewedAt: customer.markedReviewedAt ? null : new Date() })
+        .set({
+          markedReviewedAt: customer.markedReviewedAt ? null : new Date(),
+        })
         .where(eq(customers.id, customer.id));
 
       return { ok: true as const };
@@ -719,14 +793,19 @@ export type ProgressPoint = {
 };
 
 function startOfWeekUtc(date: Date): Date {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const d = new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
   const day = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
   const daysSinceMonday = (day + 6) % 7;
   d.setUTCDate(d.getUTCDate() - daysSinceMonday);
   return d;
 }
 
-type ProgressCustomerRow = Pick<Customer, "createdAt" | "linkClickedAt" | "markedReviewedAt">;
+type ProgressCustomerRow = Pick<
+  Customer,
+  "createdAt" | "linkClickedAt" | "markedReviewedAt"
+>;
 type ProgressMessageRow = Pick<Message, "sentAt" | "status">;
 
 function buildWeeklySeries(
@@ -743,7 +822,9 @@ function buildWeeklySeries(
   }
 
   const firstWeekStart = weekStarts[0]!;
-  let cumulative = customerRows.filter((c) => new Date(c.createdAt) < firstWeekStart).length;
+  let cumulative = customerRows.filter(
+    (c) => new Date(c.createdAt) < firstWeekStart,
+  ).length;
 
   return weekStarts.map((weekStart) => {
     const weekEnd = new Date(weekStart);
@@ -753,7 +834,9 @@ function buildWeeklySeries(
       return d >= weekStart && d < weekEnd;
     };
 
-    const customersAdded = customerRows.filter((c) => inWeek(c.createdAt)).length;
+    const customersAdded = customerRows.filter((c) =>
+      inWeek(c.createdAt),
+    ).length;
     cumulative += customersAdded;
 
     const linkClicks = customerRows.filter(
@@ -762,7 +845,9 @@ function buildWeeklySeries(
     const reviewed = customerRows.filter(
       (c) => c.markedReviewedAt && inWeek(c.markedReviewedAt),
     ).length;
-    const messagesSent = messageRows.filter((m) => m.status === "sent" && inWeek(m.sentAt)).length;
+    const messagesSent = messageRows.filter(
+      (m) => m.status === "sent" && inWeek(m.sentAt),
+    ).length;
 
     return {
       weekStart: weekStart.toISOString().slice(0, 10),
@@ -776,28 +861,28 @@ function buildWeeklySeries(
 }
 
 // The logged-in business's own progress over time, for the chart on /app.
-export const getCustomerProgressSeries = createServerFn({ method: "GET" }).handler(
-  async (): Promise<ProgressPoint[]> => {
-    if (!isCrmConfigured()) return [];
-    const businessId = await getSessionBusinessId();
-    if (!businessId) return [];
+export const getCustomerProgressSeries = createServerFn({
+  method: "GET",
+}).handler(async (): Promise<ProgressPoint[]> => {
+  if (!isCrmConfigured()) return [];
+  const businessId = await getSessionBusinessId();
+  if (!businessId) return [];
 
-    const db = getDb();
-    const [customerRows, messageRows] = await Promise.all([
-      db.select().from(customers).where(eq(customers.businessId, businessId)),
-      db.select().from(messages).where(eq(messages.businessId, businessId)),
-    ]);
+  const db = getDb();
+  const [customerRows, messageRows] = await Promise.all([
+    db.select().from(customers).where(eq(customers.businessId, businessId)),
+    db.select().from(messages).where(eq(messages.businessId, businessId)),
+  ]);
 
-    return buildWeeklySeries(customerRows, messageRows);
-  },
-);
+  return buildWeeklySeries(customerRows, messageRows);
+});
 
 // ---- Admin: every client at once ---------------------------------------
 // Gated on businesses.isAdmin -- today that's Colby's own account only.
 // Lets him see either the combined trend across every signed-up business,
 // or drill into any one client's own progress, from a single screen.
 
-async function requireAdminBusiness(): Promise<Business> {
+export async function requireAdminBusiness(): Promise<Business> {
   const businessId = await requireBusinessId();
   const db = getDb();
   const [business] = await db
@@ -824,11 +909,13 @@ export type AdminBusinessSummary = {
 };
 
 export type AdminOverviewResult =
-  { ok: true; businesses: AdminBusinessSummary[] } | { ok: false; message: string };
+  | { ok: true; businesses: AdminBusinessSummary[] }
+  | { ok: false; message: string };
 
 export const getAdminOverview = createServerFn({ method: "GET" }).handler(
   async (): Promise<AdminOverviewResult> => {
-    if (!isCrmConfigured()) return { ok: false, message: "Not configured yet." };
+    if (!isCrmConfigured())
+      return { ok: false, message: "Not configured yet." };
     try {
       await requireAdminBusiness();
     } catch {
@@ -843,8 +930,12 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
     ]);
 
     const summaries: AdminBusinessSummary[] = allBusinesses.map((business) => {
-      const bizCustomers = allCustomers.filter((c) => c.businessId === business.id);
-      const bizMessages = allMessages.filter((m) => m.businessId === business.id);
+      const bizCustomers = allCustomers.filter(
+        (c) => c.businessId === business.id,
+      );
+      const bizMessages = allMessages.filter(
+        (m) => m.businessId === business.id,
+      );
       return {
         id: business.id,
         businessName: business.businessName,
@@ -876,7 +967,8 @@ export type AdminSeriesResult =
 export const getAdminProgressSeries = createServerFn({ method: "GET" })
   .validator((input: unknown) => adminSeriesInputSchema.parse(input))
   .handler(async ({ data }): Promise<AdminSeriesResult> => {
-    if (!isCrmConfigured()) return { ok: false, message: "Not configured yet." };
+    if (!isCrmConfigured())
+      return { ok: false, message: "Not configured yet." };
     try {
       await requireAdminBusiness();
     } catch {
@@ -886,10 +978,16 @@ export const getAdminProgressSeries = createServerFn({ method: "GET" })
     const db = getDb();
     const [customerRows, messageRows] = await Promise.all([
       data.businessId
-        ? db.select().from(customers).where(eq(customers.businessId, data.businessId))
+        ? db
+            .select()
+            .from(customers)
+            .where(eq(customers.businessId, data.businessId))
         : db.select().from(customers),
       data.businessId
-        ? db.select().from(messages).where(eq(messages.businessId, data.businessId))
+        ? db
+            .select()
+            .from(messages)
+            .where(eq(messages.businessId, data.businessId))
         : db.select().from(messages),
     ]);
 
@@ -1028,7 +1126,8 @@ function isCronRequestAuthorized(): boolean {
   return auth === `Bearer ${expected}`;
 }
 
-export type CronRunResult = ReminderRunResult | { ok: false; reason: "unauthorized" };
+export type CronRunResult =
+  ReminderRunResult | { ok: false; reason: "unauthorized" };
 
 // Entry point for the /cron/reminders route's loader. Wrapped in
 // createServerFn (rather than a plain function) so its body -- and the raw

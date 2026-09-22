@@ -1,4 +1,13 @@
-import { boolean, index, integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  doublePrecision,
+  index,
+  integer,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 // One row per signed-up business (the tenant). Also doubles as the login
 // account for that business's owner, since this product is single-user per
@@ -25,7 +34,9 @@ export const businesses = pgTable("businesses", {
   // subscription is canceled (or goes unpaid), and cleared again if it
   // becomes active again. Blocks /app dashboard access while true.
   accessRevoked: boolean("access_revoked").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // The business's own end customers, the people who actually get asked for a review.
@@ -44,7 +55,9 @@ export const customers = pgTable(
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     linkClickedAt: timestamp("link_clicked_at", { withTimezone: true }),
     markedReviewedAt: timestamp("marked_reviewed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (table) => [index("customers_business_id_idx").on(table.businessId)],
 );
@@ -78,9 +91,50 @@ export const sessions = pgTable("sessions", {
   businessId: uuid("business_id")
     .notNull()
     .references(() => businesses.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
   revoked: boolean("revoked").notNull().default(false),
 });
+
+// Cold-outreach leads -- businesses we've emailed trying to sign them up,
+// tracked separately from `businesses` (which is actual paying customers).
+// Backs the outreach map on /admin: one pin per lead, filterable by
+// industry, with contacted/responded/follow-up status.
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessName: text("business_name").notNull(),
+    email: text("email").notNull().unique(),
+    industry: text("industry", { enum: ["hvac", "plumbing", "both", "other"] })
+      .notNull()
+      .default("other"),
+    // Street address as looked up; lat/lng geocoded from it for the map pin.
+    // Both null until geocoding succeeds (e.g. address not found yet).
+    address: text("address"),
+    city: text("city"),
+    state: text("state"),
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
+    // Free-text label for which outreach batch/campaign this lead came from
+    // (e.g. "2026-09 Phoenix HVAC/Plumbing — Group A").
+    outreachGroup: text("outreach_group"),
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    // Set when a reply is detected (or manually marked). Non-null means the
+    // 48-hour follow-up cron skips this lead.
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    followUpSentAt: timestamp("follow_up_sent_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("leads_industry_idx").on(table.industry)],
+);
+
+export type Lead = typeof leads.$inferSelect;
+export type NewLead = typeof leads.$inferInsert;
 
 export type Business = typeof businesses.$inferSelect;
 export type NewBusiness = typeof businesses.$inferInsert;

@@ -3,6 +3,10 @@
     {
       "path": "/cron/reminders",
       "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/cron/lead-followups",
+      "schedule": "0 14 * * *"
     }
   ]
 }

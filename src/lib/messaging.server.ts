@@ -20,7 +20,9 @@ export function isTwilioConfigured(): boolean {
 }
 
 export function isResendConfigured(): boolean {
-  return Boolean(process.env["RESEND_API_KEY"] && process.env["RESEND_FROM_EMAIL"]);
+  return Boolean(
+    process.env["RESEND_API_KEY"] && process.env["RESEND_FROM_EMAIL"],
+  );
 }
 
 export function reviewLinkFor(token: string): string {
@@ -59,7 +61,10 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
     } | null;
 
     if (!response.ok) {
-      return { ok: false, error: payload?.message ?? `Twilio responded with ${response.status}` };
+      return {
+        ok: false,
+        error: payload?.message ?? `Twilio responded with ${response.status}`,
+      };
     }
 
     return { ok: true, providerMessageId: payload?.sid ?? null };
@@ -101,7 +106,10 @@ export async function sendEmail(
     } | null;
 
     if (!response.ok) {
-      return { ok: false, error: payload?.message ?? `Resend responded with ${response.status}` };
+      return {
+        ok: false,
+        error: payload?.message ?? `Resend responded with ${response.status}`,
+      };
     }
 
     return { ok: true, providerMessageId: payload?.id ?? null };
@@ -116,11 +124,19 @@ export async function sendEmail(
 // link so we know precisely when it's clicked, plus an opt-out line on SMS
 // (required for A2P 10DLC compliance once Twilio is live).
 
-export function initialSmsBody(businessName: string, customerName: string, link: string): string {
+export function initialSmsBody(
+  businessName: string,
+  customerName: string,
+  link: string,
+): string {
   return `Hi ${customerName}, thanks for choosing ${businessName}! Mind leaving us a quick review? ${link} Reply STOP to opt out.`;
 }
 
-export function reminderSmsBody(businessName: string, customerName: string, link: string): string {
+export function reminderSmsBody(
+  businessName: string,
+  customerName: string,
+  link: string,
+): string {
   return `Hi ${customerName}, quick reminder from ${businessName} — if you have 30 seconds, a review means a lot to us: ${link} Reply STOP to opt out.`;
 }
 
@@ -128,7 +144,11 @@ export function initialEmailSubject(businessName: string): string {
   return `How did we do? — ${businessName}`;
 }
 
-export function initialEmailHtml(businessName: string, customerName: string, link: string): string {
+export function initialEmailHtml(
+  businessName: string,
+  customerName: string,
+  link: string,
+): string {
   return `<p>Hi ${customerName},</p><p>Thanks for choosing ${businessName}! If you have a moment, we'd really appreciate a quick review:</p><p><a href="${link}">${link}</a></p><p>Thank you,<br/>${businessName}</p>`;
 }
 
@@ -151,7 +171,10 @@ export function welcomeEmailSubject(): string {
   return "Welcome to UpTrend Scaling";
 }
 
-export function welcomeEmailHtml(businessName: string, contactName: string): string {
+export function welcomeEmailHtml(
+  businessName: string,
+  contactName: string,
+): string {
   const loginUrl = `${CANONICAL_SITE_URL}/login`;
   return `<p>Hi ${contactName},</p><p>Welcome to UpTrend Scaling! Your account for ${businessName} is set up and ready to go.</p><p>Here's what to do next:</p><ul><li>Add your Google review link in your dashboard settings</li><li>Add your first customer, their review request goes out the moment you save it</li></ul><p><a href="${loginUrl}">Log in to your dashboard</a></p><p>Questions? Just reply to this email, it comes straight to us.</p><p>Thanks for signing up,<br/>The UpTrend Scaling team</p>`;
 }
@@ -162,6 +185,20 @@ export function resetPasswordEmailSubject(): string {
   return "Reset your UpTrend Scaling password";
 }
 
-export function resetPasswordEmailHtml(contactName: string, resetUrl: string): string {
+export function resetPasswordEmailHtml(
+  contactName: string,
+  resetUrl: string,
+): string {
   return `<p>Hi ${contactName},</p><p>We got a request to reset your UpTrend Scaling password. Click below to choose a new one:</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email, your password won't change.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
+}
+
+// Sent once, 48 hours after a cold-outreach lead's first email, if no
+// response has been recorded by then. Kept short, same spirit as the
+// original outreach, not pushy. See lib/leads.server.ts.
+export function leadFollowUpEmailSubject(businessName: string): string {
+  return `Following up, ${businessName}`;
+}
+
+export function leadFollowUpEmailHtml(businessName: string): string {
+  return `<p>Hi there,</p><p>Wanted to follow up on the note I sent a couple days ago about UpTrend Scaling, we help businesses like ${businessName} turn more happy customers into Google reviews automatically, no extra work on your end.</p><p>If it's not a fit right now, no worries at all. If you're curious, just reply to this email and I'll walk you through it.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
 }

@@ -15,6 +15,13 @@
       "when": 1789854403138,
       "tag": "0001_far_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790105711501,
+      "tag": "0002_gray_marauders",
+      "breakpoints": true
     }
   ]
 }
