@@ -197,7 +197,7 @@ h1 strong { color: var(--foreground); font-weight: 600; text-shadow: 0 0 34px ok
 .mini-mark { display: grid; place-items: center; width: 24px; height: 24px; color: var(--primary-foreground); background: var(--primary); border-radius: 3px; font-family: var(--font-sans); }
 .qr-code { display: block; width: 190px; max-width: 90%; margin: 0 auto 19px; background: var(--background); }
 .qr-code > rect:first-child { fill: var(--background); }.qr-block { fill: var(--foreground); }
-.qr-card > strong { display: block; font-family: var(--font-serif); font-size: 19px; }
+.qr-card > strong { display: block; font-family: var(--font-serif); font-size: 19px; color: var(--foreground); }
 .qr-card small { display: block; margin-top: 17px; color: var(--muted-foreground); font: 700 8px/1.4 var(--font-mono); text-transform: uppercase; }
 
 .reporting-section { background: var(--surface); border-top: 1px solid var(--border); }
