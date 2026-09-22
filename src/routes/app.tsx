@@ -1,7 +1,14 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
+import { z } from "zod";
 
 import { ProgressChart } from "../components/progress-chart";
+import {
+  disconnectConnection,
+  listConnectionsForBusiness,
+  type ConnectionSummary,
+  type CrmProvider,
+} from "../lib/crm/connections.server";
 import {
   addCustomer,
   getCurrentBusiness,
@@ -18,10 +25,17 @@ import {
   type PublicBusiness,
 } from "../lib/reviews.server";
 
+const searchSchema = z.object({
+  // Set by /connect/{provider}/callback when the OAuth handshake fails.
+  crmError: z.enum(["jobber", "square"]).optional(),
+});
+
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [{ title: "Dashboard | UpTrend Scaling" }],
   }),
+  validateSearch: (search: Record<string, unknown>) =>
+    searchSchema.parse(search),
   loader: async () => {
     const business = await getCurrentBusiness();
     if (!business) {
@@ -30,14 +44,21 @@ export const Route = createFileRoute("/app")({
     // Canceled/unpaid subscription (set by the Stripe webhook) -- show the
     // paused-access panel instead of pulling their customer data.
     if (business.accessRevoked) {
-      return { business, stats: null, customers: [], series: [] };
+      return {
+        business,
+        stats: null,
+        customers: [],
+        series: [],
+        connections: [],
+      };
     }
-    const [stats, customerRows, series] = await Promise.all([
+    const [stats, customerRows, series, connections] = await Promise.all([
       getDashboardStats(),
       listCustomers(),
       getCustomerProgressSeries(),
+      listConnectionsForBusiness(),
     ]);
-    return { business, stats, customers: customerRows, series };
+    return { business, stats, customers: customerRows, series, connections };
   },
   component: Dashboard,
 });
@@ -50,12 +71,16 @@ function formatDate(value: Date | string | null): string {
 
 function Dashboard() {
   const initial = Route.useLoaderData();
+  const { crmError } = Route.useSearch();
   const navigate = useNavigate();
 
   const [business, setBusiness] = useState<PublicBusiness>(initial.business);
   const [stats, setStats] = useState<DashboardStats | null>(initial.stats);
   const [customers, setCustomers] = useState<CustomerRow[]>(initial.customers);
   const [series, setSeries] = useState<ProgressPoint[]>(initial.series);
+  const [connections, setConnections] = useState<ConnectionSummary[]>(
+    initial.connections,
+  );
 
   async function refresh() {
     const [nextStats, nextCustomers, nextSeries] = await Promise.all([
@@ -66,6 +91,10 @@ function Dashboard() {
     setStats(nextStats);
     setCustomers(nextCustomers);
     setSeries(nextSeries);
+  }
+
+  async function refreshConnections() {
+    setConnections(await listConnectionsForBusiness());
   }
 
   async function handleLogout() {
@@ -94,7 +123,11 @@ function Dashboard() {
                 Admin
               </a>
             )}
-            <button className="button button-ghost nav-cta" type="button" onClick={handleLogout}>
+            <button
+              className="button button-ghost nav-cta"
+              type="button"
+              onClick={handleLogout}
+            >
               Log out
             </button>
           </div>
@@ -112,11 +145,17 @@ function Dashboard() {
             <section className="app-panel app-panel-wide">
               <h2>Your progress</h2>
               <p className="app-panel-hint">
-                Customers added, messages sent, link clicks, and reviews marked complete, by week.
+                Customers added, messages sent, link clicks, and reviews marked
+                complete, by week.
               </p>
               <ProgressChart series={series} />
             </section>
             <SettingsPanel business={business} onUpdated={setBusiness} />
+            <ConnectionsPanel
+              connections={connections}
+              crmError={crmError}
+              onChanged={refreshConnections}
+            />
             <AddCustomerPanel onAdded={refresh} />
             <CustomerTable customers={customers} onToggleReviewed={refresh} />
           </div>
@@ -131,10 +170,11 @@ function AccessPausedPanel() {
     <section className="app-panel app-panel-wide">
       <h2>Your subscription has ended</h2>
       <p className="app-panel-hint">
-        Your dashboard is paused because your UpTrend Scaling subscription was canceled. Your
-        customer data is safe, and everything comes right back once your subscription is active
-        again. Email <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a> if you
-        would like to reactivate or have questions about your billing.
+        Your dashboard is paused because your UpTrend Scaling subscription was
+        canceled. Your customer data is safe, and everything comes right back
+        once your subscription is active again. Email{" "}
+        <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>{" "}
+        if you would like to reactivate or have questions about your billing.
       </p>
     </section>
   );
@@ -143,7 +183,9 @@ function AccessPausedPanel() {
 function StatsPanel({ stats }: { stats: DashboardStats | null }) {
   if (!stats) return null;
   const clickRate =
-    stats.totalCustomers > 0 ? Math.round((stats.linkClicks / stats.totalCustomers) * 100) : 0;
+    stats.totalCustomers > 0
+      ? Math.round((stats.linkClicks / stats.totalCustomers) * 100)
+      : 0;
 
   return (
     <section className="stat-grid">
@@ -185,7 +227,9 @@ function SettingsPanel({
     setSaving(true);
     setMessage(null);
     try {
-      const result = await updateGoogleReviewUrl({ data: { googleReviewUrl: url } });
+      const result = await updateGoogleReviewUrl({
+        data: { googleReviewUrl: url },
+      });
       if (result.ok) {
         onUpdated({ ...business, googleReviewUrl: url });
         setMessage("Saved.");
@@ -204,7 +248,8 @@ function SettingsPanel({
     <section className="app-panel">
       <h2>Your Google review link</h2>
       <p className="app-panel-hint">
-        Every review request points customers here after they click their personal link.
+        Every review request points customers here after they click their
+        personal link.
       </p>
       <form className="app-inline-form" onSubmit={handleSave}>
         <input
@@ -214,11 +259,110 @@ function SettingsPanel({
           placeholder="https://g.page/r/your-business/review"
           required
         />
-        <button className="button button-primary" type="submit" disabled={saving}>
+        <button
+          className="button button-primary"
+          type="submit"
+          disabled={saving}
+        >
           {saving ? "Saving…" : "Save"}
         </button>
       </form>
       {message && <p className="app-panel-message">{message}</p>}
+    </section>
+  );
+}
+
+const CRM_PROVIDERS: readonly CrmProvider[] = ["jobber", "square"];
+const PROVIDER_LABELS: Record<CrmProvider, string> = {
+  jobber: "Jobber",
+  square: "Square",
+};
+
+function ConnectionsPanel({
+  connections,
+  crmError,
+  onChanged,
+}: {
+  connections: ConnectionSummary[];
+  crmError: CrmProvider | undefined;
+  onChanged: () => void;
+}) {
+  const [disconnectingProvider, setDisconnectingProvider] =
+    useState<CrmProvider | null>(null);
+  const byProvider = new Map(
+    connections.map((connection) => [connection.provider, connection]),
+  );
+
+  async function handleDisconnect(provider: CrmProvider) {
+    setDisconnectingProvider(provider);
+    try {
+      await disconnectConnection({ data: { provider } });
+      onChanged();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDisconnectingProvider(null);
+    }
+  }
+
+  return (
+    <section className="app-panel app-panel-wide">
+      <h2>Connect your invoicing/CRM</h2>
+      <p className="app-panel-hint">
+        Connect Jobber or Square and we&rsquo;ll automatically send a review
+        request the moment an invoice is paid — no manual entry needed.
+      </p>
+      {crmError && (
+        <p className="app-panel-message app-panel-message-error">
+          Couldn&rsquo;t connect {PROVIDER_LABELS[crmError]}. Please try again.
+        </p>
+      )}
+      <div className="crm-connection-list">
+        {CRM_PROVIDERS.map((provider) => {
+          const connection = byProvider.get(provider);
+          return (
+            <div className="crm-connection-row" key={provider}>
+              <div>
+                <div className="crm-connection-name">
+                  {PROVIDER_LABELS[provider]}
+                </div>
+                {connection ? (
+                  connection.lastErrorMessage ? (
+                    <span className="status-pill status-pill-warning">
+                      Needs reconnect
+                    </span>
+                  ) : (
+                    <span className="status-pill status-pill-success">
+                      Connected
+                    </span>
+                  )
+                ) : (
+                  <span className="status-pill">Not connected</span>
+                )}
+              </div>
+              {connection ? (
+                <button
+                  type="button"
+                  className="button button-ghost"
+                  onClick={() => handleDisconnect(provider)}
+                  disabled={disconnectingProvider === provider}
+                >
+                  {disconnectingProvider === provider
+                    ? "Disconnecting…"
+                    : "Disconnect"}
+                </button>
+              ) : (
+                <a
+                  className="button button-primary"
+                  href={`/connect/${provider}/start`}
+                >
+                  Connect
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -253,7 +397,9 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
         if (result.smsSent === false) parts.push("text failed");
         if (result.emailSent === true) parts.push("email sent");
         if (result.emailSent === false) parts.push("email failed");
-        setMessage(parts.length > 0 ? `Added — ${parts.join(", ")}.` : "Added.");
+        setMessage(
+          parts.length > 0 ? `Added — ${parts.join(", ")}.` : "Added.",
+        );
         setName("");
         setPhone("");
         setEmail("");
@@ -296,12 +442,22 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
           onChange={(event) => setEmail(event.target.value)}
           placeholder="Email (optional)"
         />
-        <button className="button button-primary" type="submit" disabled={submitting}>
+        <button
+          className="button button-primary"
+          type="submit"
+          disabled={submitting}
+        >
           {submitting ? "Sending…" : "Add + send"}
         </button>
       </form>
       {message && (
-        <p className={isError ? "app-panel-message app-panel-message-error" : "app-panel-message"}>
+        <p
+          className={
+            isError
+              ? "app-panel-message app-panel-message-error"
+              : "app-panel-message"
+          }
+        >
           {message}
         </p>
       )}
@@ -317,7 +473,10 @@ function CustomerTable({
   onToggleReviewed: () => void;
 }) {
   const [resendingId, setResendingId] = useState<string | null>(null);
-  const [resendMessage, setResendMessage] = useState<{ id: string; text: string } | null>(null);
+  const [resendMessage, setResendMessage] = useState<{
+    id: string;
+    text: string;
+  } | null>(null);
 
   async function toggle(customerId: string) {
     await markCustomerReviewed({ data: { customerId } });
@@ -335,7 +494,10 @@ function CustomerTable({
         if (result.smsSent === false) parts.push("text failed");
         if (result.emailSent === true) parts.push("email sent");
         if (result.emailSent === false) parts.push("email failed");
-        setResendMessage({ id: customerId, text: parts.length > 0 ? parts.join(", ") : "Sent." });
+        setResendMessage({
+          id: customerId,
+          text: parts.length > 0 ? parts.join(", ") : "Sent.",
+        });
         onToggleReviewed();
       } else {
         setResendMessage({ id: customerId, text: result.message });
@@ -352,7 +514,9 @@ function CustomerTable({
     <section className="app-panel app-panel-wide">
       <h2>Customers</h2>
       {customers.length === 0 ? (
-        <p className="app-panel-hint">No customers yet — add your first one above.</p>
+        <p className="app-panel-hint">
+          No customers yet — add your first one above.
+        </p>
       ) : (
         <div className="customer-table-wrap">
           <table className="customer-table">
@@ -371,17 +535,25 @@ function CustomerTable({
                 <tr key={customer.id}>
                   <td>
                     <div className="customer-name">{customer.name}</div>
-                    <div className="customer-contact">{customer.phone || customer.email}</div>
+                    <div className="customer-contact">
+                      {customer.phone || customer.email}
+                    </div>
                   </td>
                   <td>{formatDate(customer.createdAt)}</td>
                   <td>
                     {customer.smsCount > 0 && (
-                      <span className="status-pill">SMS ×{customer.smsCount}</span>
+                      <span className="status-pill">
+                        SMS ×{customer.smsCount}
+                      </span>
                     )}
                     {customer.emailCount > 0 && (
-                      <span className="status-pill">Email ×{customer.emailCount}</span>
+                      <span className="status-pill">
+                        Email ×{customer.emailCount}
+                      </span>
                     )}
-                    {customer.smsCount === 0 && customer.emailCount === 0 && <span>—</span>}
+                    {customer.smsCount === 0 && customer.emailCount === 0 && (
+                      <span>—</span>
+                    )}
                   </td>
                   <td>
                     {customer.linkClickedAt ? (
@@ -396,11 +568,15 @@ function CustomerTable({
                     <button
                       type="button"
                       className={
-                        customer.markedReviewedAt ? "toggle-pill toggle-pill-active" : "toggle-pill"
+                        customer.markedReviewedAt
+                          ? "toggle-pill toggle-pill-active"
+                          : "toggle-pill"
                       }
                       onClick={() => toggle(customer.id)}
                     >
-                      {customer.markedReviewedAt ? "Reviewed ✓" : "Mark reviewed"}
+                      {customer.markedReviewedAt
+                        ? "Reviewed ✓"
+                        : "Mark reviewed"}
                     </button>
                   </td>
                   <td>

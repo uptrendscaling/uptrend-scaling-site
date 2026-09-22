@@ -1,7 +1,10 @@
 // Aliased on import: TanStack's `useSession` is a plain async function, not
 // a React hook, but eslint-plugin-react-hooks flags any `useXxx` name called
 // outside a component. Renaming it here sidesteps that false positive.
-import { getSession, useSession as getSessionManager } from "@tanstack/react-start/server";
+import {
+  getSession,
+  useSession as getSessionManager,
+} from "@tanstack/react-start/server";
 import bcrypt from "bcryptjs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { SessionConfig } from "@tanstack/react-start/server";
@@ -32,7 +35,10 @@ export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
 
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
+export async function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
   return bcrypt.compare(password, hash);
 }
 
@@ -71,7 +77,9 @@ export function createPasswordResetToken(businessId: string): string {
   return Buffer.from(`${payload}.${signature}`, "utf8").toString("base64url");
 }
 
-export function verifyPasswordResetToken(token: string): { businessId: string } | null {
+export function verifyPasswordResetToken(
+  token: string,
+): { businessId: string } | null {
   const secret = process.env["SESSION_SECRET"] ?? "";
   if (!secret) return null;
 
@@ -79,10 +87,65 @@ export function verifyPasswordResetToken(token: string): { businessId: string } 
     const decoded = Buffer.from(token, "base64url").toString("utf8");
     const parts = decoded.split(".");
     if (parts.length !== 3) return null;
-    const [businessId, expiresAtRaw, signature] = parts as [string, string, string];
+    const [businessId, expiresAtRaw, signature] = parts as [
+      string,
+      string,
+      string,
+    ];
 
     const expected = createHmac("sha256", secret)
       .update(`${businessId}.${expiresAtRaw}`)
+      .digest("hex");
+    const signatureBuf = Buffer.from(signature, "hex");
+    const expectedBuf = Buffer.from(expected, "hex");
+    if (signatureBuf.length !== expectedBuf.length) return null;
+    if (!timingSafeEqual(signatureBuf, expectedBuf)) return null;
+
+    const expiresAt = Number(expiresAtRaw);
+    if (!Number.isFinite(expiresAt) || Date.now() > expiresAt) return null;
+
+    return { businessId };
+  } catch {
+    return null;
+  }
+}
+
+// ---- OAuth `state` tokens (CRM connect flow) --------------------------
+// Same stateless HMAC-signing approach as the password reset token above,
+// reused rather than inventing a second signing scheme. Protects the OAuth
+// callback from CSRF (a state minted for one business/provider can't be
+// replayed against another) without needing a database row per attempt.
+const OAUTH_STATE_TTL_MS = 10 * 60 * 1000; // 10 min -- long enough for the provider's consent screen
+
+export function createOAuthState(businessId: string, provider: string): string {
+  const secret = process.env["SESSION_SECRET"] ?? "";
+  const expiresAt = Date.now() + OAUTH_STATE_TTL_MS;
+  const payload = `${provider}.${businessId}.${expiresAt}`;
+  const signature = createHmac("sha256", secret).update(payload).digest("hex");
+  return Buffer.from(`${payload}.${signature}`, "utf8").toString("base64url");
+}
+
+export function verifyOAuthState(
+  token: string,
+  provider: string,
+): { businessId: string } | null {
+  const secret = process.env["SESSION_SECRET"] ?? "";
+  if (!secret) return null;
+
+  try {
+    const decoded = Buffer.from(token, "base64url").toString("utf8");
+    const parts = decoded.split(".");
+    if (parts.length !== 4) return null;
+    const [tokenProvider, businessId, expiresAtRaw, signature] = parts as [
+      string,
+      string,
+      string,
+      string,
+    ];
+    if (tokenProvider !== provider) return null;
+
+    const expected = createHmac("sha256", secret)
+      .update(`${tokenProvider}.${businessId}.${expiresAtRaw}`)
       .digest("hex");
     const signatureBuf = Buffer.from(signature, "hex");
     const expectedBuf = Buffer.from(expected, "hex");

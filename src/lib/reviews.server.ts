@@ -468,6 +468,166 @@ export const updateGoogleReviewUrl = createServerFn({ method: "POST" })
 
 // ---- Customers + automated sending ---------------------------------------
 
+// Sends a review-request message on every channel we have contact info +
+// a live provider for, and logs each attempt to the `messages` table. Shared
+// by every entry point that needs to message a customer -- manual add,
+// manual resend, the 48-hour reminder cron, and (new) a CRM webhook --  so
+// the send/log logic and copy templates only live in one place.
+type ReviewRequestKind = "initial" | "manual" | "reminder";
+
+async function sendReviewRequestAndLog(
+  db: ReturnType<typeof getDb>,
+  business: Business,
+  customer: Pick<Customer, "id" | "name" | "phone" | "email" | "reviewToken">,
+  kind: ReviewRequestKind,
+): Promise<{ smsSent: boolean | null; emailSent: boolean | null }> {
+  const link = reviewLinkFor(customer.reviewToken);
+  const smsBody =
+    kind === "reminder"
+      ? reminderSmsBody(business.businessName, customer.name, link)
+      : initialSmsBody(business.businessName, customer.name, link);
+  const emailSubject =
+    kind === "reminder"
+      ? reminderEmailSubject(business.businessName)
+      : initialEmailSubject(business.businessName);
+  const emailHtml =
+    kind === "reminder"
+      ? reminderEmailHtml(business.businessName, customer.name, link)
+      : initialEmailHtml(business.businessName, customer.name, link);
+
+  let smsSent: boolean | null = null;
+  let emailSent: boolean | null = null;
+
+  if (customer.phone && isTwilioConfigured()) {
+    const result = await sendSms(customer.phone, smsBody);
+    smsSent = result.ok;
+    await db.insert(messages).values({
+      businessId: business.id,
+      customerId: customer.id,
+      channel: "sms",
+      kind,
+      status: result.ok ? "sent" : "failed",
+      providerMessageId: result.ok ? result.providerMessageId : null,
+      errorMessage: result.ok ? null : result.error,
+    });
+  }
+
+  if (customer.email && isResendConfigured()) {
+    const result = await sendEmail(customer.email, emailSubject, emailHtml);
+    emailSent = result.ok;
+    await db.insert(messages).values({
+      businessId: business.id,
+      customerId: customer.id,
+      channel: "email",
+      kind,
+      status: result.ok ? "sent" : "failed",
+      providerMessageId: result.ok ? result.providerMessageId : null,
+      errorMessage: result.ok ? null : result.error,
+    });
+  }
+
+  return { smsSent, emailSent };
+}
+
+export type CreateCustomerAndSendInput = {
+  name: string;
+  phone: string | null;
+  email: string | null;
+  source: "manual" | "jobber" | "square";
+  // The provider's own id for this person. Null for manual entries.
+  externalId: string | null;
+};
+
+export type CreateCustomerAndSendResult =
+  | {
+      ok: true;
+      customerId: string;
+      smsSent: boolean | null;
+      emailSent: boolean | null;
+    }
+  | { ok: false; message: string };
+
+// Creates a customer (or reuses their existing row, for a person we've
+// already seen via the same CRM connection) AND immediately fires off their
+// review request. This is the "fully automate all of that work" entry point
+// -- used both by the manual "add customer" form and by CRM webhooks.
+//
+// IMPORTANT: when `externalId` matches an existing customer, we reuse that
+// row (so the same real person isn't duplicated in the customer list) but we
+// still send -- by design, a business's customer gets a fresh review request
+// every time they pay a new invoice, not just the first time ever. A CRM
+// webhook handler is responsible for its OWN delivery-level dedup (so the
+// same invoice-paid event, redelivered by the provider, doesn't trigger a
+// second send here) before ever calling this function.
+export async function createCustomerAndSendReviewRequest(
+  business: Business,
+  input: CreateCustomerAndSendInput,
+): Promise<CreateCustomerAndSendResult> {
+  const db = getDb();
+
+  const matchExisting = input.externalId
+    ? and(
+        eq(customers.businessId, business.id),
+        eq(customers.source, input.source),
+        eq(customers.externalId, input.externalId),
+      )
+    : null;
+
+  let customer: Customer | undefined;
+  if (matchExisting) {
+    const [existing] = await db
+      .select()
+      .from(customers)
+      .where(matchExisting)
+      .limit(1);
+    customer = existing;
+  }
+
+  if (!customer) {
+    const reviewToken = randomUUID();
+    const [inserted] = await db
+      .insert(customers)
+      .values({
+        businessId: business.id,
+        name: input.name,
+        phone: input.phone,
+        email: input.email,
+        reviewToken,
+        source: input.source,
+        externalId: input.externalId,
+      })
+      .onConflictDoNothing({
+        target: [customers.businessId, customers.source, customers.externalId],
+      })
+      .returning();
+    customer = inserted;
+
+    if (!customer) {
+      // Lost a race against a concurrent duplicate delivery -- fetch the row
+      // the other request just created instead of erroring.
+      if (matchExisting) {
+        const [raced] = await db
+          .select()
+          .from(customers)
+          .where(matchExisting)
+          .limit(1);
+        customer = raced;
+      }
+      if (!customer) {
+        return { ok: false, message: "Could not create that customer." };
+      }
+    }
+  }
+
+  const { smsSent, emailSent } = await sendReviewRequestAndLog(
+    db,
+    business,
+    customer,
+    "initial",
+  );
+  return { ok: true, customerId: customer.id, smsSent, emailSent };
+}
+
 const addCustomerSchema = z
   .object({
     name: z.string().trim().min(1, "Name is required").max(200),
@@ -512,57 +672,15 @@ export const addCustomer = createServerFn({ method: "POST" })
       if (!business)
         return { ok: false, message: "Your account could not be found." };
 
-      const phone = data.phone?.trim() || null;
-      const email = data.email?.trim() || null;
-      const reviewToken = randomUUID();
-
-      const [customer] = await db
-        .insert(customers)
-        .values({ businessId, name: data.name, phone, email, reviewToken })
-        .returning();
-      if (!customer)
-        return { ok: false, message: "Could not create that customer." };
-
-      const link = reviewLinkFor(reviewToken);
-      let smsSent: boolean | null = null;
-      let emailSent: boolean | null = null;
-
-      if (phone && isTwilioConfigured()) {
-        const result = await sendSms(
-          phone,
-          initialSmsBody(business.businessName, data.name, link),
-        );
-        smsSent = result.ok;
-        await db.insert(messages).values({
-          businessId,
-          customerId: customer.id,
-          channel: "sms",
-          kind: "initial",
-          status: result.ok ? "sent" : "failed",
-          providerMessageId: result.ok ? result.providerMessageId : null,
-          errorMessage: result.ok ? null : result.error,
-        });
-      }
-
-      if (email && isResendConfigured()) {
-        const result = await sendEmail(
-          email,
-          initialEmailSubject(business.businessName),
-          initialEmailHtml(business.businessName, data.name, link),
-        );
-        emailSent = result.ok;
-        await db.insert(messages).values({
-          businessId,
-          customerId: customer.id,
-          channel: "email",
-          kind: "initial",
-          status: result.ok ? "sent" : "failed",
-          providerMessageId: result.ok ? result.providerMessageId : null,
-          errorMessage: result.ok ? null : result.error,
-        });
-      }
-
-      return { ok: true, smsSent, emailSent };
+      const result = await createCustomerAndSendReviewRequest(business, {
+        name: data.name,
+        phone: data.phone?.trim() || null,
+        email: data.email?.trim() || null,
+        source: "manual",
+        externalId: null,
+      });
+      if (!result.ok) return result;
+      return { ok: true, smsSent: result.smsSent, emailSent: result.emailSent };
     } catch (error) {
       console.error("[reviews] failed to add customer", error);
       return { ok: false, message: "Something went wrong. Please try again." };
@@ -611,44 +729,12 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
       if (!business)
         return { ok: false, message: "Your account could not be found." };
 
-      const link = reviewLinkFor(customer.reviewToken);
-      let smsSent: boolean | null = null;
-      let emailSent: boolean | null = null;
-
-      if (customer.phone && isTwilioConfigured()) {
-        const result = await sendSms(
-          customer.phone,
-          initialSmsBody(business.businessName, customer.name, link),
-        );
-        smsSent = result.ok;
-        await db.insert(messages).values({
-          businessId,
-          customerId: customer.id,
-          channel: "sms",
-          kind: "manual",
-          status: result.ok ? "sent" : "failed",
-          providerMessageId: result.ok ? result.providerMessageId : null,
-          errorMessage: result.ok ? null : result.error,
-        });
-      }
-
-      if (customer.email && isResendConfigured()) {
-        const result = await sendEmail(
-          customer.email,
-          initialEmailSubject(business.businessName),
-          initialEmailHtml(business.businessName, customer.name, link),
-        );
-        emailSent = result.ok;
-        await db.insert(messages).values({
-          businessId,
-          customerId: customer.id,
-          channel: "email",
-          kind: "manual",
-          status: result.ok ? "sent" : "failed",
-          providerMessageId: result.ok ? result.providerMessageId : null,
-          errorMessage: result.ok ? null : result.error,
-        });
-      }
+      const { smsSent, emailSent } = await sendReviewRequestAndLog(
+        db,
+        business,
+        customer,
+        "manual",
+      );
 
       if (smsSent === null && emailSent === null) {
         const hasContact = Boolean(customer.phone || customer.email);
@@ -1071,40 +1157,7 @@ export async function sendDueReminders(): Promise<ReminderRunResult> {
       .limit(1);
     if (!business) continue;
 
-    const link = reviewLinkFor(customer.reviewToken);
-
-    if (customer.phone && isTwilioConfigured()) {
-      const result = await sendSms(
-        customer.phone,
-        reminderSmsBody(business.businessName, customer.name, link),
-      );
-      await db.insert(messages).values({
-        businessId: business.id,
-        customerId: customer.id,
-        channel: "sms",
-        kind: "reminder",
-        status: result.ok ? "sent" : "failed",
-        providerMessageId: result.ok ? result.providerMessageId : null,
-        errorMessage: result.ok ? null : result.error,
-      });
-    }
-
-    if (customer.email && isResendConfigured()) {
-      const result = await sendEmail(
-        customer.email,
-        reminderEmailSubject(business.businessName),
-        reminderEmailHtml(business.businessName, customer.name, link),
-      );
-      await db.insert(messages).values({
-        businessId: business.id,
-        customerId: customer.id,
-        channel: "email",
-        kind: "reminder",
-        status: result.ok ? "sent" : "failed",
-        providerMessageId: result.ok ? result.providerMessageId : null,
-        errorMessage: result.ok ? null : result.error,
-      });
-    }
+    await sendReviewRequestAndLog(db, business, customer, "reminder");
 
     await db
       .update(customers)

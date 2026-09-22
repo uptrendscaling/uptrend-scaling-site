@@ -18,9 +18,17 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
 import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as StartSuccessRouteImport } from './routes/start.success'
+import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
+import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
+import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
+import { Route as ConnectJobberCallbackRouteImport } from './routes/connect.jobber.callback'
+import { Route as ConnectJobberStartRouteImport } from './routes/connect.jobber.start'
+import { Route as ConnectSquareCallbackRouteImport } from './routes/connect.square.callback'
+import { Route as ConnectSquareStartRouteImport } from './routes/connect.square.start'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -67,6 +75,11 @@ const TermsRoute = TermsRouteImport.update({
   path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CronLeadFollowupsRoute = CronLeadFollowupsRouteImport.update({
+  id: '/cron/lead-followups',
+  path: '/cron/lead-followups',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CronRemindersRoute = CronRemindersRouteImport.update({
   id: '/cron/reminders',
   path: '/cron/reminders',
@@ -82,6 +95,41 @@ const StartSuccessRoute = StartSuccessRouteImport.update({
   path: '/success',
   getParentRoute: () => StartRoute,
 } as any)
+const StripeWebhookRoute = StripeWebhookRouteImport.update({
+  id: '/stripe/webhook',
+  path: '/stripe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebhooksJobberRoute = WebhooksJobberRouteImport.update({
+  id: '/webhooks/jobber',
+  path: '/webhooks/jobber',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
+  id: '/webhooks/square',
+  path: '/webhooks/square',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectJobberCallbackRoute = ConnectJobberCallbackRouteImport.update({
+  id: '/connect/jobber/callback',
+  path: '/connect/jobber/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectJobberStartRoute = ConnectJobberStartRouteImport.update({
+  id: '/connect/jobber/start',
+  path: '/connect/jobber/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectSquareCallbackRoute = ConnectSquareCallbackRouteImport.update({
+  id: '/connect/square/callback',
+  path: '/connect/square/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectSquareStartRoute = ConnectSquareStartRouteImport.update({
+  id: '/connect/square/start',
+  path: '/connect/square/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -93,9 +141,17 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
   '/terms': typeof TermsRoute
+  '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
   '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
+  '/stripe/webhook': typeof StripeWebhookRoute
+  '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
+  '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/square/callback': typeof ConnectSquareCallbackRoute
+  '/connect/square/start': typeof ConnectSquareStartRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -107,9 +163,17 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
   '/terms': typeof TermsRoute
+  '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
   '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
+  '/stripe/webhook': typeof StripeWebhookRoute
+  '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
+  '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/square/callback': typeof ConnectSquareCallbackRoute
+  '/connect/square/start': typeof ConnectSquareStartRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -122,9 +186,17 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/start': typeof StartRouteWithChildren
   '/terms': typeof TermsRoute
+  '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
   '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
+  '/stripe/webhook': typeof StripeWebhookRoute
+  '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
+  '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/square/callback': typeof ConnectSquareCallbackRoute
+  '/connect/square/start': typeof ConnectSquareStartRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -138,9 +210,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/start'
     | '/terms'
+    | '/cron/lead-followups'
     | '/cron/reminders'
     | '/r/$token'
     | '/start/success'
+    | '/stripe/webhook'
+    | '/webhooks/jobber'
+    | '/webhooks/square'
+    | '/connect/jobber/callback'
+    | '/connect/jobber/start'
+    | '/connect/square/callback'
+    | '/connect/square/start'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -152,9 +232,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/start'
     | '/terms'
+    | '/cron/lead-followups'
     | '/cron/reminders'
     | '/r/$token'
     | '/start/success'
+    | '/stripe/webhook'
+    | '/webhooks/jobber'
+    | '/webhooks/square'
+    | '/connect/jobber/callback'
+    | '/connect/jobber/start'
+    | '/connect/square/callback'
+    | '/connect/square/start'
   id:
     | '__root__'
     | '/'
@@ -166,9 +254,17 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/start'
     | '/terms'
+    | '/cron/lead-followups'
     | '/cron/reminders'
     | '/r/$token'
     | '/start/success'
+    | '/stripe/webhook'
+    | '/webhooks/jobber'
+    | '/webhooks/square'
+    | '/connect/jobber/callback'
+    | '/connect/jobber/start'
+    | '/connect/square/callback'
+    | '/connect/square/start'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -181,8 +277,16 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   StartRoute: typeof StartRouteWithChildren
   TermsRoute: typeof TermsRoute
+  CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
   RTokenRoute: typeof RTokenRoute
+  StripeWebhookRoute: typeof StripeWebhookRoute
+  WebhooksJobberRoute: typeof WebhooksJobberRoute
+  WebhooksSquareRoute: typeof WebhooksSquareRoute
+  ConnectJobberCallbackRoute: typeof ConnectJobberCallbackRoute
+  ConnectJobberStartRoute: typeof ConnectJobberStartRoute
+  ConnectSquareCallbackRoute: typeof ConnectSquareCallbackRoute
+  ConnectSquareStartRoute: typeof ConnectSquareStartRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -250,6 +354,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cron/lead-followups': {
+      id: '/cron/lead-followups'
+      path: '/cron/lead-followups'
+      fullPath: '/cron/lead-followups'
+      preLoaderRoute: typeof CronLeadFollowupsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cron/reminders': {
       id: '/cron/reminders'
       path: '/cron/reminders'
@@ -270,6 +381,55 @@ declare module '@tanstack/react-router' {
       fullPath: '/start/success'
       preLoaderRoute: typeof StartSuccessRouteImport
       parentRoute: typeof StartRoute
+    }
+    '/stripe/webhook': {
+      id: '/stripe/webhook'
+      path: '/stripe/webhook'
+      fullPath: '/stripe/webhook'
+      preLoaderRoute: typeof StripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webhooks/jobber': {
+      id: '/webhooks/jobber'
+      path: '/webhooks/jobber'
+      fullPath: '/webhooks/jobber'
+      preLoaderRoute: typeof WebhooksJobberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/webhooks/square': {
+      id: '/webhooks/square'
+      path: '/webhooks/square'
+      fullPath: '/webhooks/square'
+      preLoaderRoute: typeof WebhooksSquareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/jobber/callback': {
+      id: '/connect/jobber/callback'
+      path: '/connect/jobber/callback'
+      fullPath: '/connect/jobber/callback'
+      preLoaderRoute: typeof ConnectJobberCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/jobber/start': {
+      id: '/connect/jobber/start'
+      path: '/connect/jobber/start'
+      fullPath: '/connect/jobber/start'
+      preLoaderRoute: typeof ConnectJobberStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/square/callback': {
+      id: '/connect/square/callback'
+      path: '/connect/square/callback'
+      fullPath: '/connect/square/callback'
+      preLoaderRoute: typeof ConnectSquareCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/square/start': {
+      id: '/connect/square/start'
+      path: '/connect/square/start'
+      fullPath: '/connect/square/start'
+      preLoaderRoute: typeof ConnectSquareStartRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -294,8 +454,16 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   StartRoute: StartRouteWithChildren,
   TermsRoute: TermsRoute,
+  CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
   RTokenRoute: RTokenRoute,
+  StripeWebhookRoute: StripeWebhookRoute,
+  WebhooksJobberRoute: WebhooksJobberRoute,
+  WebhooksSquareRoute: WebhooksSquareRoute,
+  ConnectJobberCallbackRoute: ConnectJobberCallbackRoute,
+  ConnectJobberStartRoute: ConnectJobberStartRoute,
+  ConnectSquareCallbackRoute: ConnectSquareCallbackRoute,
+  ConnectSquareStartRoute: ConnectSquareStartRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
