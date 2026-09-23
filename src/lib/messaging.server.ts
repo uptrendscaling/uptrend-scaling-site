@@ -192,6 +192,23 @@ export function resetPasswordEmailHtml(
   return `<p>Hi ${contactName},</p><p>We got a request to reset your UpTrend Scaling password. Click below to choose a new one:</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email, your password won't change.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
 }
 
+// Sent to Colby (not the business), the moment a business finishes signing
+// up -- an internal heads-up, not an account email, so it always goes out
+// from UPTREND_SUPPORT_EMAIL regardless of who it's addressed to.
+export function newSubscriberEmailSubject(businessName: string): string {
+  return `New UpTrend Scaling subscriber: ${businessName}`;
+}
+
+export function newSubscriberEmailHtml(
+  businessName: string,
+  contactName: string,
+  email: string,
+  phone: string,
+  plan: string | null,
+): string {
+  return `<p>A new business just subscribed.</p><ul><li>Business: ${businessName}</li><li>Contact: ${contactName}</li><li>Email: ${email}</li><li>Phone: ${phone || "Not provided"}</li><li>Plan: ${plan ?? "Not set"}</li></ul>`;
+}
+
 // Sent once, 48 hours after a cold-outreach lead's first email, if no
 // response has been recorded by then. Kept short, same spirit as the
 // original outreach, not pushy. See lib/leads.server.ts.

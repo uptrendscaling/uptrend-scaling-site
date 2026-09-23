@@ -247,6 +247,54 @@ export type NewCrmConnection = typeof crmConnections.$inferInsert;
 export type CrmWebhookEvent = typeof crmWebhookEvents.$inferSelect;
 export type NewCrmWebhookEvent = typeof crmWebhookEvents.$inferInsert;
 
+// One row per site-analytics event (pageview, click, or a background
+// "still here" heartbeat) from the tracking snippet loaded on every page.
+// Deliberately one flat table rather than separate "sessions"/"visits"
+// tables -- visits, time-on-site, and "who's active right now" are all just
+// different time-windowed queries over this same event log, which keeps the
+// tracking snippet's own job (send an event) as simple as possible.
+export const analyticsEvents = pgTable(
+  "analytics_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Long-lived id stored in the visitor's browser (localStorage), ties a
+    // person's visits together over time. Anonymous -- not linked to any
+    // account by itself.
+    visitorId: text("visitor_id").notNull(),
+    // Shorter-lived id (sessionStorage, so it's naturally fresh per browser
+    // tab) -- what "one visit" means for time-on-site and "active now".
+    sessionId: text("session_id").notNull(),
+    kind: text("kind", { enum: ["pageview", "click", "heartbeat"] }).notNull(),
+    path: text("path").notNull(),
+    // Short description of what was clicked (e.g. its visible text), only
+    // set for kind:"click".
+    label: text("label"),
+    // From Vercel's own IP geolocation headers -- no third-party service,
+    // and we never store the visitor's raw IP address.
+    city: text("city"),
+    region: text("region"), // state/province code, e.g. "AZ"
+    country: text("country"),
+    // Set only when this event happened while the visitor was logged in as
+    // a business -- lets the admin dashboard show which businesses are
+    // active right now, reusing the same event stream rather than a
+    // separate "who's logged in" mechanism.
+    businessId: uuid("business_id").references(() => businesses.id, {
+      onDelete: "set null",
+    }),
+    occurredAt: timestamp("occurred_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("analytics_events_occurred_at_idx").on(table.occurredAt),
+    index("analytics_events_session_id_idx").on(table.sessionId),
+    index("analytics_events_business_id_idx").on(table.businessId),
+  ],
+);
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
 export type Business = typeof businesses.$inferSelect;
 export type NewBusiness = typeof businesses.$inferInsert;
 export type Customer = typeof customers.$inferSelect;

@@ -2202,3 +2202,60 @@ h1 strong {
   color: var(--muted-foreground);
   font-size: 12px;
 }
+
+/* ---- Site analytics (admin) --------------------------------------------- */
+
+.analytics-live-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 22px;
+}
+.analytics-subhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--muted-foreground);
+  font: 700 11px/1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.live-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: oklch(0.72 0.19 145);
+  box-shadow: 0 0 0 3px oklch(0.72 0.19 145 / 25%);
+  flex: none;
+}
+.analytics-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.analytics-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line-light);
+  font-size: 13px;
+}
+.analytics-list-row code {
+  padding: 1px 5px;
+  background: var(--surface-soft);
+  border-radius: 3px;
+  font: 500 11px/1 var(--font-mono);
+}
+
+@media (max-width: 900px) {
+  .analytics-live-grid {
+    grid-template-columns: 1fr;
+  }
+}

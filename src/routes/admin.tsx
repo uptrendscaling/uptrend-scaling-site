@@ -4,6 +4,10 @@ import L from "leaflet";
 import { useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
 
+import {
+  getAdminAnalyticsOverview,
+  type AnalyticsOverview,
+} from "../lib/analytics.server";
 import { ProgressChart } from "../components/progress-chart";
 import {
   getLeadsOverview,
@@ -18,6 +22,16 @@ import {
   type AdminBusinessSummary,
   type ProgressPoint,
 } from "../lib/reviews.server";
+
+const EMPTY_ANALYTICS: AnalyticsOverview = {
+  visitsToday: 0,
+  visitsThisWeek: 0,
+  clicksThisWeek: 0,
+  avgSessionMinutes: 0,
+  activeNow: [],
+  loggedInBusinesses: [],
+  topLocations: [],
+};
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
@@ -36,15 +50,28 @@ export const Route = createFileRoute("/admin")({
     }
     const combinedSeries = await getAdminProgressSeries({ data: {} });
     const leadsOverview = await getLeadsOverview();
+    const analytics = await getAdminAnalyticsOverview();
     return {
       business,
       businesses: overview.businesses,
       combinedSeries: combinedSeries.ok ? combinedSeries.series : [],
       leads: leadsOverview.ok ? leadsOverview.leads : [],
+      analytics: analytics.ok ? analytics.overview : EMPTY_ANALYTICS,
     };
   },
   component: AdminDashboard,
 });
+
+// How often the "right now" panel re-checks the server while this page is
+// open -- this is the "near real-time" behind "people currently on the
+// site", not an instant live feed (see analytics.server.ts).
+const ANALYTICS_REFRESH_MS = 25_000;
+
+function formatMinutes(value: number): string {
+  if (value < 1) return "under a minute";
+  if (value === 1) return "1 minute";
+  return `${value} minutes`;
+}
 
 function formatDate(value: Date | string | null): string {
   if (!value) return "—";
@@ -240,6 +267,121 @@ function OutreachMap({ leads, onMarkResponded, markingId }: OutreachMapProps) {
   );
 }
 
+// ---- Site analytics panel (inlined here, not a separate component file,
+// same reasoning as the outreach map above) ---------------------------------
+
+function AnalyticsPanel({ analytics }: { analytics: AnalyticsOverview }) {
+  const activeCount = analytics.activeNow.length;
+
+  return (
+    <section className="app-panel app-panel-wide">
+      <div className="admin-chart-head">
+        <div>
+          <h2>Site analytics</h2>
+          <p className="app-panel-hint">
+            Visits, clicks, and who&rsquo;s on the site right now. Updates
+            automatically every 25 seconds while this page is open.
+          </p>
+        </div>
+      </div>
+
+      <section className="stat-grid">
+        <div className="stat-card">
+          <span>Visits today</span>
+          <strong>{analytics.visitsToday}</strong>
+        </div>
+        <div className="stat-card">
+          <span>Visits (7 days)</span>
+          <strong>{analytics.visitsThisWeek}</strong>
+        </div>
+        <div className="stat-card">
+          <span>Clicks (7 days)</span>
+          <strong>{analytics.clicksThisWeek}</strong>
+        </div>
+        <div className="stat-card">
+          <span>Avg. time on site</span>
+          <strong>{formatMinutes(analytics.avgSessionMinutes)}</strong>
+        </div>
+      </section>
+
+      <div className="analytics-live-grid">
+        <div>
+          <h3 className="analytics-subhead">
+            <span className="live-dot" aria-hidden="true" />
+            Active right now ({activeCount})
+          </h3>
+          {activeCount === 0 ? (
+            <p className="app-panel-hint">No one on the site right now.</p>
+          ) : (
+            <ul className="analytics-list">
+              {analytics.activeNow.map((visitor) => (
+                <li key={visitor.sessionId} className="analytics-list-row">
+                  <span>
+                    {visitor.businessName ? (
+                      <span className="status-pill status-pill-success">
+                        {visitor.businessName}
+                      </span>
+                    ) : (
+                      <span className="status-pill">Visitor</span>
+                    )}{" "}
+                    on <code>{visitor.path}</code>
+                  </span>
+                  <span className="outreach-lead-table-cell-muted">
+                    {[visitor.city, visitor.region]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h3 className="analytics-subhead">
+            Businesses logged in right now (
+            {analytics.loggedInBusinesses.length})
+          </h3>
+          {analytics.loggedInBusinesses.length === 0 ? (
+            <p className="app-panel-hint">
+              No business is logged in right now.
+            </p>
+          ) : (
+            <ul className="analytics-list">
+              {analytics.loggedInBusinesses.map((biz) => (
+                <li key={biz.id} className="analytics-list-row">
+                  <span>{biz.businessName}</span>
+                  <span className="outreach-lead-table-cell-muted">
+                    <code>{biz.path}</code>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <h3 className="analytics-subhead">Where visits come from (7 days)</h3>
+          {analytics.topLocations.length === 0 ? (
+            <p className="app-panel-hint">No located visits yet this week.</p>
+          ) : (
+            <ul className="analytics-list">
+              {analytics.topLocations.map((row) => (
+                <li key={row.label} className="analytics-list-row">
+                  <span>{row.label}</span>
+                  <span className="outreach-lead-table-cell-muted">
+                    {row.visits}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function AdminDashboard() {
   const initial = Route.useLoaderData();
   const navigate = useNavigate();
@@ -253,8 +395,26 @@ function AdminDashboard() {
   const [loadingSeries, setLoadingSeries] = useState(false);
   const [leads, setLeads] = useState<LeadSummary[]>(initial.leads);
   const [markingId, setMarkingId] = useState<string | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsOverview>(
+    initial.analytics,
+  );
 
   const selected = businesses.find((b) => b.id === selectedId) ?? null;
+
+  useEffect(() => {
+    const refresh = () => {
+      getAdminAnalyticsOverview()
+        .then((result) => {
+          if (result.ok) setAnalytics(result.overview);
+        })
+        .catch(() => {
+          // A missed refresh just means the panel stays on its last known
+          // numbers until the next tick -- nothing to show the admin here.
+        });
+    };
+    const interval = window.setInterval(refresh, ANALYTICS_REFRESH_MS);
+    return () => window.clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!selectedId) {
@@ -366,6 +526,8 @@ function AdminDashboard() {
               <strong>{totals.reviewed}</strong>
             </div>
           </section>
+
+          <AnalyticsPanel analytics={analytics} />
 
           <section className="app-panel app-panel-wide">
             <div className="admin-chart-head">

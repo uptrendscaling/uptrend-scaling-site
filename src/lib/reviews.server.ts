@@ -40,6 +40,8 @@ import {
   initialSmsBody,
   isResendConfigured,
   isTwilioConfigured,
+  newSubscriberEmailHtml,
+  newSubscriberEmailSubject,
   reminderEmailHtml,
   reminderEmailSubject,
   reminderSmsBody,
@@ -234,6 +236,32 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         );
         if (!result.ok) {
           console.error("[reviews] failed to send welcome email", result.error);
+        }
+      }
+
+      // Best-effort: let Colby know a new business just subscribed. Same
+      // dormant-safe guard as the welcome email above, and covers both
+      // branches above (brand-new business row, or one that already
+      // existed but hadn't set a password yet) since both represent a
+      // first-time subscribe. Sent to (and from) the support inbox.
+      if (isResendConfigured()) {
+        const notifyResult = await sendEmail(
+          UPTREND_SUPPORT_EMAIL,
+          newSubscriberEmailSubject(welcomeBusinessName),
+          newSubscriberEmailHtml(
+            welcomeBusinessName,
+            welcomeContactName,
+            email,
+            phone,
+            plan,
+          ),
+          UPTREND_SUPPORT_EMAIL,
+        );
+        if (!notifyResult.ok) {
+          console.error(
+            "[reviews] failed to send new-subscriber notification",
+            notifyResult.error,
+          );
         }
       }
 
