@@ -126,8 +126,22 @@ const INDUSTRY_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "hvac", label: "HVAC" },
   { value: "plumbing", label: "Plumbing" },
   { value: "both", label: "HVAC + Plumbing" },
-  { value: "other", label: "Other" },
+  { value: "auto_repair", label: "Auto Repair" },
+  { value: "auto_detailing", label: "Auto Detailing" },
+  { value: "coffee", label: "Coffee & Cafe" },
+  { value: "electrical", label: "Electrical" },
+  { value: "landscaping", label: "Landscaping" },
+  { value: "cleaning", label: "Cleaning" },
+  { value: "pest_control", label: "Pest Control" },
+  { value: "roofing", label: "Roofing" },
 ];
+
+// Shared everywhere a lead's industry is displayed (dropdown, map popup,
+// table) so a new industry value only needs to be added in one place above.
+// Falls back to the raw value for anything not yet in the list.
+function industryLabel(value: string): string {
+  return INDUSTRY_OPTIONS.find((opt) => opt.value === value)?.label ?? value;
+}
 
 type OutreachMapProps = {
   leads: LeadSummary[];
@@ -229,10 +243,7 @@ function OutreachMap({ leads, onMarkResponded, markingId }: OutreachMapProps) {
                       <div className="outreach-popup-line">{lead.address}</div>
                     )}
                     <div className="outreach-popup-line">
-                      Industry:{" "}
-                      {lead.industry === "both"
-                        ? "HVAC + Plumbing"
-                        : lead.industry}
+                      Industry: {industryLabel(lead.industry)}
                     </div>
                     <div className="outreach-popup-line">
                       Contacted: {formatDate(lead.contactedAt)}
@@ -680,9 +691,7 @@ function AdminDashboard() {
                           <div className="customer-contact">{lead.email}</div>
                         </td>
                         <td className="outreach-lead-table-cell-muted">
-                          {lead.industry === "both"
-                            ? "HVAC + Plumbing"
-                            : lead.industry}
+                          {industryLabel(lead.industry)}
                         </td>
                         <td className="outreach-lead-table-cell-muted">
                           {lead.city ?? "—"}
