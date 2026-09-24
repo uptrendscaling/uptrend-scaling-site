@@ -86,6 +86,12 @@ function formatDate(value: Date | string | null): string {
 // ---- Cold outreach map (inlined here, not a separate component file, to
 // keep this feature's deployment to as few directories as possible) --------
 
+// "Not yet contacted" is deliberately its own status, distinct from
+// "contacted" -- a lead only earns one of the three outreach statuses below
+// once it has actually been emailed (contactedAt set). Leads sourced but not
+// yet emailed still show up in the CRM's full leads list, so every place
+// that reads a lead's status has to branch on contactedAt first instead of
+// defaulting to "contacted" for anything without a follow-up/response.
 type LeadStatus = "responded" | "followed_up" | "contacted";
 
 function leadStatus(lead: LeadSummary): LeadStatus {
@@ -157,8 +163,16 @@ function OutreachMap({ leads, onMarkResponded, markingId }: OutreachMapProps) {
 
   const [industryFilter, setIndustryFilter] = useState("all");
 
+  // Only a lead that has actually been emailed (contactedAt set) belongs on
+  // this map at all, even if it happens to already have coordinates from
+  // being geocoded ahead of a future send -- otherwise a sourced-but-not-yet-
+  // emailed business would show up as a blue "Contacted" pin before anyone
+  // ever contacted it.
   const pinned = useMemo(
-    () => leads.filter((l) => l.lat != null && l.lng != null),
+    () =>
+      leads.filter(
+        (l) => l.contactedAt != null && l.lat != null && l.lng != null,
+      ),
     [leads],
   );
   const filtered = useMemo(
@@ -468,9 +482,14 @@ function AdminDashboard() {
     }
   }
 
+  // Only a lead that has actually been emailed counts toward "contacted" --
+  // `leads` here holds every row in the CRM (including ones sourced but not
+  // yet sent to), so this has to check contactedAt rather than counting
+  // every row. followedUp/responded are unaffected since those fields are
+  // only ever set on a lead that was already contacted.
   const leadTotals = leads.reduce(
     (acc, l) => ({
-      contacted: acc.contacted + 1,
+      contacted: acc.contacted + (l.contactedAt ? 1 : 0),
       followedUp: acc.followedUp + (l.followUpSentAt ? 1 : 0),
       responded: acc.responded + (l.respondedAt ? 1 : 0),
     }),
@@ -700,7 +719,11 @@ function AdminDashboard() {
                           {formatDate(lead.contactedAt)}
                         </td>
                         <td>
-                          {lead.respondedAt ? (
+                          {!lead.contactedAt ? (
+                            <span className="status-pill">
+                              Not yet contacted
+                            </span>
+                          ) : lead.respondedAt ? (
                             <span className="status-pill status-pill-success">
                               Responded
                             </span>
