@@ -160,7 +160,18 @@ function TermsPage() {
           <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>
           <span>
             © 2026 UpTrend Scaling, LLC. All rights reserved. · <a href="/terms">Terms</a> ·{" "}
-            <a href="/privacy">Privacy</a>
+            <a href="/privacy">Privacy</a> ·{" "}
+            <a
+              href="https://www.facebook.com/profile.php?id=61594598074617"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Facebook
+            </a>{" "}
+            ·{" "}
+            <a href="https://www.instagram.com/uptrendscaling/" target="_blank" rel="noopener noreferrer">
+              Instagram
+            </a>
           </span>
         </div>
       </footer>
