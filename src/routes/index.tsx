@@ -2,9 +2,14 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 
 import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS, formatUsd } from "../lib/pricing";
+import { CANONICAL_SITE_URL } from "../lib/site";
 
 const START_TRIAL = "/start?plan=trial";
 const START_MEMBERSHIP = "/start?plan=membership";
+
+// Absolute URL required: social platforms (Facebook, iMessage, Slack, etc.)
+// won't resolve a relative path when unfurling a shared link.
+const OG_IMAGE_URL = `${CANONICAL_SITE_URL}/og-image.png`;
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -21,7 +26,12 @@ export const Route = createFileRoute("/")({
         content: "Google review automation built for local businesses and owner-operators.",
       },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: CANONICAL_SITE_URL },
+      { property: "og:image", content: OG_IMAGE_URL },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: OG_IMAGE_URL },
     ],
   }),
   component: Index,
@@ -143,6 +153,7 @@ function Index() {
             <div className="trend-card">
               <div className="trend-card-head">
                 <span>Review momentum</span>
+                <span className="example-pill">Illustrative example</span>
               </div>
               <svg className="trend-chart" viewBox="0 0 620 390" role="img" aria-label="Illustrative rising trend line with five star markers">
                 <defs>
@@ -229,6 +240,7 @@ function Index() {
               <FeatureList items={["Sent within minutes of job completion", "Customized with your business name and tone", "One-tap opt-out, fully compliant"]} />
             </div>
             <div className="phone-stage reveal-right" data-reveal>
+              <div className="message-label">Example message</div>
               <div className="phone-frame">
                 <div className="phone-bar"><span>9:41</span><i /><span>5G</span></div>
                 <div className="contact-avatar">AP</div>
@@ -271,7 +283,7 @@ function Index() {
               <FeatureList items={["Weekly summary emailed to you automatically", "See which requests convert, and which need a better nudge"]} />
             </div>
             <div className="chart-panel reveal-right" data-reveal>
-              <div className="panel-head"><span>Reviews earned / week</span></div>
+              <div className="panel-head"><span>Reviews earned / week</span><span className="example-pill">Sample data</span></div>
               <div className="bar-chart" aria-label="Illustrative six-week bar chart trending upward">
                 {["W1", "W2", "W3", "W4", "W5", "W6"].map((week, index) => (
                   <div className={`bar-column bar-${index + 1}`} key={week}><div className="bar"><span>{[3, 5, 7, 8, 11, 14][index]}</span></div><small>{week}</small></div>
