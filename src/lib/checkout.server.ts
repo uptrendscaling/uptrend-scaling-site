@@ -24,16 +24,6 @@ export type CheckoutResult =
 // pre-configured in the Stripe dashboard — everything is defined inline via
 // price_data. The moment STRIPE_SECRET_KEY is set in the deploy environment,
 // this goes live with no further code changes.
-//
-// Trial signups: Stripe Checkout charges one-time line items immediately at
-// checkout, even when the subscription itself has a trial -- trial_period_days
-// only defers *recurring* line items. So for plan === "trial" the $20 setup
-// fee is left out of line_items entirely (nothing is due today, matching the
-// "Nothing charged for 7 days" copy on /start), and is instead added as a
-// pending invoice item once the subscription exists (see
-// handleSubscriptionCreated in stripe-webhook.server.ts), which Stripe
-// automatically rolls into that subscription's first invoice -- generated
-// when the trial ends -- alongside the first month's charge.
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .validator((input: unknown) => checkoutInputSchema.parse(input))
   .handler(async ({ data }): Promise<CheckoutResult> => {
@@ -65,12 +55,19 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         mode: "subscription",
         customer_email: data.email,
         allow_promotion_codes: true,
+        // Force Checkout to always ask for card details and always show/charge
+        // the one-time setup fee line item today, even on the trial plan.
+        // This is already Stripe's default, but pinning it explicitly means
+        // our $20 setup fee can never silently get skipped if Stripe ever
+        // changes that default, or if a discount/coupon ever brought the
+        // subscription's own due-today amount to $0.
+        payment_method_collection: "always",
         line_items: [
           {
             price_data: {
               currency: "usd",
               product_data: {
-                name: "UpTrend Scaling — monthly plan",
+                name: "UpTrend Scaling monthly plan",
                 description: "Google review automation, billed per location",
               },
               unit_amount: MONTHLY_PRICE_CENTS,
@@ -78,22 +75,17 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             },
             quantity: data.locations,
           },
-          // Trial signups don't pay the setup fee at checkout -- see the
-          // comment above createCheckoutSession. Non-trial ("membership")
-          // signups have no trial to defer to, so the fee is charged now,
-          // same as before.
-          ...(data.plan === "trial"
-            ? []
-            : [
-                {
-                  price_data: {
-                    currency: "usd" as const,
-                    product_data: { name: "One-time account setup fee" },
-                    unit_amount: SETUP_FEE_CENTS,
-                  },
-                  quantity: 1,
-                },
-              ]),
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: "One-time account setup fee",
+                description: "Charged once today, not part of the monthly plan",
+              },
+              unit_amount: SETUP_FEE_CENTS,
+            },
+            quantity: 1,
+          },
         ],
         subscription_data:
           data.plan === "trial"
