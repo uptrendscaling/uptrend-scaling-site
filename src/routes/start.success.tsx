@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
 import { claimBusinessAccount } from "../lib/reviews.server";
+import { fireLeadConversion } from "../lib/google-ads";
 
 const searchSchema = z.object({
   session_id: z.string().trim().optional(),
@@ -33,6 +34,17 @@ function SuccessPage() {
       .then(setSummary)
       .catch(() => setSummary({ ok: false, reason: "not_found" }));
   }, [sessionId]);
+
+  // Fires once when a business lands here with a real checkout session --
+  // i.e. they finished the signup form on /start and completed payment.
+  // That's the actual "lead" moment the Google Ads test campaigns are
+  // measuring, so it fires on arrival rather than waiting on the password
+  // form below (which is just dashboard setup, not part of the ad's goal).
+  useEffect(() => {
+    if (!sessionId) return;
+    fireLeadConversion();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per session, not on every sessionId identity change
+  }, []);
 
   const email = summary && summary.ok ? summary.email : null;
 
