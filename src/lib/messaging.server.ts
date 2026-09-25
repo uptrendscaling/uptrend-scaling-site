@@ -168,12 +168,101 @@ export function welcomeEmailSubject(): string {
   return "Welcome to UpTrend Scaling";
 }
 
+// Two static images (generated once, not per-send) live in /public/email and
+// ship with the site deploy, so they're served from our own domain at a
+// stable URL -- required for a transactional email, since inline data: URIs
+// are stripped by most inboxes and an artifact-hosted image isn't reachable
+// by an email client at all. Regenerate both with
+// /tmp/welcome-email/generate_hero.py and dashboard_mock.html (see repo
+// history) if the brand mark or dashboard layout ever changes.
+const WELCOME_HERO_IMAGE_URL = `${CANONICAL_SITE_URL}/email/welcome-hero.png`;
+const WELCOME_DASHBOARD_PREVIEW_URL = `${CANONICAL_SITE_URL}/email/welcome-dashboard-preview.png`;
+
 export function welcomeEmailHtml(
   businessName: string,
   contactName: string,
 ): string {
   const loginUrl = `${CANONICAL_SITE_URL}/login`;
-  return `<p>Hi ${contactName},</p><p>Welcome to UpTrend Scaling! Your account for ${businessName} is set up and ready to go.</p><p>Here's what to do next:</p><ul><li>Add your Google review link in your dashboard settings</li><li>Add your first customer, their review request goes out the moment you save it</li></ul><p><a href="${loginUrl}">Log in to your dashboard</a></p><p>Questions? Just reply to this email, it comes straight to us.</p><p>Thanks for signing up,<br/>The UpTrend Scaling team</p>`;
+
+  // Table-based layout with inline styles throughout -- the only way to get
+  // consistent rendering across Gmail, Apple Mail, and Outlook, none of
+  // which reliably support a <style> block or modern CSS (flexbox/grid) in
+  // email. Body background is kept light/neutral on purpose: the two
+  // exported PNGs already carry the brand's dark look, and a dark email
+  // body risks looking broken under Gmail/Apple Mail's automatic dark-mode
+  // color inversion.
+  return `<div style="background:#f4f4f5;padding:32px 16px;font-family:'Poppins','Segoe UI',Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+    <tr>
+      <td style="padding:0;">
+        <img src="${WELCOME_HERO_IMAGE_URL}" width="600" alt="Welcome to UpTrend Scaling" style="display:block;width:100%;max-width:600px;height:auto;" />
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:36px 36px 8px;">
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#18181b;">Hi ${contactName},</p>
+        <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#18181b;">Your account for <strong>${businessName}</strong> is set up and ready to go. Here's how to start turning happy customers into 5-star Google reviews, automatically.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 36px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+          <tr>
+            <td width="36" valign="top" style="padding-bottom:20px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#18181b;color:#ffffff;font-size:13px;font-weight:700;line-height:26px;text-align:center;font-family:'Poppins',Arial,sans-serif;">1</div>
+            </td>
+            <td valign="top" style="padding-bottom:20px;padding-left:12px;">
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#18181b;"><strong>Add your Google review link</strong><br/><span style="color:#6b6b70;">In your dashboard settings, this is where every customer gets sent after they click their personal review link.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td width="36" valign="top" style="padding-bottom:20px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#18181b;color:#ffffff;font-size:13px;font-weight:700;line-height:26px;text-align:center;font-family:'Poppins',Arial,sans-serif;">2</div>
+            </td>
+            <td valign="top" style="padding-bottom:20px;padding-left:12px;">
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#18181b;"><strong>Add your first customer</strong><br/><span style="color:#6b6b70;">Their review request goes out the moment you save it, no extra step.</span></p>
+            </td>
+          </tr>
+          <tr>
+            <td width="36" valign="top" style="padding-bottom:8px;">
+              <div style="width:26px;height:26px;border-radius:50%;background:#18181b;color:#ffffff;font-size:13px;font-weight:700;line-height:26px;text-align:center;font-family:'Poppins',Arial,sans-serif;">3</div>
+            </td>
+            <td valign="top" style="padding-bottom:8px;padding-left:12px;">
+              <p style="margin:0;font-size:15px;line-height:1.55;color:#18181b;"><strong>Connect Jobber or Square (optional)</strong><br/><span style="color:#6b6b70;">Review requests go out automatically the moment an invoice is paid, no manual entry needed.</span></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="center" style="padding:12px 36px 36px;">
+        <a href="${loginUrl}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:14px 32px;border-radius:8px;font-family:'Poppins',Arial,sans-serif;">Log in to your dashboard</a>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 36px 12px;">
+        <p style="margin:0 0 14px;font-size:13px;font-weight:600;letter-spacing:0.02em;color:#8b8b90;text-transform:uppercase;">What your dashboard looks like</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:0 36px;">
+        <img src="${WELCOME_DASHBOARD_PREVIEW_URL}" width="528" alt="Example UpTrend Scaling dashboard, showing customers, messages sent, review link clicks, and reviews marked complete" style="display:block;width:100%;max-width:528px;height:auto;border-radius:10px;border:1px solid #e4e4e7;" />
+        <p style="margin:10px 0 0;font-size:12px;line-height:1.5;color:#a0a0a6;">Example account shown for illustration, yours will fill in as you add customers.</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:32px 36px 8px;">
+        <p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#18181b;">Questions? Just reply to this email, it comes straight to us.</p>
+        <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#18181b;">Thanks for signing up,<br/>The UpTrend Scaling team</p>
+      </td>
+    </tr>
+    <tr>
+      <td style="padding:28px 36px 32px;border-top:1px solid #e4e4e7;">
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#a0a0a6;">UpTrend Scaling LLC &middot; Glendale, AZ</p>
+      </td>
+    </tr>
+  </table>
+</div>`;
 }
 
 // Sent when a business requests a password reset from /forgot-password.
