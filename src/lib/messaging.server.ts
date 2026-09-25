@@ -252,8 +252,15 @@ export function welcomeEmailHtml(
     </tr>
     <tr>
       <td style="padding:32px 36px 8px;">
-        <p style="margin:0 0 4px;font-size:15px;line-height:1.6;color:#18181b;">Questions? Just reply to this email, it comes straight to us.</p>
-        <p style="margin:16px 0 0;font-size:15px;line-height:1.6;color:#18181b;">Thanks for signing up,<br/>The UpTrend Scaling team</p>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8f8f8;border-left:3px solid #18181b;border-radius:0 8px 8px 0;">
+          <tr>
+            <td style="padding:20px 22px;">
+              <p style="margin:0 0 10px;font-size:12px;font-weight:600;letter-spacing:0.02em;color:#8b8b90;text-transform:uppercase;">A note from Colby, our Founder</p>
+              <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:#18181b;">I started UpTrend Scaling because I kept seeing good local businesses lose customers over nothing more than an empty Google reviews page. I can't wait to see your account grow and more traffic come to your business. If you ever get stuck, have a question, or just want to say hi, reply to this email, it comes straight to me.</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#18181b;">Thanks for giving us a shot!<br/>Colby</p>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
     <tr>
