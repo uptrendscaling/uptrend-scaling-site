@@ -1,4 +1,4 @@
-// Low-level SMS + email sending. Talks to Twilio and Resend directly over
+// Low-level SMS + email sending. Talks to Telnyx and Resend directly over
 // fetch (no SDKs, keeps the server bundle small). Both channels follow the
 // same dormant-until-configured pattern as Stripe: the app builds and runs
 // fine with none of these env vars set, and every call site checks the
@@ -11,11 +11,9 @@ import { CANONICAL_SITE_URL } from "./site";
 // signed-up business's own review-request texts/emails go out under.
 export const UPTREND_SUPPORT_EMAIL = "hello@uptrendscaling.com";
 
-export function isTwilioConfigured(): boolean {
+export function isTelnyxConfigured(): boolean {
   return Boolean(
-    process.env["TWILIO_ACCOUNT_SID"] &&
-    process.env["TWILIO_AUTH_TOKEN"] &&
-    process.env["TWILIO_FROM_NUMBER"],
+    process.env["TELNYX_API_KEY"] && process.env["TELNYX_FROM_NUMBER"],
   );
 }
 
@@ -32,44 +30,43 @@ export function reviewLinkFor(token: string): string {
 export type SendResult =
   { ok: true; providerMessageId: string | null } | { ok: false; error: string };
 
-// Sends a single SMS via Twilio's REST API.
+// Sends a single SMS via Telnyx's REST API.
 export async function sendSms(to: string, body: string): Promise<SendResult> {
-  const sid = process.env["TWILIO_ACCOUNT_SID"];
-  const token = process.env["TWILIO_AUTH_TOKEN"];
-  const from = process.env["TWILIO_FROM_NUMBER"];
-  if (!sid || !token || !from) {
-    return { ok: false, error: "Twilio is not configured yet." };
+  const apiKey = process.env["TELNYX_API_KEY"];
+  const from = process.env["TELNYX_FROM_NUMBER"];
+  if (!apiKey || !from) {
+    return { ok: false, error: "Telnyx is not configured yet." };
   }
 
   try {
-    const params = new URLSearchParams({ To: to, From: from, Body: body });
-    const response = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString("base64")}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: params.toString(),
+    const response = await fetch("https://api.telnyx.com/v2/messages", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
       },
-    );
+      body: JSON.stringify({ from, to, text: body }),
+    });
 
     const payload = (await response.json().catch(() => null)) as {
-      sid?: string;
-      message?: string;
+      data?: { id?: string };
+      errors?: { title?: string; detail?: string }[];
     } | null;
 
     if (!response.ok) {
+      const firstError = payload?.errors?.[0];
       return {
         ok: false,
-        error: payload?.message ?? `Twilio responded with ${response.status}`,
+        error:
+          firstError?.detail ??
+          firstError?.title ??
+          `Telnyx responded with ${response.status}`,
       };
     }
 
-    return { ok: true, providerMessageId: payload?.sid ?? null };
+    return { ok: true, providerMessageId: payload?.data?.id ?? null };
   } catch (error) {
-    console.error("[messaging] failed to send SMS via Twilio", error);
+    console.error("[messaging] failed to send SMS via Telnyx", error);
     return { ok: false, error: "Network error sending SMS." };
   }
 }
@@ -122,7 +119,7 @@ export async function sendEmail(
 // ---- Message copy --------------------------------------------------------
 // Kept short and personalized. Every message includes the tracked review
 // link so we know precisely when it's clicked, plus an opt-out line on SMS
-// (required for A2P 10DLC compliance once Twilio is live).
+// (required for toll-free SMS compliance).
 
 export function initialSmsBody(
   businessName: string,

@@ -39,7 +39,7 @@ import {
   initialEmailSubject,
   initialSmsBody,
   isResendConfigured,
-  isTwilioConfigured,
+  isTelnyxConfigured,
   newSubscriberEmailHtml,
   newSubscriberEmailSubject,
   reminderEmailHtml,
@@ -526,7 +526,7 @@ async function sendReviewRequestAndLog(
   let smsSent: boolean | null = null;
   let emailSent: boolean | null = null;
 
-  if (customer.phone && isTwilioConfigured()) {
+  if (customer.phone && isTelnyxConfigured()) {
     const result = await sendSms(customer.phone, smsBody);
     smsSent = result.ok;
     await db.insert(messages).values({
