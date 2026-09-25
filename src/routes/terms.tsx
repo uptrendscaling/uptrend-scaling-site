@@ -104,7 +104,7 @@ function TermsPage() {
           <h2>7. Third-party services</h2>
           <p>
             The Service relies on third-party providers to operate, including Stripe for payments,
-            Twilio for SMS delivery, and Resend for email delivery. Your use of the Service is also
+            Telnyx for SMS delivery, and Resend for email delivery. Your use of the Service is also
             subject to the applicable terms of those providers where relevant to the features they
             power.
           </p>

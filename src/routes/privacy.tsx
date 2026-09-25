@@ -83,7 +83,7 @@ function PrivacyPage() {
               <strong>Stripe</strong> — processes subscription payments and stores billing details.
             </li>
             <li>
-              <strong>Twilio</strong> — delivers the SMS text messages sent through the Service.
+              <strong>Telnyx</strong> — delivers the SMS text messages sent through the Service.
             </li>
             <li>
               <strong>Resend</strong> — delivers the emails sent through the Service.
