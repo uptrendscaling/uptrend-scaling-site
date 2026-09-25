@@ -310,7 +310,9 @@ function ConnectionsPanel({
       <h2>Connect your invoicing/CRM</h2>
       <p className="app-panel-hint">
         Connect Jobber or Square and we&rsquo;ll automatically send a review
-        request the moment an invoice is paid — no manual entry needed.
+        request the moment an invoice is paid — no manual entry needed. By
+        connecting, you confirm your customers have already agreed to be
+        contacted about their service.
       </p>
       {crmError && (
         <p className="app-panel-message app-panel-message-error">
@@ -371,6 +373,7 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isError, setIsError] = useState(false);
@@ -382,6 +385,14 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
 
     if (!name.trim() || (!phone.trim() && !email.trim())) {
       setMessage("Add a name plus a phone number or email.");
+      setIsError(true);
+      return;
+    }
+
+    if (!consentConfirmed) {
+      setMessage(
+        "Please confirm the customer agreed to be contacted before sending.",
+      );
       setIsError(true);
       return;
     }
@@ -403,6 +414,7 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
         setName("");
         setPhone("");
         setEmail("");
+        setConsentConfirmed(false);
         onAdded();
       } else {
         setMessage(result.message);
@@ -449,6 +461,18 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
         >
           {submitting ? "Sending…" : "Add + send"}
         </button>
+        <label className="app-consent-row">
+          <input
+            type="checkbox"
+            checked={consentConfirmed}
+            onChange={(event) => setConsentConfirmed(event.target.checked)}
+            required
+          />
+          <span>
+            I confirm this customer agreed to receive text messages and emails
+            about their service.
+          </span>
+        </label>
       </form>
       {message && (
         <p
