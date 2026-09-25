@@ -1534,6 +1534,26 @@ h1 strong {
   font: 500 14px/1 var(--font-sans);
 }
 
+.app-consent-row {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+.app-consent-row input {
+  margin-top: 3px;
+  width: 15px;
+  height: 15px;
+  accent-color: var(--foreground);
+  flex: none;
+}
+.app-consent-row span {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .customer-table-wrap {
   overflow-x: auto;
 }
