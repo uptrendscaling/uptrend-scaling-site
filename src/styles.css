@@ -821,7 +821,7 @@ h1 strong {
 }
 .phone-stars,
 .qr-stars {
-  color: var(--foreground);
+  color: oklch(0.83 0.17 84);
   letter-spacing: 0.18em;
   margin-top: 19px;
 }
