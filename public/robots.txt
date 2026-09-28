@@ -10,5 +10,34 @@ Allow: /
 User-agent: facebookexternalhit
 Allow: /
 
+# AI assistants / answer engines -- explicitly allowed so they can read and
+# cite this site (OpenAI, Anthropic, Perplexity, Google's AI features, and
+# Common Crawl, which many other models train on).
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
 User-agent: *
 Allow: /
+
+Sitemap: https://www.uptrendscaling.com/sitemap.xml
