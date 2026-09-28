@@ -16,8 +16,14 @@ declare global {
 }
 
 export function fireLeadConversion(): void {
+  // TEMP DEBUG -- remove once the misfire is root-caused.
+  console.log("[debug] fireLeadConversion called", {
+    hasWindow: typeof window !== "undefined",
+    gtagType: typeof window !== "undefined" ? typeof window.gtag : "n/a",
+  });
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
   window.gtag("event", "conversion", {
     send_to: `${GOOGLE_ADS_CONVERSION_ID}/${LEAD_CONVERSION_LABEL}`,
   });
+  console.log("[debug] fireLeadConversion: gtag called");
 }
