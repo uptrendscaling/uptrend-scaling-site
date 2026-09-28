@@ -313,7 +313,6 @@ function Index() {
             <div className="trend-card">
               <div className="trend-card-head">
                 <span>Review momentum</span>
-                <span className="example-pill">Illustrative example</span>
               </div>
               <svg
                 className="trend-chart"
@@ -517,7 +516,6 @@ function Index() {
               />
             </div>
             <div className="phone-stage reveal-right" data-reveal>
-              <div className="message-label">Example message</div>
               <div className="phone-frame">
                 <div className="phone-bar">
                   <span>9:41</span>
@@ -605,7 +603,6 @@ function Index() {
             <div className="chart-panel reveal-right" data-reveal>
               <div className="panel-head">
                 <span>Reviews earned / week</span>
-                <span className="example-pill">Sample data</span>
               </div>
               <div
                 className="bar-chart"
