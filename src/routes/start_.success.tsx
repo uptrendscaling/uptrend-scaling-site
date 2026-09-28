@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
 import { claimBusinessAccount } from "../lib/reviews.server";
 import { fireLeadConversion } from "../lib/google-ads";
+import { fireSignupEvent } from "../lib/meta-pixel";
 
 const searchSchema = z.object({
   session_id: z.string().trim().optional(),
@@ -53,6 +54,7 @@ function SuccessPage() {
     if (!sessionId || conversionFiredRef.current) return;
     conversionFiredRef.current = true;
     fireLeadConversion();
+    fireSignupEvent();
   }, [sessionId]);
 
   const email = summary && summary.ok ? summary.email : null;
