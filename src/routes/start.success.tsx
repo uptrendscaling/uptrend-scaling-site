@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
@@ -40,11 +40,20 @@ function SuccessPage() {
   // That's the actual "lead" moment the Google Ads test campaigns are
   // measuring, so it fires on arrival rather than waiting on the password
   // form below (which is just dashboard setup, not part of the ad's goal).
+  //
+  // sessionId comes from Route.useSearch(), which isn't guaranteed to be
+  // populated on the very first client-side effect pass during hydration --
+  // an empty dependency array here meant that if sessionId was still
+  // undefined on that first pass, the effect returned early and (since it
+  // never ran again) the conversion silently never fired for that visitor.
+  // Depending on [sessionId] lets the effect re-run once it's actually
+  // available; the ref keeps it firing at most once per page load either way.
+  const conversionFiredRef = useRef(false);
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId || conversionFiredRef.current) return;
+    conversionFiredRef.current = true;
     fireLeadConversion();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per session, not on every sessionId identity change
-  }, []);
+  }, [sessionId]);
 
   const email = summary && summary.ok ? summary.email : null;
 
