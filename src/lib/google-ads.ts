@@ -2,7 +2,7 @@
 // test (conversion action created in Google Ads on 2026-09-24). The base
 // gtag.js loader tag lives in __root.tsx and runs on every page; this
 // file's fireLeadConversion() is called once, client-side, from
-// start.success.tsx -- the page a business only reaches after finishing the
+// start_.success.tsx -- the page a business only reaches after finishing the
 // signup form on /start AND completing Stripe checkout, which is the real
 // "lead" moment the ad campaigns are being measured against.
 export const GOOGLE_ADS_CONVERSION_ID = "AW-18464908958";
@@ -16,14 +16,8 @@ declare global {
 }
 
 export function fireLeadConversion(): void {
-  // TEMP DEBUG -- remove once the misfire is root-caused.
-  console.log("[debug] fireLeadConversion called", {
-    hasWindow: typeof window !== "undefined",
-    gtagType: typeof window !== "undefined" ? typeof window.gtag : "n/a",
-  });
   if (typeof window === "undefined" || typeof window.gtag !== "function") return;
   window.gtag("event", "conversion", {
     send_to: `${GOOGLE_ADS_CONVERSION_ID}/${LEAD_CONVERSION_LABEL}`,
   });
-  console.log("[debug] fireLeadConversion: gtag called");
 }
