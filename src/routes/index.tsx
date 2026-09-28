@@ -575,7 +575,6 @@ function Index() {
                 <DecorativeQR />
                 <strong>Scan to leave a review</strong>
                 <div className="qr-stars">★★★★★</div>
-                <small>Scan-to-review QR code · mockup</small>
               </div>
             </div>
           </div>
