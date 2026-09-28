@@ -50,6 +50,8 @@ function SuccessPage() {
   // available; the ref keeps it firing at most once per page load either way.
   const conversionFiredRef = useRef(false);
   useEffect(() => {
+    // TEMP DEBUG -- remove once the misfire is root-caused.
+    console.log("[debug] conversion effect ran", { sessionId, alreadyFired: conversionFiredRef.current });
     if (!sessionId || conversionFiredRef.current) return;
     conversionFiredRef.current = true;
     fireLeadConversion();
