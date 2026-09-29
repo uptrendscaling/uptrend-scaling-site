@@ -889,7 +889,7 @@ h1 strong {
   margin-bottom: 20px;
   font: 650 14px/1 var(--font-serif);
 }
-.mini-mark {
+.qr-top .mini-mark {
   display: grid;
   place-items: center;
   width: 24px;
