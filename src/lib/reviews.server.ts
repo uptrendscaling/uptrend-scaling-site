@@ -50,6 +50,7 @@ import {
   reviewLinkFor,
   sendEmail,
   sendSms,
+  TRUSTPILOT_AFS_BCC_EMAIL,
   UPTREND_SUPPORT_EMAIL,
   welcomeEmailHtml,
   welcomeEmailSubject,
@@ -226,13 +227,16 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
 
       // Best-effort: a failed welcome email should never block account
       // creation. Dormant until RESEND_API_KEY is configured, same as the
-      // rest of the messaging pipeline.
+      // rest of the messaging pipeline. BCC'd to Trustpilot's AFS address so
+      // this first "purchase experience" triggers a review invite about a
+      // week later -- see TRUSTPILOT_AFS_BCC_EMAIL.
       if (isResendConfigured()) {
         const result = await sendEmail(
           email,
           welcomeEmailSubject(),
           welcomeEmailHtml(welcomeBusinessName, welcomeContactName),
           UPTREND_SUPPORT_EMAIL,
+          TRUSTPILOT_AFS_BCC_EMAIL,
         );
         if (!result.ok) {
           console.error("[reviews] failed to send welcome email", result.error);

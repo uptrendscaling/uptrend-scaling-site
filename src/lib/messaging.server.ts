@@ -11,6 +11,17 @@ import { CANONICAL_SITE_URL } from "./site";
 // signed-up business's own review-request texts/emails go out under.
 export const UPTREND_SUPPORT_EMAIL = "hello@uptrendscaling.com";
 
+// The unique per-business BCC address from Trustpilot's Automatic Feedback
+// Service (AFS) -- see businessapp.b2b.trustpilot.com > Get reviews > Set up
+// email invites. BCC'ing this address on the welcome email (the first
+// "purchase experience" a newly-subscribed business has with us) tells
+// Trustpilot to follow up with that business about a week later asking for
+// a review. Not a secret and has no external service to be "unconfigured,"
+// so it's a plain constant like UPTREND_SUPPORT_EMAIL rather than an env
+// var; grab a new value from AFS's "Manage AFS" screen if it ever changes.
+export const TRUSTPILOT_AFS_BCC_EMAIL =
+  "uptrendscaling.com+926042d14e@invite.trustpilot.com";
+
 export function isTelnyxConfigured(): boolean {
   return Boolean(
     process.env["TELNYX_API_KEY"] && process.env["TELNYX_FROM_NUMBER"],
@@ -74,12 +85,15 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
 // Sends a single email via Resend's REST API. Pass `from` to override the
 // sender for account/system emails (see UPTREND_SUPPORT_EMAIL); otherwise
 // falls back to RESEND_FROM_EMAIL, the address a business's own review
-// requests go out under.
+// requests go out under. Pass `bcc` to also blind-copy an address (see
+// TRUSTPILOT_AFS_BCC_EMAIL) -- omitted from the request entirely when not
+// given, so every existing call site is unaffected.
 export async function sendEmail(
   to: string,
   subject: string,
   html: string,
   from?: string,
+  bcc?: string,
 ): Promise<SendResult> {
   const apiKey = process.env["RESEND_API_KEY"];
   const fromAddress = from ?? process.env["RESEND_FROM_EMAIL"];
@@ -94,7 +108,13 @@ export async function sendEmail(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from: fromAddress, to, subject, html }),
+      body: JSON.stringify({
+        from: fromAddress,
+        to,
+        subject,
+        html,
+        ...(bcc ? { bcc } : {}),
+      }),
     });
 
     const payload = (await response.json().catch(() => null)) as {
