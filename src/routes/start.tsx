@@ -122,27 +122,6 @@ function StartPage() {
               activating your account.
             </p>
 
-            <div className="plan-toggle" role="tablist" aria-label="Choose a plan">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={plan === "trial"}
-                className={plan === "trial" ? "is-active" : ""}
-                onClick={() => setPlan("trial")}
-              >
-                {TRIAL_DAYS}-day free trial
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={plan === "membership"}
-                className={plan === "membership" ? "is-active" : ""}
-                onClick={() => setPlan("membership")}
-              >
-                Start membership now
-              </button>
-            </div>
-
             <ul className="feature-list start-fine-print">
               <li>
                 <CheckIcon />
@@ -155,7 +134,7 @@ function StartPage() {
               <li>
                 <CheckIcon />
                 {plan === "trial"
-                  ? `Nothing charged for ${TRIAL_DAYS} days, cancel anytime before then`
+                  ? `Card required to start, nothing charged for ${TRIAL_DAYS} days`
                   : "Billed today, cancel anytime"}
               </li>
               <li>
@@ -163,6 +142,24 @@ function StartPage() {
                 Month-to-month, no long contracts
               </li>
             </ul>
+
+            <p className="plan-alt-link">
+              {plan === "trial" ? (
+                <>
+                  Prefer to skip the trial and subscribe today?{" "}
+                  <button type="button" onClick={() => setPlan("membership")}>
+                    Start membership now
+                  </button>
+                </>
+              ) : (
+                <>
+                  Want the {TRIAL_DAYS}-day free trial instead?{" "}
+                  <button type="button" onClick={() => setPlan("trial")}>
+                    Switch to free trial
+                  </button>
+                </>
+              )}
+            </p>
           </div>
 
           <form className="start-form" onSubmit={handleSubmit}>
@@ -261,7 +258,10 @@ function StartPage() {
               <ArrowIcon />
             </button>
             <p className="start-disclaimer">
-              Secure checkout powered by Stripe. Cancel anytime, no long-term contract.
+              Secure checkout powered by Stripe.{" "}
+              {plan === "trial" &&
+                `Card required to start, nothing charged for ${TRIAL_DAYS} days. `}
+              Cancel anytime, no long-term contract.
             </p>
           </form>
         </div>
