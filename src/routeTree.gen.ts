@@ -21,7 +21,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
 import { Route as RTokenRouteImport } from './routes/r.$token'
-import { Route as StartSuccessRouteImport } from './routes/start.success'
+import { Route as StartSuccessRouteImport } from './routes/start_.success'
 import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
@@ -91,9 +91,9 @@ const RTokenRoute = RTokenRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const StartSuccessRoute = StartSuccessRouteImport.update({
-  id: '/success',
-  path: '/success',
-  getParentRoute: () => StartRoute,
+  id: '/start_/success',
+  path: '/start/success',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const StripeWebhookRoute = StripeWebhookRouteImport.update({
   id: '/stripe/webhook',
@@ -139,7 +139,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/start': typeof StartRouteWithChildren
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -161,7 +161,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/start': typeof StartRouteWithChildren
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -184,12 +184,12 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/start': typeof StartRouteWithChildren
+  '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
   '/r/$token': typeof RTokenRoute
-  '/start/success': typeof StartSuccessRoute
+  '/start_/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
@@ -257,7 +257,7 @@ export interface FileRouteTypes {
     | '/cron/lead-followups'
     | '/cron/reminders'
     | '/r/$token'
-    | '/start/success'
+    | '/start_/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
@@ -275,11 +275,12 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
-  StartRoute: typeof StartRouteWithChildren
+  StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
   RTokenRoute: typeof RTokenRoute
+  StartSuccessRoute: typeof StartSuccessRoute
   StripeWebhookRoute: typeof StripeWebhookRoute
   WebhooksJobberRoute: typeof WebhooksJobberRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
@@ -375,12 +376,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/start/success': {
-      id: '/start/success'
-      path: '/success'
+    '/start_/success': {
+      id: '/start_/success'
+      path: '/start/success'
       fullPath: '/start/success'
       preLoaderRoute: typeof StartSuccessRouteImport
-      parentRoute: typeof StartRoute
+      parentRoute: typeof rootRouteImport
     }
     '/stripe/webhook': {
       id: '/stripe/webhook'
@@ -434,16 +435,6 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface StartRouteChildren {
-  StartSuccessRoute: typeof StartSuccessRoute
-}
-
-const StartRouteChildren: StartRouteChildren = {
-  StartSuccessRoute: StartSuccessRoute,
-}
-
-const StartRouteWithChildren = StartRoute._addFileChildren(StartRouteChildren)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
@@ -452,11 +443,12 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
-  StartRoute: StartRouteWithChildren,
+  StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
   RTokenRoute: RTokenRoute,
+  StartSuccessRoute: StartSuccessRoute,
   StripeWebhookRoute: StripeWebhookRoute,
   WebhooksJobberRoute: WebhooksJobberRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
