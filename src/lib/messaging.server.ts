@@ -136,6 +136,109 @@ export async function sendEmail(
   }
 }
 
+// ---- Cold-outreach follow-up sending (batch) -----------------------------
+// Resend's single-send endpoint is limited to 2 requests per second per
+// team. The old follow-up job fired one request per lead back to back, so on
+// 2026-10-02 and 2026-10-03 about 140 of 150 sends were rejected with a 429
+// and the job still marked every lead "followed up." This sends up to 50
+// emails per single request instead, and reports exactly what happened so the
+// caller only marks a lead followed up when Resend actually accepted it.
+
+// Same sender identity the cold-email broadcasts use, so a follow-up looks
+// like it comes from the same person as the first email.
+export const LEAD_OUTREACH_FROM =
+  "Colby at UpTrend Scaling <colby@mail.uptrendscaling.com>";
+
+export type OutreachEmail = { to: string; subject: string; text: string };
+
+export type BatchSendResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+      status: number | null;
+      // True when trying the same request again later could work (rate
+      // limit, Resend outage, network blip). False for a bad request.
+      retryable: boolean;
+      retryAfterMs: number | null;
+    };
+
+// Sends up to 100 plain-text emails in one request. Never throws. Strict
+// validation on Resend's side means one bad address makes the whole request
+// fail with a 4xx (nothing is sent); callers should fall back to
+// sendEmailPlain for that chunk.
+export async function sendEmailBatch(
+  emails: OutreachEmail[],
+): Promise<BatchSendResult> {
+  const apiKey = process.env["RESEND_API_KEY"];
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "Resend is not configured yet.",
+      status: null,
+      retryable: false,
+      retryAfterMs: null,
+    };
+  }
+  if (emails.length === 0) return { ok: true };
+
+  try {
+    const response = await fetch("https://api.resend.com/emails/batch", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(
+        emails.map((email) => ({
+          from: LEAD_OUTREACH_FROM,
+          to: email.to,
+          subject: email.subject,
+          text: email.text,
+          reply_to: UPTREND_SUPPORT_EMAIL,
+          headers: {
+            "List-Unsubscribe": `<mailto:${UPTREND_SUPPORT_EMAIL}?subject=unsubscribe>`,
+          },
+        })),
+      ),
+    });
+
+    if (response.ok) return { ok: true };
+
+    const payload = (await response.json().catch(() => null)) as {
+      message?: string;
+    } | null;
+    const retryAfterHeader = Number(response.headers.get("retry-after"));
+    return {
+      ok: false,
+      error: payload?.message ?? `Resend responded with ${response.status}`,
+      status: response.status,
+      retryable: response.status === 429 || response.status >= 500,
+      retryAfterMs:
+        Number.isFinite(retryAfterHeader) && retryAfterHeader > 0
+          ? retryAfterHeader * 1000
+          : null,
+    };
+  } catch (error) {
+    console.error("[messaging] failed to send email batch via Resend", error);
+    return {
+      ok: false,
+      error: "Network error sending email.",
+      status: null,
+      retryable: true,
+      retryAfterMs: null,
+    };
+  }
+}
+
+// Sends one plain-text outreach email. Used only as the fallback when a
+// batch is rejected, so one bad address can't hold up the rest.
+export async function sendEmailPlain(
+  email: OutreachEmail,
+): Promise<BatchSendResult> {
+  return sendEmailBatch([email]);
+}
+
 // ---- Message copy --------------------------------------------------------
 // Kept short and personalized. Every message includes the tracked review
 // link so we know precisely when it's clicked, plus an opt-out line on SMS
@@ -322,13 +425,35 @@ export function newSubscriberEmailHtml(
   return `<p>A new business just subscribed.</p><ul><li>Business: ${businessName}</li><li>Contact: ${contactName}</li><li>Email: ${email}</li><li>Phone: ${phone || "Not provided"}</li><li>Plan: ${plan ?? "Not set"}</li></ul>`;
 }
 
-// Sent once, 48 hours after a cold-outreach lead's first email, if no
-// response has been recorded by then. Kept short, same spirit as the
-// original outreach, not pushy. See lib/leads.server.ts.
-export function leadFollowUpEmailSubject(businessName: string): string {
-  return `Following up, ${businessName}`;
+// Sent once, two days after a cold-outreach lead's first email, if no
+// response has been recorded by then. Plain text, short, and it refers back
+// to the first email instead of repeating it. See lib/leads.server.ts.
+export function leadFollowUpEmailSubject(): string {
+  return "Following up on my note";
 }
 
-export function leadFollowUpEmailHtml(businessName: string): string {
-  return `<p>Hi there,</p><p>Wanted to follow up on the note I sent a couple days ago about UpTrend Scaling, we help businesses like ${businessName} turn more happy customers into Google reviews automatically, no extra work on your end.</p><p>If it's not a fit right now, no worries at all. If you're curious, just reply to this email and I'll walk you through it.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
+// Uses the owner's first name only when we actually have a clean one;
+// otherwise a plain "Hi there,".
+export function leadFirstName(ownerName: string | null): string | null {
+  const first = ownerName?.trim().split(/\s+/)[0] ?? "";
+  return /^[A-Za-z][A-Za-z'’-]{1,20}$/.test(first) ? first : null;
+}
+
+export function leadFollowUpEmailText(
+  businessName: string,
+  ownerName: string | null,
+): string {
+  const first = leadFirstName(ownerName);
+  return [
+    `Hi ${first ?? "there"},`,
+    "",
+    `Quick follow up on my note from a couple of days ago about getting more Google reviews for ${businessName} on autopilot.`,
+    "",
+    `If it's not a priority right now, no problem at all. If you'd like to see how it works, just reply "yes" and I'll send over a short walkthrough, or take a look at uptrendscaling.com.`,
+    "",
+    "Colby",
+    "UpTrend Scaling",
+    "",
+    `P.S. If this isn't a fit, reply "no thanks" and I won't email you again.`,
+  ].join("\n");
 }

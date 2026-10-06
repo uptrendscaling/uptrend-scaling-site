@@ -10,20 +10,28 @@ import {
   getRequestHeader,
   setResponseStatus,
 } from "@tanstack/react-start/server";
-import { and, eq, isNull, lt } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  getTableColumns,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import { getDb, isDbConfigured } from "./db/client";
 import { leads, type Lead } from "./db/schema";
 import {
-  isResendConfigured,
-  leadFollowUpEmailHtml,
   leadFollowUpEmailSubject,
-  sendEmail,
+  leadFollowUpEmailText,
+  sendEmailBatch,
+  sendEmailPlain,
+  type OutreachEmail,
 } from "./messaging.server";
 import { requireAdminBusiness } from "./reviews.server";
-
-const FOLLOW_UP_DELAY_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 // ---- Admin: the outreach map ------------------------------------------
 
@@ -123,54 +131,139 @@ export const markLeadResponded = createServerFn({ method: "POST" })
 // ---- Automated 48-hour follow-up (driven by Vercel Cron) ----------------
 
 export type LeadFollowUpRunResult =
-  { ok: true; sent: number } | { ok: false; reason: "not_configured" };
+  | { ok: true; sent: number; failed: number }
+  | { ok: false; reason: "not_configured" };
 
-// Finds every lead contacted 48+ hours ago with no response recorded and no
-// follow-up sent yet, sends one follow-up email, and stamps
-// followUpSentAt. Called by the /cron/lead-followups route on a schedule.
+// Safety limits. Never more than 60 follow-ups in one run (anything left
+// over is picked up by tomorrow's run), 50 emails per Resend request, and a
+// pause between requests so we stay well under Resend's 2 requests/second.
+const FOLLOW_UP_RUN_LIMIT = 60;
+const FOLLOW_UP_CHUNK_SIZE = 50;
+const FOLLOW_UP_PAUSE_MS = 1000;
+// Written into leads.notes when Resend permanently rejects an address, so
+// the same bad address isn't retried (and doesn't hog a slot) every day.
+const FOLLOW_UP_FAILED_NOTE_PREFIX = "Follow-up not sent:";
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// A lead row plus the owner's name. owner_name lives in the database but is
+// not declared in the Drizzle schema, so it is selected by name here instead
+// of editing the schema file.
+type DueLead = Lead & { ownerName: string | null };
+
+function followUpEmailFor(lead: DueLead): OutreachEmail {
+  return {
+    to: lead.email,
+    subject: leadFollowUpEmailSubject(),
+    text: leadFollowUpEmailText(lead.businessName, lead.ownerName),
+  };
+}
+
+// Finds every lead whose first email went out at least two Phoenix calendar
+// days ago with no response recorded and no follow-up sent yet, sends one
+// follow-up, and stamps followUpSentAt ONLY for emails Resend actually
+// accepted. Called by the /cron/lead-followups route on a schedule.
+//
+// Uses Phoenix calendar dates, not a strict 48-hour timestamp check, so a
+// lead emailed late on a given day is still picked up two days later.
 export async function sendDueLeadFollowUps(): Promise<LeadFollowUpRunResult> {
-  if (!isDbConfigured()) return { ok: false, reason: "not_configured" };
+  if (!isDbConfigured() || !process.env["RESEND_API_KEY"]) {
+    return { ok: false, reason: "not_configured" };
+  }
 
   const db = getDb();
-  const cutoff = new Date(Date.now() - FOLLOW_UP_DELAY_MS);
 
-  let due: Lead[];
+  let due: DueLead[];
   try {
     due = await db
-      .select()
+      .select({
+        ...getTableColumns(leads),
+        ownerName: sql<string | null>`"leads"."owner_name"`,
+      })
       .from(leads)
       .where(
         and(
           isNull(leads.followUpSentAt),
           isNull(leads.respondedAt),
-          lt(leads.contactedAt, cutoff),
+          isNotNull(leads.contactedAt),
+          sql`(${leads.contactedAt} at time zone 'America/Phoenix')::date <= (now() at time zone 'America/Phoenix')::date - 2`,
+          sql`coalesce(${leads.notes}, '') not like ${FOLLOW_UP_FAILED_NOTE_PREFIX + "%"}`,
         ),
-      );
+      )
+      .orderBy(asc(leads.contactedAt))
+      .limit(FOLLOW_UP_RUN_LIMIT);
   } catch (error) {
     // Most likely the `leads` table/migration hasn't been applied yet --
     // ack the cron run with nothing sent rather than erroring, same
     // dormant-safe pattern as the rest of this app.
     console.error("[leads] failed to query due follow-ups", error);
-    return { ok: true, sent: 0 };
+    return { ok: true, sent: 0, failed: 0 };
   }
 
-  let sent = 0;
-  for (const lead of due) {
-    if (isResendConfigured()) {
-      await sendEmail(
-        lead.email,
-        leadFollowUpEmailSubject(lead.businessName),
-        leadFollowUpEmailHtml(lead.businessName),
-      );
-    }
+  async function markFollowedUp(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
     await db
       .update(leads)
       .set({ followUpSentAt: new Date() })
-      .where(eq(leads.id, lead.id));
-    sent += 1;
+      .where(inArray(leads.id, ids));
   }
 
-  return { ok: true, sent };
+  let sent = 0;
+  let failed = 0;
+
+  for (let start = 0; start < due.length; start += FOLLOW_UP_CHUNK_SIZE) {
+    const chunk = due.slice(start, start + FOLLOW_UP_CHUNK_SIZE);
+    if (start > 0) await sleep(FOLLOW_UP_PAUSE_MS);
+
+    const emails = chunk.map(followUpEmailFor);
+    let result = await sendEmailBatch(emails);
+    if (!result.ok && result.retryable) {
+      // Rate limited or a brief Resend hiccup: wait once, try once more.
+      await sleep(result.retryAfterMs ?? 2000);
+      result = await sendEmailBatch(emails);
+    }
+
+    if (result.ok) {
+      await markFollowedUp(chunk.map((lead) => lead.id));
+      sent += chunk.length;
+      continue;
+    }
+
+    if (result.status === 400 || result.status === 422) {
+      // Resend rejects the whole batch if one address is invalid. Send this
+      // chunk one at a time so the good addresses still go out.
+      for (const lead of chunk) {
+        await sleep(FOLLOW_UP_PAUSE_MS);
+        const single = await sendEmailPlain(followUpEmailFor(lead));
+        if (single.ok) {
+          await markFollowedUp([lead.id]);
+          sent += 1;
+        } else if (single.status === 400 || single.status === 422) {
+          failed += 1;
+          await db
+            .update(leads)
+            .set({ notes: `${FOLLOW_UP_FAILED_NOTE_PREFIX} ${single.error}`.slice(0, 500) })
+            .where(eq(leads.id, lead.id));
+        } else {
+          // Rate limit or outage mid-chunk: stop here and leave the rest
+          // unmarked so tomorrow's run picks them up.
+          console.error("[leads] follow-up run stopped early", single.error);
+          return { ok: true, sent, failed: failed + 1 };
+        }
+      }
+      continue;
+    }
+
+    // Anything else (bad API key, persistent rate limit, outage): do not
+    // mark anyone as followed up, stop, and let the next run try again.
+    console.error("[leads] follow-up batch failed", result.status, result.error);
+    return { ok: true, sent, failed: failed + chunk.length };
+  }
+
+  console.log(`[leads] follow-up run finished: ${sent} sent, ${failed} failed`);
+  return { ok: true, sent, failed };
 }
 
 function isCronRequestAuthorized(): boolean {

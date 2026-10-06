@@ -4,12 +4,14 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
+import { trackEvent } from "../lib/analytics.server";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { GOOGLE_ADS_CONVERSION_ID } from "../lib/google-ads";
 import { META_PIXEL_ID } from "../lib/meta-pixel";
@@ -147,8 +149,85 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+// ---- Site analytics tracking (inlined here, not a separate component
+// file, to keep this to as few directories as possible) -------------------
+// Mounted once at the root, so it covers every page including the
+// logged-in /app and /admin areas -- that's how the admin dashboard knows
+// which businesses are currently logged in, without a separate mechanism.
+// Fully best-effort: every call is fire-and-forget and swallows its own
+// errors, so a tracking hiccup (or an ad blocker) never affects the site.
+// Restored 2026-10-06: a 2026-09-23 upload replaced this file with a version
+// that dropped it, and visits/clicks silently stopped being recorded.
+
+const VISITOR_ID_KEY = "uptrend_vid";
+const SESSION_ID_KEY = "uptrend_sid";
+const HEARTBEAT_INTERVAL_MS = 25_000;
+
+function readOrCreateId(storage: Storage, key: string): string {
+  try {
+    const existing = storage.getItem(key);
+    if (existing) return existing;
+    const created = crypto.randomUUID();
+    storage.setItem(key, created);
+    return created;
+  } catch {
+    // Private browsing / blocked storage -- fall back to an id that's only
+    // good for this one page load rather than breaking tracking entirely.
+    return crypto.randomUUID();
+  }
+}
+
+function useSiteAnalytics(pathname: string) {
+  useEffect(() => {
+    const visitorId = readOrCreateId(window.localStorage, VISITOR_ID_KEY);
+    const sessionId = readOrCreateId(window.sessionStorage, SESSION_ID_KEY);
+
+    void trackEvent({
+      data: { visitorId, sessionId, kind: "pageview", path: pathname },
+    }).catch(() => {});
+
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void trackEvent({
+        data: {
+          visitorId,
+          sessionId,
+          kind: "heartbeat",
+          path: window.location.pathname,
+        },
+      }).catch(() => {});
+    }, HEARTBEAT_INTERVAL_MS);
+
+    function handleClick(event: MouseEvent) {
+      const target = (event.target as HTMLElement | null)?.closest("a, button");
+      if (!target) return;
+      const label = (target.getAttribute("aria-label") || target.textContent || "")
+        .trim()
+        .replace(/\s+/g, " ")
+        .slice(0, 100);
+      void trackEvent({
+        data: {
+          visitorId,
+          sessionId,
+          kind: "click",
+          path: window.location.pathname,
+          label: label || undefined,
+        },
+      }).catch(() => {});
+    }
+    document.addEventListener("click", handleClick, { capture: true });
+
+    return () => {
+      window.clearInterval(heartbeat);
+      document.removeEventListener("click", handleClick, { capture: true });
+    };
+  }, [pathname]);
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  useSiteAnalytics(pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
