@@ -469,8 +469,18 @@ function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
             required
           />
           <span>
-            I confirm this customer agreed to receive text messages and emails
-            about their service.
+            I confirm this customer gave me their contact info and agreed to
+            receive a one-time text or email from my business asking for a
+            Google review, plus one reminder if they don't respond. Msg &amp;
+            data rates may apply. Reply STOP to opt out, HELP for help. See our{" "}
+            <a href="/privacy" target="_blank" rel="noreferrer">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a href="/terms" target="_blank" rel="noreferrer">
+              Terms
+            </a>
+            .
           </span>
         </label>
       </form>

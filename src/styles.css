@@ -1622,6 +1622,10 @@ h1 strong {
   font-size: 12px;
   line-height: 1.5;
 }
+.app-consent-row a {
+  color: var(--foreground);
+  text-decoration: underline;
+}
 
 .customer-table-wrap {
   overflow-x: auto;

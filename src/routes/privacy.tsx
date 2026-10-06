@@ -37,7 +37,7 @@ function PrivacyPage() {
             <span /> Legal
           </p>
           <h1>Privacy Policy</h1>
-          <p className="legal-updated">Last updated: September 19, 2026</p>
+          <p className="legal-updated">Last updated: October 6, 2026</p>
 
           <p>
             This Privacy Policy explains how UpTrend Scaling, LLC ("UpTrend Scaling," "we," "us," or
@@ -104,6 +104,12 @@ function PrivacyPage() {
             out (replying STOP for SMS, or an unsubscribe path for email), and we honor those
             requests promptly. Phone numbers and consent information collected for SMS messaging are
             never shared with third parties for their own marketing purposes.
+          </p>
+          <p>
+            Text messages sent through the Service are one-time review requests (plus at most one
+            reminder) on behalf of the business the recipient did work with. Message frequency
+            varies, and message and data rates may apply. Reply STOP to opt out at any time, or
+            HELP for help; you can also contact us at hello@uptrendscaling.com.
           </p>
 
           <h2>5. Data retention</h2>

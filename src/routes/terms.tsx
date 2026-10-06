@@ -37,7 +37,7 @@ function TermsPage() {
             <span /> Legal
           </p>
           <h1>Terms of Service</h1>
-          <p className="legal-updated">Last updated: September 19, 2026</p>
+          <p className="legal-updated">Last updated: October 6, 2026</p>
 
           <p>
             These Terms of Service ("Terms") govern access to and use of the UpTrend Scaling
@@ -74,7 +74,25 @@ function TermsPage() {
             honor opt-out requests.
           </p>
 
-          <h2>4. No fake or incentivized reviews</h2>
+          <h2>4. Text message (SMS) program</h2>
+          <p>
+            Program: UpTrend Scaling sends review-request text messages on behalf of the
+            businesses that use the Service. Each message asks one of that business's own
+            customers to leave a Google review, and is sent only after the business confirms the
+            customer agreed to be contacted. A customer receives one request per completed job,
+            plus at most one reminder if they haven't responded. We do not send marketing or
+            promotional texts through this program.
+          </p>
+          <p>
+            Message frequency varies with how often the business serves you, and is typically one
+            or two messages per job. Message and data rates may apply. Reply STOP at any time to
+            opt out and you will receive no further texts; reply HELP for help, or email
+            hello@uptrendscaling.com. Carriers are not liable for delayed or undelivered
+            messages. Phone numbers and consent information are never shared with third parties for
+            their own marketing purposes; see our Privacy Policy for details.
+          </p>
+
+          <h2>5. No fake or incentivized reviews</h2>
           <p>
             The Service is built to help you ask real customers for honest feedback. You agree not
             to use the Service to solicit reviews from people who didn't actually do business with
@@ -83,7 +101,7 @@ function TermsPage() {
             Google's review policies or any other review platform's guidelines.
           </p>
 
-          <h2>5. Subscriptions, billing, and cancellation</h2>
+          <h2>6. Subscriptions, billing, and cancellation</h2>
           <p>
             Paid plans are billed monthly per location, plus a one-time setup fee, through our
             payment processor, Stripe. If you start a free trial, you won't be charged until the
@@ -93,7 +111,7 @@ function TermsPage() {
             provide refunds for partial billing periods except where required by law.
           </p>
 
-          <h2>6. Acceptable use</h2>
+          <h2>7. Acceptable use</h2>
           <p>
             You agree not to use the Service to send unlawful, harassing, or deceptive messages; to
             attempt to interfere with or disrupt the Service; to reverse-engineer or resell the
@@ -101,7 +119,7 @@ function TermsPage() {
             rights of any third party.
           </p>
 
-          <h2>7. Third-party services</h2>
+          <h2>8. Third-party services</h2>
           <p>
             The Service relies on third-party providers to operate, including Stripe for payments,
             Telnyx for SMS delivery, and Resend for email delivery. Your use of the Service is also
@@ -109,7 +127,7 @@ function TermsPage() {
             power.
           </p>
 
-          <h2>8. Termination</h2>
+          <h2>9. Termination</h2>
           <p>
             We may suspend or terminate access to the Service if these Terms are violated, if
             payment is not received, or if we reasonably believe the Service is being used to send
@@ -117,7 +135,7 @@ function TermsPage() {
             at any time.
           </p>
 
-          <h2>9. Disclaimers and limitation of liability</h2>
+          <h2>10. Disclaimers and limitation of liability</h2>
           <p>
             The Service is provided "as is" without warranties of any kind, express or implied. We
             don't guarantee any specific number of reviews, response rate, or business outcome. To
@@ -127,14 +145,14 @@ function TermsPage() {
             the claim arose.
           </p>
 
-          <h2>10. Changes to these Terms</h2>
+          <h2>11. Changes to these Terms</h2>
           <p>
             We may update these Terms from time to time. If we make material changes, we'll let you
             know by email or by posting a notice in the dashboard. Continued use of the Service
             after changes take effect means you accept the updated Terms.
           </p>
 
-          <h2>11. Contact</h2>
+          <h2>12. Contact</h2>
           <p>
             Questions about these Terms? Email{" "}
             <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>.

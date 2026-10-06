@@ -266,7 +266,7 @@ export function initialSmsBody(
   customerName: string,
   link: string,
 ): string {
-  return `Hi ${customerName}, thanks for choosing ${businessName}! Mind leaving us a quick review? ${link} Reply STOP to opt out.`;
+  return `Hi ${customerName}, thanks for choosing ${businessName}! Mind leaving us a quick review? ${link} Msg&data rates may apply. Reply STOP to opt out, HELP for help.`;
 }
 
 export function reminderSmsBody(
