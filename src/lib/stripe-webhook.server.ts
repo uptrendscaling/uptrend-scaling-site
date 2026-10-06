@@ -50,30 +50,68 @@ async function setAccessRevokedForSubscription(
   await db.update(businesses).set({ accessRevoked: revoked }).where(eq(businesses.id, business.id));
 }
 
-// Trial signups reach Stripe Checkout with the $20 setup fee left out of
-// line_items entirely (see ../lib/checkout.server.ts) -- Checkout charges
-// one-time line items immediately, even on a trialing subscription, so
-// including it there would defeat "nothing charged for 7 days." Instead,
-// once the subscription actually exists and is trialing, we queue the fee as
-// a pending invoice item tied to that customer + subscription. Stripe
-// automatically folds pending items into a subscription's next invoice, and
-// for a fresh trialing subscription that's the invoice generated at trial
-// end -- so the $20 lands on the same invoice as the first month's charge,
-// exactly once, with nothing due today.
-async function handleSubscriptionCreated(stripe: Stripe, subscription: Stripe.Subscription): Promise<void> {
+// The one-time setup fee for FREE TRIAL signups. These reach Stripe Checkout
+// with the $20 fee left out of line_items on purpose (see
+// ../lib/checkout.server.ts): Checkout charges one-time line items
+// immediately, even on a trialing subscription, which would defeat "nothing
+// charged for 7 days." Instead, once the subscription exists and is trialing,
+// we queue the fee as a pending invoice item tied to that customer and
+// subscription. Stripe folds pending items into the subscription's next
+// invoice, which for a fresh trial is the one generated when the trial ends,
+// so the $20 lands on the same invoice as the first month, exactly once.
+//
+// This only runs for plan "trial". Plan "membership" (no trial) pays the fee
+// as a Checkout line item today, so it must never get a second one here.
+//
+// Stripe can deliver the same event more than once (retries after a failed
+// response, manual resends, rare duplicate deliveries). Two guards make sure
+// the fee is queued only once per subscription:
+// 1. Before creating anything, look at the customer's existing invoice items.
+//    The item we create is tagged with the subscription id in its metadata, so
+//    a later delivery sees the tag and skips. This check also skips customers
+//    that already carry an untagged setup fee item created by the earlier
+//    version of this handler.
+// 2. The create call uses an idempotency key derived from the subscription id,
+//    so two deliveries racing each other cannot both create an item.
+const SETUP_FEE_DESCRIPTION = "One-time account setup fee";
+const SETUP_FEE_SUBSCRIPTION_KEY = "setup_fee_for_subscription";
+
+async function hasSetupFeeItem(
+  stripe: Stripe,
+  customerId: string,
+  subscriptionId: string,
+): Promise<boolean> {
+  // Each checkout creates its own Stripe customer, so this list is tiny.
+  for await (const item of stripe.invoiceItems.list({ customer: customerId, limit: 100 })) {
+    if (item.metadata?.[SETUP_FEE_SUBSCRIPTION_KEY] === subscriptionId) return true;
+    if (item.amount === SETUP_FEE_CENTS && item.description === SETUP_FEE_DESCRIPTION) return true;
+  }
+  return false;
+}
+
+async function handleSubscriptionCreated(
+  stripe: Stripe,
+  subscription: Stripe.Subscription,
+): Promise<void> {
   if (subscription.status !== "trialing") return;
   if (subscription.metadata?.["plan"] !== "trial") return;
 
   const customerId =
     typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
 
-  await stripe.invoiceItems.create({
-    customer: customerId,
-    subscription: subscription.id,
-    currency: "usd",
-    amount: SETUP_FEE_CENTS,
-    description: "One-time account setup fee",
-  });
+  if (await hasSetupFeeItem(stripe, customerId, subscription.id)) return;
+
+  await stripe.invoiceItems.create(
+    {
+      customer: customerId,
+      subscription: subscription.id,
+      currency: "usd",
+      amount: SETUP_FEE_CENTS,
+      description: SETUP_FEE_DESCRIPTION,
+      metadata: { [SETUP_FEE_SUBSCRIPTION_KEY]: subscription.id },
+    },
+    { idempotencyKey: `setup-fee-${subscription.id}` },
+  );
 }
 
 async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<void> {

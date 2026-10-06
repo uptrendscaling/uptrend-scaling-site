@@ -4,6 +4,11 @@
 // fine with none of these env vars set, and every call site checks the
 // matching isXConfigured() before sending.
 
+import {
+  OUTREACH_FOLLOWUP_SUBJECT,
+  followUpTimingPhrase,
+  renderOutreachEmail,
+} from "./outreach-email";
 import { CANONICAL_SITE_URL } from "./site";
 
 // The address UpTrend Scaling's own account emails (welcome, receipts, etc.)
@@ -149,7 +154,16 @@ export async function sendEmail(
 export const LEAD_OUTREACH_FROM =
   "Colby at UpTrend Scaling <colby@mail.uptrendscaling.com>";
 
-export type OutreachEmail = { to: string; subject: string; text: string };
+// One outreach email. `html` and `text` are sent together (HTML is what the
+// recipient normally sees, text is the fallback). `unsubscribeUrl` becomes the
+// List-Unsubscribe header, which is what Gmail's own "Unsubscribe" link uses.
+export type OutreachEmail = {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  unsubscribeUrl?: string;
+};
 
 export type BatchSendResult =
   | { ok: true }
@@ -163,7 +177,7 @@ export type BatchSendResult =
       retryAfterMs: number | null;
     };
 
-// Sends up to 100 plain-text emails in one request. Never throws. Strict
+// Sends up to 100 emails (HTML plus a plain-text copy) in one request. Never throws. Strict
 // validation on Resend's side means one bad address makes the whole request
 // fail with a 4xx (nothing is sent); callers should fall back to
 // sendEmailPlain for that chunk.
@@ -195,9 +209,12 @@ export async function sendEmailBatch(
           to: email.to,
           subject: email.subject,
           text: email.text,
+          ...(email.html ? { html: email.html } : {}),
           reply_to: UPTREND_SUPPORT_EMAIL,
           headers: {
-            "List-Unsubscribe": `<mailto:${UPTREND_SUPPORT_EMAIL}?subject=unsubscribe>`,
+            "List-Unsubscribe": email.unsubscribeUrl
+              ? `<${email.unsubscribeUrl}>, <mailto:${UPTREND_SUPPORT_EMAIL}?subject=unsubscribe>`
+              : `<mailto:${UPTREND_SUPPORT_EMAIL}?subject=unsubscribe>`,
           },
         })),
       ),
@@ -426,10 +443,18 @@ export function newSubscriberEmailHtml(
 }
 
 // Sent once, two days after a cold-outreach lead's first email, if no
-// response has been recorded by then. Plain text, short, and it refers back
-// to the first email instead of repeating it. See lib/leads.server.ts.
+// response has been recorded by then. Short, and it refers back to the first
+// email instead of repeating it. The layout and copy live in
+// ./outreach-email.ts so the first email and the follow-up share one design.
+// See lib/leads.server.ts.
 export function leadFollowUpEmailSubject(): string {
-  return "Following up on my note";
+  return OUTREACH_FOLLOWUP_SUBJECT;
+}
+
+// Where the Unsubscribe button and the List-Unsubscribe header point. The
+// lead's id is an unguessable uuid, so the link identifies exactly one lead.
+export function leadUnsubscribeUrl(leadId: string): string {
+  return `${CANONICAL_SITE_URL}/unsubscribe?l=${leadId}`;
 }
 
 // Uses the owner's first name only when we actually have a clean one;
@@ -439,21 +464,21 @@ export function leadFirstName(ownerName: string | null): string | null {
   return /^[A-Za-z][A-Za-z'’-]{1,20}$/.test(first) ? first : null;
 }
 
-export function leadFollowUpEmailText(
-  businessName: string,
-  ownerName: string | null,
-): string {
-  const first = leadFirstName(ownerName);
-  return [
-    `Hi ${first ?? "there"},`,
-    "",
-    `Quick follow up on my note from a couple of days ago about getting more Google reviews for ${businessName} on autopilot.`,
-    "",
-    `If it's not a priority right now, no problem at all. If you'd like to see how it works, just reply "yes" and I'll send over a short walkthrough, or take a look at uptrendscaling.com.`,
-    "",
-    "Colby",
-    "UpTrend Scaling",
-    "",
-    `P.S. If this isn't a fit, reply "no thanks" and I won't email you again.`,
-  ].join("\n");
+// Builds the complete follow-up for one lead: subject, designed HTML, the
+// plain-text copy, and the unsubscribe link.
+export function leadFollowUpEmail(lead: {
+  id: string;
+  businessName: string;
+  ownerName: string | null;
+  contactedAt: Date | null;
+}): { subject: string; html: string; text: string; unsubscribeUrl: string } {
+  const unsubscribeUrl = leadUnsubscribeUrl(lead.id);
+  const content = renderOutreachEmail({
+    kind: "followup",
+    greetingName: leadFirstName(lead.ownerName) ?? "there",
+    businessName: lead.businessName,
+    timingPhrase: followUpTimingPhrase(lead.contactedAt),
+    unsubscribeUrl,
+  });
+  return { ...content, unsubscribeUrl };
 }

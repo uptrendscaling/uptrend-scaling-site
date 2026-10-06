@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type Stripe from "stripe";
 import { z } from "zod";
 
 import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
@@ -24,6 +25,18 @@ export type CheckoutResult =
 // pre-configured in the Stripe dashboard — everything is defined inline via
 // price_data. The moment STRIPE_SECRET_KEY is set in the deploy environment,
 // this goes live with no further code changes.
+//
+// When the $20 setup fee is charged:
+// - plan "membership" (subscribe today, no trial): the fee is a one-time line
+//   item in Checkout, so the customer pays the $20 setup fee plus the first
+//   $70 month today. Nothing else ever adds a setup fee for this plan.
+// - plan "trial": Checkout charges one-time line items immediately, even when
+//   the subscription has a trial (trial_period_days only defers the recurring
+//   items). So for trial signups the fee is left out of line_items entirely and
+//   nothing is due today, matching the "nothing charged for 7 days" copy on
+//   /start. The fee is added later, exactly once, as a pending invoice item by
+//   handleSubscriptionCreated in stripe-webhook.server.ts, which Stripe rolls
+//   into the invoice generated when the trial ends, next to the first month.
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .validator((input: unknown) => checkoutInputSchema.parse(input))
   .handler(async ({ data }): Promise<CheckoutResult> => {
@@ -51,16 +64,31 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         plan: data.plan,
       };
 
+      const setupFeeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+        data.plan === "trial"
+          ? []
+          : [
+              {
+                price_data: {
+                  currency: "usd",
+                  product_data: {
+                    name: "One-time account setup fee",
+                    description: "Charged once today, not part of the monthly plan",
+                  },
+                  unit_amount: SETUP_FEE_CENTS,
+                },
+                quantity: 1,
+              },
+            ];
+
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer_email: data.email,
         allow_promotion_codes: true,
-        // Force Checkout to always ask for card details and always show/charge
-        // the one-time setup fee line item today, even on the trial plan.
-        // This is already Stripe's default, but pinning it explicitly means
-        // our $20 setup fee can never silently get skipped if Stripe ever
-        // changes that default, or if a discount/coupon ever brought the
-        // subscription's own due-today amount to $0.
+        // Always collect a card, even when nothing is due today (the free
+        // trial). Stripe's default already does this for subscriptions with a
+        // trial, but pinning it keeps "card required to start" true if that
+        // default ever changes, or if a coupon brought the due-today amount to $0.
         payment_method_collection: "always",
         line_items: [
           {
@@ -75,17 +103,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             },
             quantity: data.locations,
           },
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: "One-time account setup fee",
-                description: "Charged once today, not part of the monthly plan",
-              },
-              unit_amount: SETUP_FEE_CENTS,
-            },
-            quantity: 1,
-          },
+          // Only the no-trial plan pays the setup fee at checkout. Trial signups
+          // get it later from the webhook (see the comment above
+          // createCheckoutSession), so it must NOT be in this list for them.
+          ...setupFeeLineItems,
         ],
         subscription_data:
           data.plan === "trial"

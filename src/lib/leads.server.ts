@@ -25,8 +25,7 @@ import { z } from "zod";
 import { getDb, isDbConfigured } from "./db/client";
 import { leads, type Lead } from "./db/schema";
 import {
-  leadFollowUpEmailSubject,
-  leadFollowUpEmailText,
+  leadFollowUpEmail,
   sendEmailBatch,
   sendEmailPlain,
   type OutreachEmail,
@@ -154,10 +153,18 @@ function sleep(ms: number): Promise<void> {
 type DueLead = Lead & { ownerName: string | null };
 
 function followUpEmailFor(lead: DueLead): OutreachEmail {
+  const email = leadFollowUpEmail({
+    id: lead.id,
+    businessName: lead.businessName,
+    ownerName: lead.ownerName,
+    contactedAt: lead.contactedAt,
+  });
   return {
     to: lead.email,
-    subject: leadFollowUpEmailSubject(),
-    text: leadFollowUpEmailText(lead.businessName, lead.ownerName),
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
+    unsubscribeUrl: email.unsubscribeUrl,
   };
 }
 
@@ -190,6 +197,8 @@ export async function sendDueLeadFollowUps(): Promise<LeadFollowUpRunResult> {
           isNotNull(leads.contactedAt),
           sql`(${leads.contactedAt} at time zone 'America/Phoenix')::date <= (now() at time zone 'America/Phoenix')::date - 2`,
           sql`coalesce(${leads.notes}, '') not like ${FOLLOW_UP_FAILED_NOTE_PREFIX + "%"}`,
+          // Anyone who clicked Unsubscribe is never emailed again.
+          sql`"leads"."unsubscribed_at" is null`,
         ),
       )
       .orderBy(asc(leads.contactedAt))
@@ -265,6 +274,52 @@ export async function sendDueLeadFollowUps(): Promise<LeadFollowUpRunResult> {
   console.log(`[leads] follow-up run finished: ${sent} sent, ${failed} failed`);
   return { ok: true, sent, failed };
 }
+
+// ---- Unsubscribe ----------------------------------------------------------
+// Backs the /unsubscribe page that the Unsubscribe button in every outreach
+// email links to. Public on purpose (no login): the link carries the lead's
+// unguessable id, or the person types their own email address. Always answers
+// "ok" for a well-formed request, whether or not a lead matched, so it can't
+// be used to find out which addresses are in our list. The follow-up job skips
+// every lead that has unsubscribed_at set. (That column is selected by name,
+// like owner_name, so db/schema.ts is untouched.)
+
+const unsubscribeInputSchema = z
+  .object({
+    leadId: z.string().trim().uuid().optional(),
+    email: z.string().trim().toLowerCase().email().max(254).optional(),
+  })
+  .refine((input) => Boolean(input.leadId || input.email), {
+    message: "Missing lead or email.",
+  });
+
+export type UnsubscribeResult = { ok: true } | { ok: false; message: string };
+
+export const unsubscribeLead = createServerFn({ method: "POST" })
+  .validator((input: unknown) => unsubscribeInputSchema.parse(input))
+  .handler(async ({ data }): Promise<UnsubscribeResult> => {
+    if (!isDbConfigured()) return { ok: false, message: "Not configured yet." };
+    try {
+      const db = getDb();
+      if (data.leadId) {
+        await db.execute(
+          sql`update leads set unsubscribed_at = coalesce(unsubscribed_at, now()) where id = ${data.leadId}::uuid`,
+        );
+      } else if (data.email) {
+        await db.execute(
+          sql`update leads set unsubscribed_at = coalesce(unsubscribed_at, now()) where lower(email) = ${data.email}`,
+        );
+      }
+      return { ok: true };
+    } catch (error) {
+      console.error("[leads] failed to record unsubscribe", error);
+      return {
+        ok: false,
+        message:
+          "Something went wrong. Please try again, or just reply to the email and we'll remove you.",
+      };
+    }
+  });
 
 function isCronRequestAuthorized(): boolean {
   const expected = process.env["CRON_SECRET"];
