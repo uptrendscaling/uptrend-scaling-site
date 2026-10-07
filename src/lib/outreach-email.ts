@@ -7,8 +7,11 @@
 //
 // Layout notes: table-based with inline styles (the only thing that renders
 // consistently in Gmail, Apple Mail and Outlook), a light body so Gmail and
-// Apple Mail dark-mode inversion can't break it, two small hosted images, and
-// a plain-text version that goes out alongside the HTML.
+// Apple Mail dark-mode inversion can't break it, and a plain-text version that
+// goes out alongside the HTML. There are deliberately NO images: Apple Mail,
+// Zoho, Outlook and others block remote images from unknown senders, which
+// turned the old logo and chart into empty boxes. The header and the chart are
+// built from plain text and colored table cells, which always render.
 
 import { CANONICAL_SITE_URL } from "./site";
 
@@ -24,8 +27,8 @@ export type OutreachEmailInput = {
   timingPhrase?: string;
   // Where the Unsubscribe button points.
   unsubscribeUrl: string;
-  // Override only for local previews; production images are served from the
-  // live site (they ship in /public/email).
+  // No longer used (the emails contain no images). Kept so existing callers
+  // that still pass it keep compiling.
   assetBaseUrl?: string;
 };
 
@@ -38,8 +41,16 @@ export type OutreachEmailContent = {
 export const OUTREACH_FIRST_SUBJECT = "Quick question about your Google reviews";
 export const OUTREACH_FOLLOWUP_SUBJECT = "Following up on my note";
 
-const HEADER_IMAGE = "/email/uptrend-email-header.png";
-const MOMENTUM_IMAGE = "/email/uptrend-email-momentum.png";
+// Bars for the illustrative "reviews pile up" chart: [height in px, color].
+// Light to dark so the newest bar reads as the strongest.
+const MOMENTUM_BARS: Array<[number, string]> = [
+  [22, "#d4d4d8"],
+  [34, "#b8b8be"],
+  [48, "#9a9aa2"],
+  [64, "#71717a"],
+  [82, "#3f3f46"],
+  [104, "#18181b"],
+];
 
 export function escapeHtml(value: string): string {
   return value
@@ -107,7 +118,6 @@ export function renderOutreachEmail(
   const copy = copyFor(input);
   const subject =
     input.kind === "first" ? OUTREACH_FIRST_SUBJECT : OUTREACH_FOLLOWUP_SUBJECT;
-  const assets = input.assetBaseUrl ?? CANONICAL_SITE_URL;
   const campaign = input.kind === "first" ? "first" : "followup";
   const ctaUrl = `${CANONICAL_SITE_URL}/?utm_source=cold_email&utm_medium=email&utm_campaign=${campaign}_v2`;
 
@@ -116,6 +126,11 @@ export function renderOutreachEmail(
   const paraHtml = (innerHtml: string, bottom = 16) =>
     `<p style="margin:0 0 ${bottom}px;font-family:${font};font-size:16px;line-height:1.65;color:#18181b;">${innerHtml}</p>`;
   const para = (text: string, bottom = 16) => paraHtml(escapeHtml(text), bottom);
+
+  const bars = MOMENTUM_BARS.map(
+    ([height, color]) =>
+      `<td valign="bottom" width="16%" style="padding:0 4px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td height="${height}" bgcolor="${color}" style="height:${height}px;background:${color};border-radius:5px 5px 0 0;font-size:0;line-height:0;">&nbsp;</td></tr></table></td>`,
+  ).join("");
 
   const greeting = escapeHtml(input.greetingName);
   const unsubscribeUrl = escapeHtml(input.unsubscribeUrl);
@@ -133,8 +148,9 @@ export function renderOutreachEmail(
 <div style="background:#f4f4f5;padding:24px 12px;font-family:${font};">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
     <tr>
-      <td style="padding:0;">
-        <a href="${CANONICAL_SITE_URL}" style="text-decoration:none;"><img src="${assets}${HEADER_IMAGE}" width="600" alt="UpTrend Scaling" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a>
+      <td align="center" bgcolor="#0b0b0c" style="background:#0b0b0c;padding:26px 36px 24px;">
+        <a href="${CANONICAL_SITE_URL}" style="text-decoration:none;font-family:${font};font-size:28px;line-height:1.2;font-weight:700;color:#fafafa;letter-spacing:-0.5px;">UpTrend <span style="font-weight:400;color:#a1a1aa;">Scaling</span></a>
+        <div style="margin-top:6px;font-family:${font};font-size:11px;line-height:1.4;letter-spacing:2px;color:#8d8d93;">GOOGLE REVIEWS ON AUTOPILOT</div>
       </td>
     </tr>
     <tr>
@@ -145,7 +161,28 @@ export function renderOutreachEmail(
     </tr>
     <tr>
       <td style="padding:8px 36px 12px;">
-        <img src="${assets}${MOMENTUM_IMAGE}" width="528" alt="Chart of Google reviews climbing over time" style="display:block;width:100%;max-width:528px;height:auto;border:0;border-radius:10px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f4f4f5" style="background:#f4f4f5;border:1px solid #e4e4e7;border-radius:10px;">
+          <tr>
+            <td style="padding:16px 20px 6px;font-family:${font};font-size:11px;line-height:1.4;letter-spacing:2px;color:#6b6b70;font-weight:600;">REVIEW MOMENTUM</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 16px 4px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>${bars}</tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 20px 16px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="left" style="font-family:${font};font-size:12px;line-height:1.4;color:#8b8b90;">Today</td>
+                  <td align="right" style="font-family:${font};font-size:12px;line-height:1.4;color:#8b8b90;">Six months later</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
       </td>
     </tr>
     <tr>
