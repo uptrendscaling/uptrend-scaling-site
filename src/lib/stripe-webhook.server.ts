@@ -1,7 +1,9 @@
 // Automatically revokes a business's CRM dashboard access when their Stripe
 // subscription actually ends (status becomes "canceled" or "unpaid"), and
 // restores it if the subscription becomes active again. Also queues the
-// one-time setup fee for trial signups (see handleSubscriptionCreated below).
+// one-time setup fee for trial signups (see handleSubscriptionCreated below),
+// and emails the owner when someone signs up or a trial client makes their
+// first real payment (see ./owner-alerts.server.ts).
 // Dormant-safe like the rest of the integrations: with STRIPE_WEBHOOK_SECRET
 // unset, every request is rejected before touching the database.
 //
@@ -17,6 +19,10 @@ import type Stripe from "stripe";
 
 import { getDb, isDbConfigured } from "./db/client";
 import { businesses } from "./db/schema";
+import {
+  isOwnerAlertEventType,
+  sendOwnerAlertForEvent,
+} from "./owner-alerts.server";
 import { SETUP_FEE_CENTS } from "./pricing";
 
 export function isStripeWebhookConfigured(): boolean {
@@ -115,6 +121,16 @@ async function handleSubscriptionCreated(
 }
 
 async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<void> {
+  // Owner alert emails (new signup, trial client paid). This is deliberately
+  // walled off from the access and setup-fee logic below: sendOwnerAlertForEvent
+  // swallows every error and enforces its own time limit, so an email problem
+  // can never turn into a non-200 answer (and a Stripe retry storm) here. These
+  // event types are not used by anything else in this file.
+  if (isOwnerAlertEventType(event.type)) {
+    await sendOwnerAlertForEvent(stripe, event);
+    return;
+  }
+
   if (event.type === "customer.subscription.created") {
     await handleSubscriptionCreated(stripe, event.data.object as Stripe.Subscription);
     return;

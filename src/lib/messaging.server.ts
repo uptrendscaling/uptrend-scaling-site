@@ -46,7 +46,115 @@ export function reviewLinkFor(token: string): string {
 export type SendResult =
   { ok: true; providerMessageId: string | null } | { ok: false; error: string };
 
-// Sends a single SMS via Telnyx's REST API.
+// ---- Small text helpers --------------------------------------------------
+
+// Customer and business names are typed in by people (or pulled from a CRM),
+// so they must never be dropped raw into email HTML: a name like
+// "Smith & Sons <Plumbing>" would break the layout, and a hostile one could
+// inject markup into an email that goes out under a real business's name.
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Collapses line breaks and runs of spaces so a name can sit inside an SMS or
+// an email subject line without breaking either.
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+// Normalizes a US phone number to E.164 ("+16025550123"), which is the only
+// format Telnyx accepts. Accepts the ways people actually type numbers:
+// "(602) 555-0123", "602.555.0123", "1-602-555-0123", "+1 602 555 0123".
+// Returns null when the input is empty or cannot be a real US number, and the
+// caller then treats the customer as having no phone (email only).
+//
+// A "+" number from another country is passed through when its length is
+// plausible (8 to 15 digits). US/Canada numbers (10 digits, or 11 starting
+// with 1) must follow the North American numbering plan: area code and
+// exchange start with 2 to 9, which rejects typos like 123-456-7890.
+export function normalizeUsPhone(
+  raw: string | null | undefined,
+): string | null {
+  if (!raw) return null;
+  let text = raw.trim();
+  if (!text) return null;
+
+  // "(602) 555-0123 x45" is an office line with an extension. Drop the
+  // extension; any other letters mean this is not a phone number at all.
+  text = text.replace(/\s*(?:ext\.?|extension|x|#)\s*\d{1,6}\s*$/i, "");
+  if (/[a-z]/i.test(text)) return null;
+
+  const hasPlus = text.startsWith("+");
+  const digits = text.replace(/\D/g, "");
+  if (!digits) return null;
+
+  const isNanp = (ten: string) => /^[2-9]\d{2}[2-9]\d{6}$/.test(ten);
+
+  if (hasPlus) {
+    if (digits.startsWith("1")) {
+      return digits.length === 11 && isNanp(digits.slice(1))
+        ? `+${digits}`
+        : null;
+    }
+    return digits.length >= 8 && digits.length <= 15 ? `+${digits}` : null;
+  }
+  if (digits.length === 10) return isNanp(digits) ? `+1${digits}` : null;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return isNanp(digits.slice(1)) ? `+${digits}` : null;
+  }
+  return null;
+}
+
+// Light sanity check, not full RFC validation: something@something.tld with no
+// spaces. Enough to stop obvious junk before it reaches (and gets rejected by)
+// the email provider.
+export function normalizeEmail(raw: string | null | undefined): string | null {
+  const value = raw?.trim();
+  if (!value) return null;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value) ? value : null;
+}
+
+// How long we wait on Telnyx or Resend before giving up. A webhook handler
+// sends from inside a request that Square gives 10 seconds to answer, so an
+// unresponsive provider must not be able to hold it open indefinitely.
+const SEND_TIMEOUT_MS = 8_000;
+
+function isTimeout(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
+
+type TelnyxPayload = {
+  data?: { id?: string };
+  errors?: { code?: string | number; title?: string; detail?: string }[];
+} | null;
+
+// Telnyx's own words for what went wrong, so the message log (and the owner)
+// sees "The 'to' number is not a valid phone number" rather than a bare
+// status code. See developers.telnyx.com, "Send a message": errors come back
+// as { errors: [{ code, title, detail }] }.
+function telnyxErrorText(payload: TelnyxPayload, status: number): string {
+  const first = payload?.errors?.[0];
+  const text = first?.detail || first?.title;
+  if (text) {
+    return first?.code !== undefined && first.code !== ""
+      ? `${text} (Telnyx error ${first.code})`
+      : text;
+  }
+  return `Telnyx responded with ${status}`;
+}
+
+// Sends a single SMS via Telnyx's REST API (POST /v2/messages with
+// { from, to, text }). A 200 from Telnyx means "accepted and queued", not
+// "delivered"; later delivery failures only show up on Telnyx's own
+// delivery webhooks, which this app does not consume yet.
 export async function sendSms(to: string, body: string): Promise<SendResult> {
   const apiKey = process.env["TELNYX_API_KEY"];
   const from = process.env["TELNYX_FROM_NUMBER"];
@@ -62,28 +170,31 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ from, to, text: body }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
 
-    const payload = (await response.json().catch(() => null)) as {
-      data?: { id?: string };
-      errors?: { title?: string; detail?: string }[];
-    } | null;
+    const payload = (await response.json().catch(() => null)) as TelnyxPayload;
 
-    if (!response.ok) {
-      const firstError = payload?.errors?.[0];
-      return {
-        ok: false,
-        error:
-          firstError?.detail ??
-          firstError?.title ??
-          `Telnyx responded with ${response.status}`,
-      };
+    // Non-2xx, or a 2xx that carries an error list and no message id, both
+    // mean Telnyx did not accept the message.
+    if (
+      !response.ok ||
+      (payload?.errors?.length && !payload?.data?.id)
+    ) {
+      const error = telnyxErrorText(payload, response.status);
+      console.error("[messaging] Telnyx did not accept the SMS:", error);
+      return { ok: false, error };
     }
 
     return { ok: true, providerMessageId: payload?.data?.id ?? null };
   } catch (error) {
     console.error("[messaging] failed to send SMS via Telnyx", error);
-    return { ok: false, error: "Network error sending SMS." };
+    return {
+      ok: false,
+      error: isTimeout(error)
+        ? "Telnyx did not answer in time."
+        : "Network error sending SMS.",
+    };
   }
 }
 
@@ -93,12 +204,18 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
 // requests go out under. Pass `bcc` to also blind-copy an address (see
 // TRUSTPILOT_AFS_BCC_EMAIL) -- omitted from the request entirely when not
 // given, so every existing call site is unaffected.
+//
+// `options.idempotencyKey` is Resend's Idempotency-Key header: sending the
+// same key again within 24 hours returns the first result instead of sending
+// a second email. Used by the CRM webhooks so that a retry after a crash can
+// never email the same person twice for the same paid invoice.
 export async function sendEmail(
   to: string,
   subject: string,
   html: string,
   from?: string,
   bcc?: string,
+  options?: { idempotencyKey?: string },
 ): Promise<SendResult> {
   const apiKey = process.env["RESEND_API_KEY"];
   const fromAddress = from ?? process.env["RESEND_FROM_EMAIL"];
@@ -112,6 +229,9 @@ export async function sendEmail(
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
+        ...(options?.idempotencyKey
+          ? { "Idempotency-Key": options.idempotencyKey.slice(0, 256) }
+          : {}),
       },
       body: JSON.stringify({
         from: fromAddress,
@@ -120,24 +240,34 @@ export async function sendEmail(
         html,
         ...(bcc ? { bcc } : {}),
       }),
+      signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
 
+    // Resend errors look like { statusCode, name, message }.
     const payload = (await response.json().catch(() => null)) as {
       id?: string;
       message?: string;
+      name?: string;
     } | null;
 
     if (!response.ok) {
-      return {
-        ok: false,
-        error: payload?.message ?? `Resend responded with ${response.status}`,
-      };
+      const error =
+        payload?.message ||
+        payload?.name ||
+        `Resend responded with ${response.status}`;
+      console.error("[messaging] Resend did not accept the email:", error);
+      return { ok: false, error };
     }
 
     return { ok: true, providerMessageId: payload?.id ?? null };
   } catch (error) {
     console.error("[messaging] failed to send email via Resend", error);
-    return { ok: false, error: "Network error sending email." };
+    return {
+      ok: false,
+      error: isTimeout(error)
+        ? "Resend did not answer in time."
+        : "Network error sending email.",
+    };
   }
 }
 
@@ -261,12 +391,16 @@ export async function sendEmailPlain(
 // link so we know precisely when it's clicked, plus an opt-out line on SMS
 // (required for toll-free SMS compliance).
 
+// US carriers require STOP opt-out language on SMS (the first message to a
+// number especially), so both templates carry it. No dashes or special
+// punctuation in the SMS copy: it keeps the text in the plain GSM alphabet,
+// where one message holds 160 characters instead of 70.
 export function initialSmsBody(
   businessName: string,
   customerName: string,
   link: string,
 ): string {
-  return `Hi ${customerName}, thanks for choosing ${businessName}! Mind leaving us a quick review? ${link} Msg&data rates may apply. Reply STOP to opt out, HELP for help.`;
+  return `Hi ${oneLine(customerName)}, thanks for choosing ${oneLine(businessName)}! Mind leaving us a quick review? ${link} Msg&data rates may apply. Reply STOP to opt out, HELP for help.`;
 }
 
 export function reminderSmsBody(
@@ -274,11 +408,12 @@ export function reminderSmsBody(
   customerName: string,
   link: string,
 ): string {
-  return `Hi ${customerName}, quick reminder from ${businessName} — if you have 30 seconds, a review means a lot to us: ${link} Reply STOP to opt out.`;
+  return `Hi ${oneLine(customerName)}, quick reminder from ${oneLine(businessName)}. If you have 30 seconds, a review means a lot to us: ${link} Reply STOP to opt out.`;
 }
 
+// Subjects are plain text (not HTML), so no escaping, only line breaks removed.
 export function initialEmailSubject(businessName: string): string {
-  return `How did we do? — ${businessName}`;
+  return `How did we do at ${oneLine(businessName)}?`;
 }
 
 export function initialEmailHtml(
@@ -286,11 +421,12 @@ export function initialEmailHtml(
   customerName: string,
   link: string,
 ): string {
-  return `<p>Hi ${customerName},</p><p>Thanks for choosing ${businessName}! If you have a moment, we'd really appreciate a quick review:</p><p><a href="${link}">${link}</a></p><p>Thank you,<br/>${businessName}</p>`;
+  const business = escapeHtml(businessName);
+  return `<p>Hi ${escapeHtml(customerName)},</p><p>Thanks for choosing ${business}! If you have a moment, we'd really appreciate a quick review:</p><p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p><p>Thank you,<br/>${business}</p>`;
 }
 
 export function reminderEmailSubject(businessName: string): string {
-  return `Quick reminder — ${businessName}`;
+  return `Quick reminder from ${oneLine(businessName)}`;
 }
 
 export function reminderEmailHtml(
@@ -298,7 +434,8 @@ export function reminderEmailHtml(
   customerName: string,
   link: string,
 ): string {
-  return `<p>Hi ${customerName},</p><p>Just a quick reminder, if you have 30 seconds we'd love your feedback:</p><p><a href="${link}">${link}</a></p><p>Thank you,<br/>${businessName}</p>`;
+  const business = escapeHtml(businessName);
+  return `<p>Hi ${escapeHtml(customerName)},</p><p>Just a quick reminder, if you have 30 seconds we'd love your feedback:</p><p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p><p>Thank you,<br/>${business}</p>`;
 }
 
 // Sent once, the moment a business finishes signing up (sets their password
@@ -323,6 +460,10 @@ export function welcomeEmailHtml(
   contactName: string,
 ): string {
   const loginUrl = `${CANONICAL_SITE_URL}/login`;
+  // Both names come from the signup form, so they are escaped before going
+  // into the HTML below.
+  const safeBusinessName = escapeHtml(businessName);
+  const safeContactName = escapeHtml(contactName);
 
   // Table-based layout with inline styles throughout -- the only way to get
   // consistent rendering across Gmail, Apple Mail, and Outlook, none of
@@ -340,8 +481,8 @@ export function welcomeEmailHtml(
     </tr>
     <tr>
       <td style="padding:36px 36px 8px;">
-        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#18181b;">Hi ${contactName},</p>
-        <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#18181b;">Your account for <strong>${businessName}</strong> is set up and ready to go. Here's how to start turning happy customers into 5-star Google reviews, automatically.</p>
+        <p style="margin:0 0 16px;font-size:16px;line-height:1.6;color:#18181b;">Hi ${safeContactName},</p>
+        <p style="margin:0 0 28px;font-size:16px;line-height:1.6;color:#18181b;">Your account for <strong>${safeBusinessName}</strong> is set up and ready to go. Here's how to start turning happy customers into 5-star Google reviews, automatically.</p>
       </td>
     </tr>
     <tr>
@@ -422,7 +563,7 @@ export function resetPasswordEmailHtml(
   contactName: string,
   resetUrl: string,
 ): string {
-  return `<p>Hi ${contactName},</p><p>We got a request to reset your UpTrend Scaling password. Click below to choose a new one:</p><p><a href="${resetUrl}">Reset my password</a></p><p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email, your password won't change.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
+  return `<p>Hi ${escapeHtml(contactName)},</p><p>We got a request to reset your UpTrend Scaling password. Click below to choose a new one:</p><p><a href="${escapeHtml(resetUrl)}">Reset my password</a></p><p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email, your password won't change.</p><p>Thanks,<br/>The UpTrend Scaling team</p>`;
 }
 
 // Sent to Colby (not the business), the moment a business finishes signing
@@ -439,7 +580,7 @@ export function newSubscriberEmailHtml(
   phone: string,
   plan: string | null,
 ): string {
-  return `<p>A new business just subscribed.</p><ul><li>Business: ${businessName}</li><li>Contact: ${contactName}</li><li>Email: ${email}</li><li>Phone: ${phone || "Not provided"}</li><li>Plan: ${plan ?? "Not set"}</li></ul>`;
+  return `<p>A new business just subscribed.</p><ul><li>Business: ${escapeHtml(businessName)}</li><li>Contact: ${escapeHtml(contactName)}</li><li>Email: ${escapeHtml(email)}</li><li>Phone: ${escapeHtml(phone || "Not provided")}</li><li>Plan: ${escapeHtml(plan ?? "Not set")}</li></ul>`;
 }
 
 // Sent once, two days after a cold-outreach lead's first email, if no
