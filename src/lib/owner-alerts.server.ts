@@ -32,6 +32,17 @@ import {
   sendEmail,
   UPTREND_SUPPORT_EMAIL,
 } from "./messaging.server";
+import {
+  EMAIL_FONT,
+  button as emailButton,
+  card as emailCard,
+  detailRows as emailDetailRows,
+  emailShell,
+  eyebrow as emailEyebrow,
+  mutedPara as emailMutedPara,
+  paraHtml as emailParaHtml,
+  type EmailSection,
+} from "./email-layout";
 import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
 
 const PROVIDER = "stripe" as const;
@@ -214,106 +225,57 @@ type AlertLayout = {
   note: string | null;
 };
 
-// Simple, table-based, inline-styled, no images. The card is light with dark
-// text, which stays readable when a mail app auto-inverts colors; clients that
-// honor prefers-color-scheme also get a proper dark palette from the small
-// style block (classes mirror the inline colors). Rows are label/value pairs
-// so the plain-text version Resend derives reads cleanly top to bottom.
-// Every dynamic value goes through escapeHtml.
+// Same design as the cold-outreach and welcome emails (see ./email-layout.ts):
+// dark wordmark header, white card, light grey details box, dark button. No
+// images, light colors only, table-based with inline styles. Rows are
+// label/value pairs so the plain-text version Resend derives reads cleanly top
+// to bottom. Every dynamic value goes through escapeHtml (inside the layout
+// helpers, or explicitly below for the headline).
 export function renderAlertEmail(layout: AlertLayout): string {
   const e = escapeHtml;
 
-  const rows = layout.rows
+  const headlineBlock = `${emailEyebrow(layout.badge)}
+        <h1 style="margin:0 0 8px;font-family:${EMAIL_FONT};font-size:24px;line-height:1.3;font-weight:700;letter-spacing:-0.3px;color:#18181b;">${e(layout.headline)}</h1>
+        ${emailParaHtml(e(layout.subline), 0)}`;
+
+  const buttons = layout.links
     .map(
-      (row) => `<tr>
-              <td class="tx-muted rule" valign="top" width="130" style="padding:10px 12px 10px 0;width:130px;font-size:13px;line-height:1.45;color:#6b6b70;border-bottom:1px solid #e4e4e7;">${e(row.label)}</td>
-              <td class="tx-main rule" valign="top" style="padding:10px 0;font-size:15px;line-height:1.45;color:#18181b;border-bottom:1px solid #e4e4e7;word-break:break-word;">${e(row.value)}</td>
-            </tr>`,
+      (link, index) =>
+        `<div style="margin:0 0 10px;">${emailButton(link.label, link.url, index === 0 ? "primary" : "secondary")}</div>`,
     )
-    .join("\n            ");
+    .join("\n        ");
 
-  const links = layout.links
-    .map(
-      (link) =>
-        `<p style="margin:0 0 8px;font-size:14px;line-height:1.5;"><a class="lnk" href="${e(link.url)}" style="color:#1d4ed8;text-decoration:underline;">${e(link.label)}</a></p>`,
-    )
-    .join("\n          ");
-
-  const chipClass = layout.tone === "trial" ? "chip-blue" : "chip-green";
-  const chipStyle =
-    layout.tone === "trial"
-      ? "background:#e0f2fe;color:#075985;"
-      : "background:#dcfce7;color:#166534;";
-
-  const testBanner = layout.testMode
-    ? `<tr>
-        <td class="warn" style="padding:10px 24px;background:#fef9c3;color:#713f12;font-size:13px;line-height:1.45;font-weight:600;">Test mode event from Stripe. No real money moved and this is not a real client.</td>
-      </tr>`
-    : "";
-
-  const note = layout.note
-    ? `<tr>
-        <td style="padding:16px 24px 0;">
-          <p class="tx-muted" style="margin:0;font-size:14px;line-height:1.55;color:#52525b;">${e(layout.note)}</p>
-        </td>
-      </tr>`
-    : "";
-
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<meta name="supported-color-schemes" content="light dark">
-<title>${e(layout.subject)}</title>
-<style>
-  @media (prefers-color-scheme: dark) {
-    .bg-page { background:#0f0f11 !important; }
-    .bg-card { background:#1b1b1f !important; border-color:#34343a !important; }
-    .tx-main { color:#f4f4f5 !important; }
-    .tx-muted { color:#a1a1aa !important; }
-    .rule { border-color:#34343a !important; }
-    .lnk { color:#8ab4ff !important; }
-    .chip-blue { background:#0c4a6e !important; color:#bae6fd !important; }
-    .chip-green { background:#14532d !important; color:#bbf7d0 !important; }
-    .warn { background:#713f12 !important; color:#fef9c3 !important; }
+  const sections: EmailSection[] = [
+    { top: 32, bottom: 12, html: headlineBlock },
+    {
+      top: 8,
+      bottom: 12,
+      html: emailCard("Details", emailDetailRows(layout.rows)),
+    },
+  ];
+  if (layout.note) {
+    sections.push({
+      top: 8,
+      bottom: 8,
+      html: emailMutedPara(layout.note, 0),
+    });
   }
-</style>
-</head>
-<body class="bg-page" style="margin:0;padding:0;background:#f4f4f5;">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${e(layout.preheader)}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg-page" style="background:#f4f4f5;">
-  <tr>
-    <td align="center" style="padding:24px 12px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg-card" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
-      ${testBanner}
-      <tr>
-        <td style="padding:24px 24px 4px;">
-          <span class="${chipClass}" style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;${chipStyle}">${e(layout.badge)}</span>
-          <h1 class="tx-main" style="margin:14px 0 6px;font-size:22px;line-height:1.3;color:#18181b;">${e(layout.headline)}</h1>
-          <p class="tx-muted" style="margin:0;font-size:15px;line-height:1.5;color:#52525b;">${e(layout.subline)}</p>
-        </td>
-      </tr>
-      <tr>
-        <td style="padding:12px 24px 0;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-            ${rows}
-          </table>
-        </td>
-      </tr>
-      ${note}
-      <tr>
-        <td style="padding:20px 24px 24px;">
-          ${links}
-        </td>
-      </tr>
-      </table>
-    </td>
-  </tr>
-</table>
-</body>
-</html>`;
+  if (buttons) {
+    sections.push({ top: 16, bottom: 18, html: buttons });
+  }
+
+  return emailShell({
+    subject: layout.subject,
+    preheader: layout.preheader,
+    tagline: "Owner alert",
+    bannerText: layout.testMode
+      ? "Test mode event from Stripe. No real money moved and this is not a real client."
+      : null,
+    sections,
+    footerLines: [
+      `Owner alert from UpTrend Scaling. Sent to ${UPTREND_SUPPORT_EMAIL}.`,
+    ],
+  });
 }
 
 // ---- Alert A: new signup --------------------------------------------------
