@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { createCheckoutSession } from "../lib/checkout.server";
+import { fireStartedSignupEvent } from "../lib/meta-pixel";
 import {
   MONTHLY_PRICE_CENTS,
   SETUP_FEE_CENTS,
@@ -43,6 +44,8 @@ function StartPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // Counts one "started signup" per visit, even if someone has to resubmit.
+  const startedSignupFiredRef = useRef(false);
 
   const monthlyTotal = monthlyTotalCents(locations);
   const dueToday = plan === "trial" ? 0 : monthlyTotal + SETUP_FEE_CENTS;
@@ -55,6 +58,11 @@ function StartPage() {
     if (!businessName.trim() || !contactName.trim() || !email.trim() || !phone.trim()) {
       setError("Fill in every field so we know who to activate.");
       return;
+    }
+
+    if (!startedSignupFiredRef.current) {
+      startedSignupFiredRef.current = true;
+      fireStartedSignupEvent(plan);
     }
 
     setSubmitting(true);

@@ -18,3 +18,14 @@ export function fireSignupEvent(): void {
   if (typeof window === "undefined" || typeof window.fbq !== "function") return;
   window.fbq("track", "CompleteRegistration");
 }
+
+// "Started signup": fired from /start the moment someone fills in the form
+// and submits it, before they are sent on to Stripe's payment page. Finishing
+// checkout (fireSignupEvent above) is rare while ads are small, so Meta gets
+// this earlier, more frequent signal to learn from and aim the ads at people
+// who actually begin a trial. Only the plan name is sent, never personal
+// details.
+export function fireStartedSignupEvent(plan: string): void {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  window.fbq("track", "Lead", { content_name: plan });
+}
