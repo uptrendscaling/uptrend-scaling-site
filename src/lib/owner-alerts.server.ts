@@ -8,6 +8,11 @@
 //      (or invoice.payment_succeeded, same data) for a subscription whose plan
 //      is "trial", with money actually collected, that is not the $0 invoice
 //      created when the trial started.
+//   C. "Membership canceled": a subscription ended, whether the client used the
+//      Cancel membership button in their dashboard, it was canceled in the
+//      Stripe dashboard, or Stripe ended it after failed payments. Trigger:
+//      customer.subscription.deleted. The webhook turns the client's dashboard
+//      access off first, then calls this.
 //
 // Everything here is best-effort and fenced off from the webhook proper:
 // sendOwnerAlertForEvent() never throws and never changes what Stripe is told,
@@ -18,6 +23,7 @@
 // is a claim marker (not a CRM event), with a dedupe key per real-world action:
 //   signup:<subscription id, or checkout session id>
 //   trial-paid:<subscription id>
+//   cancel:<subscription id>
 // Stripe retries deliveries and sends several events for one action, so the
 // insert-or-skip claim is what keeps it to one email. If the email fails the
 // claim is deleted so a dashboard "Resend event" can send it later.
@@ -26,7 +32,7 @@ import { and, eq, isNull, lt } from "drizzle-orm";
 import type Stripe from "stripe";
 
 import { getDb } from "./db/client";
-import { crmWebhookEvents } from "./db/schema";
+import { businesses, crmWebhookEvents } from "./db/schema";
 import {
   isResendConfigured,
   sendEmail,
@@ -57,8 +63,23 @@ const PAID_INVOICE_EVENTS = new Set([
   "invoice.payment_succeeded",
 ]);
 
+// Unlike the two events above, this one also changes dashboard access (see
+// ./stripe-webhook.server.ts), so the webhook runs its access logic first and
+// only then asks for the alert.
+export const CANCEL_ALERT_EVENT = "customer.subscription.deleted";
+
+// Written into the Stripe subscription's cancellation details by the Cancel
+// membership button (see ./membership.server.ts), so the alert can say the
+// client canceled it themselves rather than it being done in Stripe.
+export const DASHBOARD_CANCEL_COMMENT =
+  "Canceled by the customer from the UpTrend Scaling dashboard";
+
 export function isOwnerAlertEventType(type: string): boolean {
-  return type === SIGNUP_EVENT || PAID_INVOICE_EVENTS.has(type);
+  return (
+    type === SIGNUP_EVENT ||
+    type === CANCEL_ALERT_EVENT ||
+    PAID_INVOICE_EVENTS.has(type)
+  );
 }
 
 // ---- Timing budget --------------------------------------------------------
@@ -583,6 +604,141 @@ export function buildTrialPaymentAlert(
   return { dedupeKey: `trial-paid:${subscriptionId}`, subject, html };
 }
 
+// ---- Alert C: membership canceled -----------------------------------------
+
+// What our own database knows about the client whose subscription ended. The
+// signup details also ride along in the subscription metadata, so a missing
+// account (null) still produces a useful email.
+export type CanceledAccount = {
+  businessName: string | null;
+  contactName: string | null;
+  email: string | null;
+  phone: string | null;
+  locations: number | null;
+};
+
+// Human wording for who or what ended the subscription.
+function cancellationSource(subscription: Stripe.Subscription): string {
+  const details = subscription.cancellation_details;
+  if (details?.comment === DASHBOARD_CANCEL_COMMENT) {
+    return "The client, using Cancel membership in their dashboard";
+  }
+  if (details?.reason === "payment_failed") {
+    return "Stripe, automatically, after payments kept failing";
+  }
+  if (details?.reason === "payment_disputed") {
+    return "Stripe, automatically, after a payment dispute";
+  }
+  return "Canceled in the Stripe dashboard";
+}
+
+// Pure: turns a deleted subscription into the email. Null when the event has no
+// subscription id to dedupe on. `account` is the matching row from our own
+// database (null when none was found, for example a subscription that was never
+// claimed by an account).
+export function buildCancellationAlert(
+  subscription: Stripe.Subscription,
+  account: CanceledAccount | null,
+  ctx: EventContext,
+): OwnerAlert | null {
+  const subscriptionId = nonEmptyString(subscription.id);
+  if (!subscriptionId) return null;
+
+  const metadata = metadataOf(subscription.metadata) ?? {};
+  const plan = metadata["plan"] ?? null;
+  const businessName =
+    account?.businessName ?? nonEmptyString(metadata["businessName"]);
+  const contactName =
+    account?.contactName ?? nonEmptyString(metadata["contactName"]);
+  const email = account?.email ?? null;
+  const phone = account?.phone ?? nonEmptyString(metadata["phone"]);
+  const locations = account?.locations ?? parseLocations(metadata["locations"]);
+  const customerId = idOf(subscription.customer);
+
+  const canceledAt =
+    typeof subscription.canceled_at === "number"
+      ? subscription.canceled_at
+      : ctx.created;
+  const trialEnd =
+    typeof subscription.trial_end === "number" ? subscription.trial_end : null;
+  const duringTrial = trialEnd !== null && trialEnd > canceledAt;
+  const startedAt =
+    typeof subscription.start_date === "number"
+      ? subscription.start_date
+      : typeof subscription.created === "number"
+        ? subscription.created
+        : null;
+
+  const displayName = businessName ?? email ?? "Unknown business";
+  const testPrefix = ctx.livemode ? "" : "[TEST] ";
+  const subject = `${testPrefix}Membership canceled: ${cleanForSubject(displayName)}`;
+
+  const planText =
+    plan === "trial"
+      ? `Free trial (${TRIAL_DAYS} days, card on file)`
+      : plan === "membership"
+        ? "Membership (billing from day one)"
+        : "Not recorded";
+
+  const rows: AlertRow[] = [
+    { label: "Business", value: businessName ?? "Not provided" },
+    { label: "Contact", value: contactName ?? "Not provided" },
+    { label: "Email", value: email ?? "Not provided" },
+    { label: "Phone", value: phone ?? "Not provided" },
+    {
+      label: "Locations",
+      value: locations === null ? "Not provided" : String(locations),
+    },
+    { label: "Plan", value: planText },
+    { label: "Canceled by", value: cancellationSource(subscription) },
+    {
+      label: "Timing",
+      value: duringTrial
+        ? "During the free trial, nothing was ever charged"
+        : "After billing had started",
+    },
+  ];
+  if (startedAt !== null) {
+    rows.push({ label: "Signed up", value: formatDateTime(startedAt) });
+  }
+  rows.push({ label: "Canceled", value: formatDateTime(canceledAt) });
+
+  const links: AlertLink[] = [];
+  if (customerId) {
+    links.push({
+      label: "Open customer in Stripe",
+      url: dashboardUrl(ctx.livemode, "customers", customerId),
+    });
+  }
+  links.push({
+    label: "Open subscription in Stripe",
+    url: dashboardUrl(ctx.livemode, "subscriptions", subscriptionId),
+  });
+
+  const note = account
+    ? "Their dashboard access was turned off automatically and no further charges will happen. Their customer data is kept."
+    : "No matching dashboard account was found for this subscription, so there was no access to turn off. No further charges will happen.";
+
+  const html = renderAlertEmail({
+    subject,
+    preheader: duringTrial
+      ? `${displayName} canceled during the free trial. Nothing was charged.`
+      : `${displayName} canceled their membership.`,
+    tone: duringTrial ? "trial" : "paid",
+    badge: duringTrial ? "Canceled during free trial" : "Membership canceled",
+    headline: displayName,
+    subline: duringTrial
+      ? "Canceled before the free trial ended."
+      : "Canceled their membership.",
+    testMode: !ctx.livemode,
+    rows,
+    links,
+    note,
+  });
+
+  return { dedupeKey: `cancel:${subscriptionId}`, subject, html };
+}
+
 // ---- Claiming (exactly once) ----------------------------------------------
 
 type Claim = { id: string };
@@ -816,12 +972,60 @@ async function processPaidInvoice(
   await deliverAlert(claim, alert);
 }
 
+// Looks the client up by subscription id. Any failure just means the email goes
+// out with the details Stripe already has.
+async function findCanceledAccount(
+  subscriptionId: string,
+): Promise<CanceledAccount | null> {
+  try {
+    const [row] = await getDb()
+      .select({
+        businessName: businesses.businessName,
+        contactName: businesses.contactName,
+        email: businesses.email,
+        phone: businesses.phone,
+        locations: businesses.locations,
+      })
+      .from(businesses)
+      .where(eq(businesses.stripeSubscriptionId, subscriptionId))
+      .limit(1);
+    return row ?? null;
+  } catch (error) {
+    console.error(
+      "[owner-alerts] could not look up the canceled account",
+      subscriptionId,
+      error,
+    );
+    return null;
+  }
+}
+
+async function processCancellation(event: Stripe.Event): Promise<void> {
+  const subscription = event.data.object as Stripe.Subscription;
+  const subscriptionId = nonEmptyString(subscription.id);
+  if (!subscriptionId) return;
+
+  const account = await findCanceledAccount(subscriptionId);
+  const alert = buildCancellationAlert(subscription, account, {
+    livemode: event.livemode,
+    created: event.created,
+    type: event.type,
+  });
+  if (!alert) return;
+
+  const claim = await claimAlert(alert.dedupeKey, event.type);
+  if (!claim) return;
+  await deliverAlert(claim, alert);
+}
+
 async function processOwnerAlert(
   stripe: Stripe,
   event: Stripe.Event,
 ): Promise<void> {
   if (event.type === SIGNUP_EVENT) {
     await processSignup(event);
+  } else if (event.type === CANCEL_ALERT_EVENT) {
+    await processCancellation(event);
   } else if (PAID_INVOICE_EVENTS.has(event.type)) {
     await processPaidInvoice(stripe, event);
   }
