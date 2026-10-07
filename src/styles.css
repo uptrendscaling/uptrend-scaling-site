@@ -1731,26 +1731,6 @@ h1 strong {
 .progress-chart {
   margin-top: 6px;
 }
-.admin-chart-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-.admin-row {
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-}
-.admin-row:hover {
-  background: var(--surface-soft);
-}
-.admin-row-active {
-  background: var(--surface-soft);
-}
-.admin-row-active td:first-child {
-  box-shadow: inset 2px 0 0 var(--foreground);
-}
 
 .site-footer {
   padding: 45px 0;
@@ -2192,65 +2172,16 @@ h1 strong {
   }
 }
 
-/* ---- Outreach map (admin) ---------------------------------------------- */
+/* ---- Outreach map pieces (admin) ----------------------------------------
+   The map itself, its pins and popups. The layout around them lives in the
+   Admin section near the end of this file. */
 
-.outreach-map-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.outreach-map-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.outreach-industry-select {
-  padding: 8px 12px;
-  background: var(--surface-soft);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--foreground);
-  font: 600 12px/1 var(--font-sans);
-}
-.outreach-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-}
-.outreach-legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
 .outreach-dot {
   display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 50%;
   flex: none;
-}
-.outreach-map {
-  width: 100%;
-  height: 460px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  overflow: hidden;
-}
-.outreach-map-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  height: 460px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--muted-foreground);
-  font-size: 13px;
-  background: var(--surface-soft);
 }
 .outreach-pin-wrap {
   background: transparent !important;
@@ -2263,94 +2194,6 @@ h1 strong {
   border-radius: 50%;
   border: 2px solid oklch(1 0 0 / 85%);
   box-shadow: 0 1px 4px oklch(0 0 0 / 45%);
-}
-.outreach-popup {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 180px;
-  font: 500 13px/1.4 var(--font-sans);
-  color: var(--ink);
-}
-.outreach-popup-line {
-  color: oklch(0.32 0 0);
-  font-size: 12px;
-}
-.outreach-popup-status {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: oklch(0.32 0 0);
-}
-.outreach-popup-button {
-  margin-top: 8px;
-  padding: 6px 10px;
-  font-size: 12px;
-  align-self: flex-start;
-}
-.outreach-lead-table-cell-muted {
-  color: var(--muted-foreground);
-  font-size: 12px;
-}
-
-/* ---- Site analytics (admin) --------------------------------------------- */
-
-.analytics-live-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-  margin-top: 22px;
-}
-.analytics-subhead {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  color: var(--muted-foreground);
-  font: 700 11px/1 var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-.live-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: oklch(0.72 0.19 145);
-  box-shadow: 0 0 0 3px oklch(0.72 0.19 145 / 25%);
-  flex: none;
-}
-.analytics-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.analytics-list-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid var(--line-light);
-  font-size: 13px;
-}
-.analytics-list-row code {
-  padding: 1px 5px;
-  background: var(--surface-soft);
-  border-radius: 3px;
-  font: 500 11px/1 var(--font-mono);
-}
-
-@media (max-width: 900px) {
-  .analytics-live-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 /* ==========================================================================
@@ -4824,5 +4667,316 @@ h1 strong {
   }
   .dash-page-head {
     flex-wrap: wrap;
+  }
+}
+
+/* ==========================================================================
+   Admin (/admin). Built from the same dash-* pieces as the client dashboard
+   (top bar, stat cards, panels, tables, pills). Only what is specific to the
+   admin screens lives here.
+   ========================================================================== */
+
+.dash-switcher.is-static {
+  cursor: default;
+  pointer-events: none;
+}
+.dash-topbar-right .dash-btn-quiet {
+  color: var(--dash-text-2);
+}
+
+/* Four cards across instead of the client dashboard's five. */
+.dash-stats-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.dash-stats-4 .dash-stat:nth-child(n) {
+  grid-column: auto;
+}
+
+.admin-two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.admin-scroll-anchor {
+  scroll-margin-top: 80px;
+}
+.admin-quiet {
+  margin: 0;
+  color: var(--dash-muted);
+  font-size: 13px;
+}
+
+/* Panel on the right of Overview: who is on the site right now. */
+.admin-live-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.admin-subhead {
+  margin: 0 0 6px !important;
+  color: var(--dash-faint);
+  font: 400 10px/1.35 var(--font-mono) !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase;
+}
+.admin-subhead:not(:first-child) {
+  margin-top: 22px !important;
+}
+.admin-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* The live lists can get long, so they scroll inside the panel. */
+.admin-list-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+}
+.admin-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--dash-line);
+  font-size: 13px;
+}
+.admin-list-row:last-child {
+  border-bottom: 0;
+}
+.admin-list-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.admin-list-meta {
+  color: var(--dash-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.admin-path {
+  padding: 3px 6px;
+  border-radius: 5px;
+  background: oklch(1 0 0 / 6%);
+  color: var(--dash-text-2);
+  font: 500 11.5px/1.2 var(--font-mono);
+}
+
+/* Four numbers inside the Site traffic panel. */
+.admin-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--dash-line);
+  border-radius: 10px;
+  background: var(--dash-line);
+}
+.admin-traffic-panel {
+  display: flex;
+  flex-direction: column;
+}
+.admin-traffic-panel .dash-panel-body {
+  display: flex;
+  flex: 1;
+}
+.admin-traffic-panel .admin-metrics {
+  flex: 1;
+}
+.admin-metric {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px 18px;
+  background: oklch(0.186 0 0);
+}
+.admin-metric-label {
+  color: var(--dash-faint);
+  font: 400 10px/1.35 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.admin-metric-value {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Where visits come from: a label, a count and a thin bar. */
+.admin-bar-row {
+  padding: 8px 0;
+}
+.admin-bar-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+  font-size: 13px;
+}
+.admin-bar {
+  height: 4px;
+  border-radius: 99px;
+  background: oklch(1 0 0 / 7%);
+}
+.admin-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 99px;
+  background: oklch(0.8 0 0);
+}
+
+/* Clients table: rows open that client's chart. */
+.admin-row {
+  cursor: pointer;
+}
+.admin-row.is-active td {
+  background: oklch(1 0 0 / 5%);
+}
+.admin-row.is-active td:first-child {
+  box-shadow: inset 2px 0 0 oklch(0.97 0 0);
+}
+
+/* Outreach map. Same OpenStreetMap tiles, shifted to a dark palette so the
+   map sits in the dark page; the pins and popups are drawn on top of that. */
+.admin-map-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.admin-map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.admin-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+}
+.admin-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--dash-muted);
+  font-size: 12.5px;
+}
+.admin-industry-select {
+  width: auto;
+  min-width: 180px;
+  height: 34px;
+  font-size: 13px;
+}
+.outreach-map,
+.outreach-map-loading {
+  width: 100%;
+  height: 480px;
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: oklch(0.2 0 0);
+}
+.outreach-map-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dash-muted);
+  font-size: 13px;
+}
+.outreach-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.88)
+    saturate(0.55);
+}
+.outreach-map .leaflet-bar a {
+  border-bottom-color: var(--dash-border);
+  background: oklch(0.225 0 0);
+  color: var(--dash-text);
+}
+.outreach-map .leaflet-bar a:hover {
+  background: oklch(0.27 0 0);
+}
+.outreach-map .leaflet-bar {
+  border: 1px solid var(--dash-border-strong);
+  box-shadow: none;
+}
+.outreach-map .leaflet-control-attribution {
+  background: oklch(0.154 0 0 / 88%);
+  color: var(--dash-text-2);
+  font-size: 10px;
+}
+.outreach-map .leaflet-control-attribution a {
+  color: var(--dash-text);
+}
+.outreach-map .leaflet-popup-content-wrapper,
+.outreach-map .leaflet-popup-tip {
+  border: 1px solid var(--dash-border-strong);
+  background: oklch(0.225 0 0);
+  color: var(--dash-text);
+  box-shadow: 0 14px 40px oklch(0 0 0 / 50%);
+}
+.outreach-map .leaflet-popup-content-wrapper {
+  border-radius: 12px;
+}
+.outreach-map .leaflet-popup-content {
+  margin: 14px 16px;
+}
+.outreach-map a.leaflet-popup-close-button {
+  color: var(--dash-muted);
+}
+.outreach-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 190px;
+  font: 500 13px/1.4 var(--font-sans);
+  color: var(--dash-text);
+}
+.outreach-popup-line {
+  color: var(--dash-muted);
+  font-size: 12px;
+}
+.outreach-popup-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+  color: var(--dash-text-2);
+  font-size: 12px;
+  font-weight: 600;
+}
+.outreach-popup-button {
+  align-self: flex-start;
+  margin-top: 8px;
+}
+
+@media (max-width: 1000px) {
+  .dash-stats-4 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .admin-two-col {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 560px) {
+  .admin-metric {
+    padding: 14px;
+  }
+  .admin-metric-value {
+    font-size: 21px;
+  }
+  .outreach-map,
+  .outreach-map-loading {
+    height: 380px;
+  }
+  .admin-industry-select {
+    width: 100%;
   }
 }

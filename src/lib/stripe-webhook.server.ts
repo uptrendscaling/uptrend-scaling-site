@@ -20,6 +20,7 @@ import type Stripe from "stripe";
 import { getDb, isDbConfigured } from "./db/client";
 import { businesses } from "./db/schema";
 import {
+  CANCEL_ALERT_EVENT,
   isOwnerAlertEventType,
   sendOwnerAlertForEvent,
 } from "./owner-alerts.server";
@@ -125,8 +126,10 @@ async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<v
   // walled off from the access and setup-fee logic below: sendOwnerAlertForEvent
   // swallows every error and enforces its own time limit, so an email problem
   // can never turn into a non-200 answer (and a Stripe retry storm) here. These
-  // event types are not used by anything else in this file.
-  if (isOwnerAlertEventType(event.type)) {
+  // event types are not used by anything else in this file. The one exception
+  // is a deleted subscription, which also turns dashboard access off below, so
+  // it is handled further down: access first, then the alert.
+  if (isOwnerAlertEventType(event.type) && event.type !== CANCEL_ALERT_EVENT) {
     await sendOwnerAlertForEvent(stripe, event);
     return;
   }
@@ -149,6 +152,12 @@ async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<v
     await setAccessRevokedForSubscription(subscription.id, true);
   } else if (RESTORED_STATUSES.has(subscription.status)) {
     await setAccessRevokedForSubscription(subscription.id, false);
+  }
+
+  // Access is already handled, so the heads-up email can never get in its way
+  // (sendOwnerAlertForEvent swallows every error and enforces its own time limit).
+  if (event.type === CANCEL_ALERT_EVENT) {
+    await sendOwnerAlertForEvent(stripe, event);
   }
 }
 

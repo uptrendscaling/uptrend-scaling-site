@@ -11,6 +11,7 @@ import {
   chooseGoogleLocation,
   refreshGoogleNow,
 } from "../../lib/google.server";
+import { cancelMembership } from "../../lib/membership.server";
 import { updateGoogleReviewUrl } from "../../lib/reviews.server";
 import { agoPhrase, cx } from "./format";
 import {
@@ -615,6 +616,90 @@ function AccountPanel({ shell }: { shell: DashboardShell }) {
   );
 }
 
+// -------------------------------------------------------------- membership
+
+// Cancel membership. Two steps on purpose: the first click only asks "are you
+// sure?", the second does it. Canceling takes effect right away, so the page
+// then reloads into the "Your subscription has ended" screen.
+function MembershipPanel({
+  plan,
+  onChanged,
+}: {
+  plan: string | null;
+  onChanged: () => void;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleCancel() {
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await cancelMembership();
+      if (result.ok) {
+        // Stay on "Canceling..." until the dashboard reloads into the ended
+        // screen, so a second click cannot happen.
+        onChanged();
+        return;
+      }
+      setError(result.message);
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Something went wrong and nothing was changed. Please try again, or email hello@uptrendscaling.com.",
+      );
+    }
+    setBusy(false);
+  }
+
+  return (
+    <DashPanel title="Your membership">
+      <DashText>
+        {plan === "trial"
+          ? "You are on the 7 day free trial. Cancel any time before it ends and you will not be charged anything."
+          : "Cancel any time. Your access ends right away and you will not be billed again."}
+      </DashText>
+      {confirming ? (
+        <>
+          <DashAlert tone="warn">
+            Cancel your membership? Your dashboard locks right away and review
+            requests stop going out. Your customer data is kept.
+          </DashAlert>
+          <div className="dash-conn-actions">
+            <DashButton
+              variant="danger"
+              onClick={() => void handleCancel()}
+              disabled={busy}
+            >
+              {busy ? "Canceling..." : "Yes, cancel my membership"}
+            </DashButton>
+            <DashButton
+              variant="ghost"
+              onClick={() => {
+                setConfirming(false);
+                setError(null);
+              }}
+              disabled={busy}
+            >
+              Keep my membership
+            </DashButton>
+          </div>
+        </>
+      ) : (
+        <div className="dash-conn-actions">
+          <DashButton variant="danger" onClick={() => setConfirming(true)}>
+            Cancel membership
+          </DashButton>
+        </div>
+      )}
+      {error ? (
+        <p className="dash-form-message dash-form-message-error">{error}</p>
+      ) : null}
+    </DashPanel>
+  );
+}
+
 // ----------------------------------------------------------------- the view
 
 // Settings is a view, not a tab: it is reached from the avatar menu and from
@@ -636,7 +721,7 @@ export function SettingsView({
     <div className="dash-stack dash-settings">
       <DashPageHead
         title="Settings"
-        description="Your review link, your connections and your weekly email."
+        description="Your review link, your connections, your weekly email and your membership."
       />
       <ReviewLinkPanel
         initialUrl={shell.business.googleReviewUrl}
@@ -654,6 +739,7 @@ export function SettingsView({
         onChanged={refresh}
       />
       <AccountPanel shell={shell} />
+      <MembershipPanel plan={shell.business.plan} onChanged={refresh} />
     </div>
   );
 }

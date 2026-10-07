@@ -106,9 +106,11 @@ function TermsPage() {
             Paid plans are billed monthly per location, plus a one-time setup fee, through our
             payment processor, Stripe. If you start a free trial, you won't be charged until the
             trial period ends, and you can cancel any time before then at no cost. Subscriptions are
-            month-to-month with no long-term contract; you may cancel at any time, effective at the
-            end of your current billing period, by emailing hello@uptrendscaling.com. We don't
-            provide refunds for partial billing periods except where required by law.
+            month-to-month with no long-term contract; you may cancel at any time using the Cancel
+            membership button in the Settings page of your dashboard, or by emailing
+            hello@uptrendscaling.com. Cancellation takes effect right away: your access ends and
+            you won't be billed again. We don't provide refunds for partial billing periods except
+            where required by law.
           </p>
 
           <h2>7. Acceptable use</h2>
