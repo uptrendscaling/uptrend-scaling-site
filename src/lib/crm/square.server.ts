@@ -3,19 +3,28 @@
 //   - Access tokens last ~30 days and do NOT rotate the refresh token on
 //     refresh, so persisting a fresh access token + expiry is enough.
 //   - The webhook payload for a paid invoice already embeds the customer's
-//     name/phone/email directly (`primary_recipient`) -- no follow-up API
-//     call needed in the common case.
+//     name/phone/email directly (`primary_recipient`), so in the normal case
+//     no API call (and no token refresh) is needed. The Customers API is only
+//     used as a fallback when the payload lacks the contact details.
 //   - SQUARE_ENVIRONMENT ("sandbox" or "production", default "production")
 //     switches every URL below, so the whole OAuth+webhook pipeline can be
 //     dry-run tested against Square's sandbox before real customer data
 //     flows through it.
 //
-// NOTE: the webhook signature scheme and header name below are based on
-// Square's published docs, not a live test against a real webhook delivery
-// -- verify against an actual sandbox event in Phase 3 testing before
-// relying on this in production. The notification URL used when verifying
-// must byte-for-byte match what's registered in Square's Developer Console
-// (scheme + trailing slash matter) -- a known gotcha.
+// Webhook delivery facts (developer.squareup.com/docs/webhooks/overview):
+//   - Only a 2xx counts as received. Anything else is retried with
+//     exponential backoff for up to 24 hours. We answer 5xx for failures
+//     worth retrying and 2xx for everything final.
+//   - Delivery is at least once, and one invoice produces several events
+//     (one invoice.payment_made per payment, so a deposit plus a final
+//     payment is two events). Our dedupe is therefore per INVOICE, not per
+//     event id: see handleSquareWebhookRequest.
+//
+// NOTE: the notification URL used when verifying a signature must byte-for-byte
+// match what's registered in Square's Developer Console (scheme, www and
+// trailing slash all matter), a known gotcha. verifySquareWebhookSignature
+// also tries the URL the request actually arrived on, so a console URL that
+// differs only by host still verifies.
 
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
@@ -28,22 +37,27 @@ import {
   verifyOAuthState,
 } from "../auth.server";
 import { getDb } from "../db/client";
-import { businesses, crmWebhookEvents } from "../db/schema";
-import { createCustomerAndSendReviewRequest } from "../reviews.server";
+import { businesses } from "../db/schema";
 import { CANONICAL_SITE_URL } from "../site";
 import {
+  claimWebhookEvent,
   decryptAccessToken,
   decryptRefreshToken,
+  deliverPaidInvoiceRequest,
+  failWebhookEvent,
   findConnectionByExternalAccountId,
   isCrmFrameworkConfigured,
   recordConnectionError,
+  resolveContactName,
   saveConnection,
   updateConnectionTokens,
-  type CrmProvider,
+  webhookJson,
+  type CrmWebhookProvider,
+  type PaidInvoiceContact,
 } from "./connections.server";
 import type { CrmConnection } from "../db/schema";
 
-const PROVIDER: CrmProvider = "square";
+const PROVIDER: CrmWebhookProvider = "square";
 const REDIRECT_URI = `${CANONICAL_SITE_URL}/connect/square/callback`;
 const WEBHOOK_NOTIFICATION_URL = `${CANONICAL_SITE_URL}/webhooks/square`;
 // Refresh with 3 days of headroom before the ~30-day token actually expires.
@@ -84,7 +98,7 @@ export const getSquareAuthorizeUrl = createServerFn({ method: "GET" }).handler(
     if (!isSquareConfigured()) {
       return {
         ok: false,
-        message: "Square isn't switched on yet -- check back soon.",
+        message: "Square isn't switched on yet. Check back soon.",
       };
     }
     const businessId = await getSessionBusinessId();
@@ -146,7 +160,7 @@ export const completeSquareConnection = createServerFn({ method: "POST" })
     if (!isSquareConfigured()) {
       return {
         ok: false,
-        message: "Square isn't switched on yet -- check back soon.",
+        message: "Square isn't switched on yet. Check back soon.",
       };
     }
 
@@ -227,11 +241,11 @@ export async function getValidSquareAccessToken(
   if (!refreshToken) {
     await recordConnectionError(
       connection.id,
-      "No refresh token on file -- please reconnect.",
+      "No refresh token on file. Please reconnect.",
     );
     return {
       ok: false,
-      message: "No refresh token on file -- please reconnect.",
+      message: "No refresh token on file. Please reconnect.",
     };
   }
 
@@ -250,9 +264,9 @@ export async function getValidSquareAccessToken(
     console.error("[square] token refresh failed", error);
     await recordConnectionError(
       connection.id,
-      "Square access expired and couldn't be refreshed -- please reconnect.",
+      "Square access expired and couldn't be refreshed. Please reconnect.",
     );
-    return { ok: false, message: "Square access expired -- please reconnect." };
+    return { ok: false, message: "Square access expired. Please reconnect." };
   }
 }
 
@@ -260,105 +274,228 @@ export async function getValidSquareAccessToken(
 
 // HMAC-SHA256 over (notification URL + raw body), keyed with the
 // per-subscription signature key from Square's Developer Console (distinct
-// from the Client Secret).
+// from the Client Secret). `requestUrl` is the URL this request actually
+// arrived on; it is tried as well as the canonical one, because an exact URL
+// mismatch with what was typed into the Developer Console (www or not) is the
+// classic reason every Square signature check fails. Trying more URLs cannot
+// let a forgery through: without the key nobody can produce a matching HMAC
+// for any URL.
 export function verifySquareWebhookSignature(
   rawBody: string,
   header: string | null,
+  requestUrl?: string,
 ): boolean {
   if (!header) return false;
   const key = process.env["SQUARE_WEBHOOK_SIGNATURE_KEY"];
   if (!key) return false;
 
-  const expected = createHmac("sha256", key)
-    .update(WEBHOOK_NOTIFICATION_URL + rawBody, "utf8")
-    .digest("base64");
-  const expectedBuf = Buffer.from(expected, "base64");
+  const urls = [WEBHOOK_NOTIFICATION_URL];
+  if (requestUrl) {
+    try {
+      const parsed = new URL(requestUrl);
+      // Behind a proxy the server can see http:// for a request that Square
+      // addressed as https://, so the https form is tried as well.
+      for (const origin of [parsed.origin, parsed.origin.replace(/^http:/, "https:")]) {
+        const arrivedOn = `${origin}${parsed.pathname}`;
+        if (!urls.includes(arrivedOn)) urls.push(arrivedOn);
+      }
+    } catch {
+      // A malformed request URL just means we only try the canonical one.
+    }
+  }
+
   const headerBuf = Buffer.from(header, "base64");
-  if (expectedBuf.length !== headerBuf.length) return false;
-  return timingSafeEqual(expectedBuf, headerBuf);
-}
-
-type SquareInvoicePaymentMadeEvent = {
-  event_id: string;
-  type: string;
-  merchant_id: string;
-  data: {
-    object: {
-      invoice: {
-        id: string;
-        primary_recipient?: {
-          customer_id?: string;
-          given_name?: string;
-          family_name?: string;
-          email_address?: string;
-          phone_number?: string;
-        };
-      };
-    };
-  };
-};
-
-function jsonResponse(status: number, body: Record<string, unknown>): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
+  return urls.some((url) => {
+    const expected = createHmac("sha256", key)
+      .update(url + rawBody, "utf8")
+      .digest();
+    return expected.length === headerBuf.length &&
+      timingSafeEqual(expected, headerBuf);
   });
 }
 
+type SquareRecipient = {
+  customer_id?: string;
+  given_name?: string;
+  family_name?: string;
+  company_name?: string;
+  email_address?: string;
+  phone_number?: string;
+};
+
+type SquareInvoice = {
+  id?: string;
+  // DRAFT, UNPAID, SCHEDULED, PARTIALLY_PAID, PAID, PARTIALLY_REFUNDED,
+  // REFUNDED, CANCELED, FAILED, PAYMENT_PENDING.
+  status?: string;
+  primary_recipient?: SquareRecipient;
+};
+
+type SquareInvoiceEvent = {
+  event_id?: string;
+  type?: string;
+  merchant_id?: string;
+  data?: { object?: { invoice?: SquareInvoice } };
+};
+
+// GET /v2/customers/{id}. Only used when the invoice payload came without
+// contact details, which is the one case that needs a token.
+async function fetchSquareCustomer(
+  accessToken: string,
+  customerId: string,
+): Promise<SquareRecipient | null> {
+  const response = await fetch(
+    `${baseUrl()}/v2/customers/${encodeURIComponent(customerId)}`,
+    {
+      headers: { authorization: `Bearer ${accessToken}` },
+      signal: AbortSignal.timeout(8_000),
+    },
+  );
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(
+      `Square customer lookup failed: ${response.status} ${await response.text()}`,
+    );
+  }
+  const body = (await response.json()) as {
+    customer?: {
+      given_name?: string;
+      family_name?: string;
+      company_name?: string;
+      email_address?: string;
+      phone_number?: string;
+    };
+  };
+  return body.customer ?? null;
+}
+
+type RecipientResult =
+  | { ok: true; contact: PaidInvoiceContact }
+  | { ok: false; message: string };
+
+// Turns the invoice's recipient into who to contact. Uses what the payload
+// carries; only if that has no phone and no email (or no name at all) does it
+// ask Square's Customers API, which is the only time a token is needed.
+async function resolveSquareContact(
+  connection: CrmConnection,
+  invoice: SquareInvoice,
+): Promise<RecipientResult> {
+  const recipient = invoice.primary_recipient ?? {};
+  let phone = recipient.phone_number?.trim() || null;
+  let email = recipient.email_address?.trim() || null;
+  let nameParts = {
+    firstName: recipient.given_name,
+    lastName: recipient.family_name,
+    companyName: recipient.company_name,
+  };
+
+  const missingContact = !phone && !email;
+  const missingName = !resolveContactName(nameParts);
+  if (recipient.customer_id && (missingContact || missingName)) {
+    const token = await getValidSquareAccessToken(connection);
+    if (!token.ok) return { ok: false, message: token.message };
+
+    const customer = await fetchSquareCustomer(
+      token.accessToken,
+      recipient.customer_id,
+    );
+    if (customer) {
+      phone = phone ?? (customer.phone_number?.trim() || null);
+      email = email ?? (customer.email_address?.trim() || null);
+      if (missingName) {
+        nameParts = {
+          firstName: customer.given_name,
+          lastName: customer.family_name,
+          companyName: customer.company_name,
+        };
+      }
+    }
+  }
+
+  const resolved = resolveContactName(nameParts);
+  return {
+    ok: true,
+    contact: {
+      externalId: recipient.customer_id ?? null,
+      name: resolved?.name ?? "",
+      logName: resolved?.logName ?? "",
+      phone,
+      email,
+      ids: `Square customer ID ${recipient.customer_id ?? "unknown"}, invoice ${invoice.id ?? "unknown"}`,
+    },
+  };
+}
+
 // Entry point for the /webhooks/square server route's POST handler.
+//
+// Retry safety (see "Webhook claims" in connections.server.ts):
+//   - One claim per paid INVOICE, key `invoice-paid:<merchant>:<invoice>`.
+//     Square's event_id alone would not stop two different events about the
+//     same invoice from each sending a request.
+//   - A failure that a retry could fix (database down, Square token or
+//     Customers API trouble) frees the claim and answers 5xx, so Square's own
+//     retries (up to 24 hours) reprocess it. Final outcomes, including the
+//     deliberate skips, answer 200.
+//   - Each paid invoice sends once, but a NEW paid invoice from the same
+//     person sends again (owner decision), to the same customer row.
 export async function handleSquareWebhookRequest(
   request: Request,
 ): Promise<Response> {
+  // Without the signature key we cannot tell a real Square event from a fake
+  // one. 503 (not 200) so Square keeps retrying and the problem is visible in
+  // Square's own delivery log, instead of events vanishing silently.
   if (!isSquareWebhookConfigured()) {
-    return jsonResponse(200, { ok: false, reason: "not_configured" });
+    return webhookJson(503, { ok: false, reason: "not_configured" });
   }
 
   const signatureHeader = request.headers.get("x-square-hmacsha256-signature");
   const rawBody = await request.text();
 
-  if (!verifySquareWebhookSignature(rawBody, signatureHeader)) {
-    return jsonResponse(400, { ok: false, reason: "bad_signature" });
+  if (!verifySquareWebhookSignature(rawBody, signatureHeader, request.url)) {
+    console.error(
+      `[square-webhook] signature did not match. Check that the notification URL in the Square Developer Console is exactly ${WEBHOOK_NOTIFICATION_URL} and that SQUARE_WEBHOOK_SIGNATURE_KEY is that subscription's key.`,
+    );
+    return webhookJson(400, { ok: false, reason: "bad_signature" });
   }
 
-  let event: SquareInvoicePaymentMadeEvent;
+  let event: SquareInvoiceEvent;
   try {
-    event = JSON.parse(rawBody) as SquareInvoicePaymentMadeEvent;
+    event = JSON.parse(rawBody) as SquareInvoiceEvent;
   } catch {
-    return jsonResponse(400, { ok: false, reason: "bad_payload" });
+    return webhookJson(400, { ok: false, reason: "bad_payload" });
   }
 
   // Only the paid-invoice trigger is wired up -- ignore everything else
   // (invoice.created, invoice.published, refunds, ...) without erroring.
   if (event.type !== "invoice.payment_made") {
-    return jsonResponse(200, { ok: true, reason: "ignored_type" });
+    return webhookJson(200, { ok: true, reason: "ignored_type" });
+  }
+
+  const invoice = event.data?.object?.invoice;
+  if (!invoice?.id || !event.merchant_id) {
+    return webhookJson(400, { ok: false, reason: "bad_payload" });
   }
 
   const db = getDb();
-
-  // Layer 1 dedup: Square supplies a native event_id, used as-is.
-  const [eventRow] = await db
-    .insert(crmWebhookEvents)
-    .values({
-      provider: PROVIDER,
-      dedupeKey: event.event_id,
-      topic: event.type,
-    })
-    .onConflictDoNothing({
-      target: [crmWebhookEvents.provider, crmWebhookEvents.dedupeKey],
-    })
-    .returning();
-
-  if (!eventRow) {
-    return jsonResponse(200, { ok: true, deduped: true });
-  }
-
+  let connection: CrmConnection | null = null;
   try {
-    const connection = await findConnectionByExternalAccountId(
+    connection = await findConnectionByExternalAccountId(
       PROVIDER,
       event.merchant_id,
     );
     if (!connection) {
-      return jsonResponse(200, { ok: true, reason: "no_connection" });
+      return webhookJson(200, { ok: true, reason: "no_connection" });
+    }
+
+    // invoice.payment_made fires for EVERY payment, including a deposit or
+    // the first of several instalments. Only a fully paid invoice earns a
+    // review request.
+    if (invoice.status !== "PAID") {
+      return webhookJson(200, {
+        ok: true,
+        reason: "not_fully_paid",
+        status: invoice.status ?? null,
+      });
     }
 
     const [business] = await db
@@ -366,65 +503,61 @@ export async function handleSquareWebhookRequest(
       .from(businesses)
       .where(eq(businesses.id, connection.businessId))
       .limit(1);
-    if (!business)
-      return jsonResponse(200, { ok: true, reason: "no_business" });
+    if (!business) return webhookJson(200, { ok: true, reason: "no_business" });
 
-    // getValidSquareAccessToken isn't actually needed for this trigger
-    // (primary_recipient is embedded in the webhook payload directly), but
-    // is still called so a broken connection is detected and recorded even
-    // when this particular event didn't need the token itself.
-    const tokenResult = await getValidSquareAccessToken(connection);
-    if (!tokenResult.ok) {
-      return jsonResponse(502, { ok: false, reason: "token_refresh_failed" });
-    }
-
-    const recipient = event.data.object.invoice.primary_recipient;
-    const name = [recipient?.given_name, recipient?.family_name]
-      .filter(Boolean)
-      .join(" ")
-      .trim();
-    const phone = recipient?.phone_number ?? null;
-    const email = recipient?.email_address ?? null;
-
-    if (!name || (!phone && !email) || !recipient?.customer_id) {
-      await db
-        .update(crmWebhookEvents)
-        .set({
-          businessId: business.id,
-          processedAt: new Date(),
-          errorMessage: "No usable contact info",
-        })
-        .where(eq(crmWebhookEvents.id, eventRow.id));
-      return jsonResponse(200, { ok: true, reason: "no_contact_info" });
-    }
-
-    const result = await createCustomerAndSendReviewRequest(business, {
-      name,
-      phone,
-      email,
-      source: "square",
-      externalId: recipient.customer_id,
+    const claim = await claimWebhookEvent({
+      provider: PROVIDER,
+      dedupeKey: `invoice-paid:${event.merchant_id}:${invoice.id}`,
+      topic: event.type,
+      businessId: business.id,
     });
+    if (claim.status === "done") {
+      return webhookJson(200, { ok: true, deduped: true });
+    }
+    if (claim.status === "busy") {
+      // Another delivery of this invoice is mid-way. Not an error, but not
+      // final either, so ask Square to come back rather than say "done".
+      return webhookJson(
+        503,
+        { ok: false, reason: "busy" },
+        { "retry-after": "60" },
+      );
+    }
 
-    await db
-      .update(crmWebhookEvents)
-      .set({
-        businessId: business.id,
-        processedAt: new Date(),
-        resultCustomerId: result.ok ? result.customerId : null,
-        errorMessage: result.ok ? null : result.message,
-      })
-      .where(eq(crmWebhookEvents.id, eventRow.id));
+    // From here the claim is ours. Anything that throws must hand it back.
+    try {
+      const resolved = await resolveSquareContact(connection, invoice);
+      if (!resolved.ok) {
+        await failWebhookEvent(claim.eventId, resolved.message);
+        return webhookJson(502, { ok: false, reason: "token_refresh_failed" });
+      }
 
-    return jsonResponse(200, { ok: result.ok });
+      const result = await deliverPaidInvoiceRequest({
+        claim,
+        business,
+        connection,
+        source: PROVIDER,
+        contact: resolved.contact,
+      });
+      if (result.kind === "failed") {
+        return webhookJson(500, { ok: false, reason: "failed" });
+      }
+      return webhookJson(200, {
+        ok: true,
+        reason: result.kind === "skipped" ? "skipped" : "sent",
+      });
+    } catch (error) {
+      console.error("[square-webhook] failed to process event", error);
+      await failWebhookEvent(
+        claim.eventId,
+        error instanceof Error ? error.message : String(error),
+      );
+      return webhookJson(500, { ok: false, reason: "failed" });
+    }
   } catch (error) {
-    console.error("[square-webhook] failed to process event", error);
-    await db
-      .update(crmWebhookEvents)
-      .set({
-        errorMessage: error instanceof Error ? error.message : String(error),
-      })
-      .where(eq(crmWebhookEvents.id, eventRow.id));
-    return jsonResponse(500, { ok: false });
+    // Before any claim existed (database trouble while looking things up).
+    // Nothing to hand back; 5xx so Square tries again.
+    console.error("[square-webhook] failed before claiming the event", error);
+    return webhookJson(500, { ok: false, reason: "failed" });
   }
 }
