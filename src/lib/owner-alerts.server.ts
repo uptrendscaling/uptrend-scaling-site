@@ -1,0 +1,895 @@
+// Heads-up emails to the owner (hello@uptrendscaling.com) about money events
+// that Stripe reports to our webhook (see ./stripe-webhook.server.ts):
+//
+//   A. "New signup": a client started the free trial or joined as a paying
+//      member. Trigger: checkout.session.completed (subscription mode).
+//   B. "Trial client paid": a trial client was charged for real for the first
+//      time (normally day 7, when the free trial ends). Trigger: invoice.paid
+//      (or invoice.payment_succeeded, same data) for a subscription whose plan
+//      is "trial", with money actually collected, that is not the $0 invoice
+//      created when the trial started.
+//
+// Everything here is best-effort and fenced off from the webhook proper:
+// sendOwnerAlertForEvent() never throws and never changes what Stripe is told,
+// so a Resend outage can never cause Stripe to retry (or disable) the endpoint,
+// and the subscription access logic keeps working exactly as before.
+//
+// "Exactly once" is built on crm_webhook_events: a row with provider "stripe"
+// is a claim marker (not a CRM event), with a dedupe key per real-world action:
+//   signup:<subscription id, or checkout session id>
+//   trial-paid:<subscription id>
+// Stripe retries deliveries and sends several events for one action, so the
+// insert-or-skip claim is what keeps it to one email. If the email fails the
+// claim is deleted so a dashboard "Resend event" can send it later.
+
+import { and, eq, isNull, lt } from "drizzle-orm";
+import type Stripe from "stripe";
+
+import { getDb } from "./db/client";
+import { crmWebhookEvents } from "./db/schema";
+import {
+  isResendConfigured,
+  sendEmail,
+  UPTREND_SUPPORT_EMAIL,
+} from "./messaging.server";
+import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
+
+const PROVIDER = "stripe" as const;
+
+// Stripe event types that can produce an alert. invoice.paid and
+// invoice.payment_succeeded describe the same payment; both are accepted so it
+// does not matter which one is ticked in the Stripe dashboard (and if both are,
+// the dedupe key keeps it to a single email).
+const SIGNUP_EVENT = "checkout.session.completed";
+const PAID_INVOICE_EVENTS = new Set([
+  "invoice.paid",
+  "invoice.payment_succeeded",
+]);
+
+export function isOwnerAlertEventType(type: string): boolean {
+  return type === SIGNUP_EVENT || PAID_INVOICE_EVENTS.has(type);
+}
+
+// ---- Timing budget --------------------------------------------------------
+// The alert runs inside the webhook request, so it must be quick. The email
+// call gets about 5 seconds; the whole alert (database claim, optional Stripe
+// lookups, email) gets a bit more, after which the webhook answers Stripe
+// anyway and the alert is abandoned. An abandoned claim goes stale after
+// STALE_CLAIM_MS and can then be re-taken by a "Resend event".
+const SEND_TIMEOUT_MS = 5_000;
+const OVERALL_TIMEOUT_MS = 9_000;
+const STALE_CLAIM_MS = 2 * 60 * 1000;
+
+const TIMED_OUT = Symbol("timed-out");
+
+async function raceTimeout<T>(
+  work: Promise<T>,
+  ms: number,
+): Promise<T | typeof TIMED_OUT> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+    timer = setTimeout(() => resolve(TIMED_OUT), ms);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+// ---- Small helpers --------------------------------------------------------
+
+type PlainObject = Record<string, unknown>;
+
+function isPlainObject(value: unknown): value is PlainObject {
+  return typeof value === "object" && value !== null;
+}
+
+function nonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
+}
+
+// Stripe fields that are either an id string or the expanded object.
+function idOf(value: unknown): string | null {
+  return (
+    nonEmptyString(value) ??
+    (isPlainObject(value) ? nonEmptyString(value["id"]) : null)
+  );
+}
+
+function metadataOf(value: unknown): Record<string, string> | null {
+  if (!isPlainObject(value)) return null;
+  const out: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string") out[key] = entry;
+  }
+  return out;
+}
+
+function parseLocations(value: unknown): number | null {
+  const parsed = typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) && parsed >= 1 ? Math.round(parsed) : null;
+}
+
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Email subjects are plain text, not HTML, but they carry customer-typed
+// business names: flatten line breaks and control characters, and cap length.
+function cleanForSubject(value: string, max = 80): string {
+  const flat = value
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat.length > max ? `${flat.slice(0, max - 3).trimEnd()}...` : flat;
+}
+
+export function formatMoney(
+  cents: number,
+  currency: string | null | undefined,
+): string {
+  const code = (currency ?? "usd").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: code,
+    }).format(cents / 100);
+  } catch {
+    return `${(cents / 100).toFixed(2)} ${code}`;
+  }
+}
+
+// Colby and the LLC are in Arizona (no daylight saving), so dates read the way
+// he thinks about them.
+const DISPLAY_TIME_ZONE = "America/Phoenix";
+
+export function formatDateTime(unixSeconds: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(new Date(unixSeconds * 1000));
+}
+
+export function formatDate(unixSeconds: number): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: DISPLAY_TIME_ZONE,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(unixSeconds * 1000));
+}
+
+export function dashboardUrl(
+  livemode: boolean,
+  kind: "customers" | "subscriptions" | "invoices",
+  id: string,
+): string {
+  return `https://dashboard.stripe.com/${livemode ? "" : "test/"}${kind}/${encodeURIComponent(id)}`;
+}
+
+function expectedFirstChargeCents(locations: number): number {
+  return MONTHLY_PRICE_CENTS * locations + SETUP_FEE_CENTS;
+}
+
+function expectedFirstChargeFormula(
+  locations: number,
+  currency: string | null,
+): string {
+  const plural = locations === 1 ? "location" : "locations";
+  return `${formatMoney(MONTHLY_PRICE_CENTS, currency)} x ${locations} ${plural} + ${formatMoney(
+    SETUP_FEE_CENTS,
+    currency,
+  )} setup fee`;
+}
+
+// ---- Email layout ---------------------------------------------------------
+
+type AlertRow = { label: string; value: string };
+type AlertLink = { label: string; url: string };
+
+type AlertLayout = {
+  subject: string;
+  preheader: string;
+  tone: "trial" | "paid";
+  badge: string;
+  headline: string;
+  subline: string;
+  testMode: boolean;
+  rows: AlertRow[];
+  links: AlertLink[];
+  note: string | null;
+};
+
+// Simple, table-based, inline-styled, no images. The card is light with dark
+// text, which stays readable when a mail app auto-inverts colors; clients that
+// honor prefers-color-scheme also get a proper dark palette from the small
+// style block (classes mirror the inline colors). Rows are label/value pairs
+// so the plain-text version Resend derives reads cleanly top to bottom.
+// Every dynamic value goes through escapeHtml.
+export function renderAlertEmail(layout: AlertLayout): string {
+  const e = escapeHtml;
+
+  const rows = layout.rows
+    .map(
+      (row) => `<tr>
+              <td class="tx-muted rule" valign="top" width="130" style="padding:10px 12px 10px 0;width:130px;font-size:13px;line-height:1.45;color:#6b6b70;border-bottom:1px solid #e4e4e7;">${e(row.label)}</td>
+              <td class="tx-main rule" valign="top" style="padding:10px 0;font-size:15px;line-height:1.45;color:#18181b;border-bottom:1px solid #e4e4e7;word-break:break-word;">${e(row.value)}</td>
+            </tr>`,
+    )
+    .join("\n            ");
+
+  const links = layout.links
+    .map(
+      (link) =>
+        `<p style="margin:0 0 8px;font-size:14px;line-height:1.5;"><a class="lnk" href="${e(link.url)}" style="color:#1d4ed8;text-decoration:underline;">${e(link.label)}</a></p>`,
+    )
+    .join("\n          ");
+
+  const chipClass = layout.tone === "trial" ? "chip-blue" : "chip-green";
+  const chipStyle =
+    layout.tone === "trial"
+      ? "background:#e0f2fe;color:#075985;"
+      : "background:#dcfce7;color:#166534;";
+
+  const testBanner = layout.testMode
+    ? `<tr>
+        <td class="warn" style="padding:10px 24px;background:#fef9c3;color:#713f12;font-size:13px;line-height:1.45;font-weight:600;">Test mode event from Stripe. No real money moved and this is not a real client.</td>
+      </tr>`
+    : "";
+
+  const note = layout.note
+    ? `<tr>
+        <td style="padding:16px 24px 0;">
+          <p class="tx-muted" style="margin:0;font-size:14px;line-height:1.55;color:#52525b;">${e(layout.note)}</p>
+        </td>
+      </tr>`
+    : "";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>${e(layout.subject)}</title>
+<style>
+  @media (prefers-color-scheme: dark) {
+    .bg-page { background:#0f0f11 !important; }
+    .bg-card { background:#1b1b1f !important; border-color:#34343a !important; }
+    .tx-main { color:#f4f4f5 !important; }
+    .tx-muted { color:#a1a1aa !important; }
+    .rule { border-color:#34343a !important; }
+    .lnk { color:#8ab4ff !important; }
+    .chip-blue { background:#0c4a6e !important; color:#bae6fd !important; }
+    .chip-green { background:#14532d !important; color:#bbf7d0 !important; }
+    .warn { background:#713f12 !important; color:#fef9c3 !important; }
+  }
+</style>
+</head>
+<body class="bg-page" style="margin:0;padding:0;background:#f4f4f5;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${e(layout.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg-page" style="background:#f4f4f5;">
+  <tr>
+    <td align="center" style="padding:24px 12px;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="bg-card" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:12px;overflow:hidden;">
+      ${testBanner}
+      <tr>
+        <td style="padding:24px 24px 4px;">
+          <span class="${chipClass}" style="display:inline-block;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:0.03em;text-transform:uppercase;${chipStyle}">${e(layout.badge)}</span>
+          <h1 class="tx-main" style="margin:14px 0 6px;font-size:22px;line-height:1.3;color:#18181b;">${e(layout.headline)}</h1>
+          <p class="tx-muted" style="margin:0;font-size:15px;line-height:1.5;color:#52525b;">${e(layout.subline)}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:12px 24px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${rows}
+          </table>
+        </td>
+      </tr>
+      ${note}
+      <tr>
+        <td style="padding:20px 24px 24px;">
+          ${links}
+        </td>
+      </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+}
+
+// ---- Alert A: new signup --------------------------------------------------
+
+export type OwnerAlert = {
+  // Becomes crm_webhook_events.dedupe_key (provider "stripe").
+  dedupeKey: string;
+  subject: string;
+  html: string;
+};
+
+type EventContext = { livemode: boolean; created: number; type: string };
+
+// Pure: turns a completed Checkout session into the email, or null when the
+// session is not a subscription signup. Uses Stripe's own numbers (amount_total
+// is exactly what was collected at checkout, promo codes included).
+export function buildSignupAlert(
+  session: Stripe.Checkout.Session,
+  ctx: EventContext,
+): OwnerAlert | null {
+  if (session.mode !== "subscription") return null;
+
+  const metadata = metadataOf(session.metadata) ?? {};
+  const plan = metadata["plan"] ?? null;
+  const isTrial = plan === "trial";
+  const isMember = plan === "membership";
+
+  const email =
+    nonEmptyString(session.customer_details?.email) ??
+    nonEmptyString(session.customer_email);
+  const businessName =
+    nonEmptyString(metadata["businessName"]) ??
+    nonEmptyString(session.customer_details?.name);
+  const contactName =
+    nonEmptyString(metadata["contactName"]) ??
+    nonEmptyString(session.customer_details?.name);
+  const phone =
+    nonEmptyString(metadata["phone"]) ??
+    nonEmptyString(session.customer_details?.phone);
+  const locations = parseLocations(metadata["locations"]);
+
+  const customerId = idOf(session.customer);
+  const subscriptionId = idOf(session.subscription);
+
+  const currency = session.currency ?? "usd";
+  const dueToday =
+    typeof session.amount_total === "number" ? session.amount_total : null;
+  const discount = session.total_details?.amount_discount ?? 0;
+  const paymentPending = session.payment_status === "unpaid";
+
+  const displayName = businessName ?? email ?? "Unknown business";
+  const testPrefix = ctx.livemode ? "" : "[TEST] ";
+  const kindLabel = isTrial
+    ? "New free trial"
+    : isMember
+      ? "New member"
+      : "New signup";
+  const subject = `${testPrefix}${kindLabel}: ${cleanForSubject(displayName)}`;
+
+  const trialEnd = ctx.created + TRIAL_DAYS * 24 * 60 * 60;
+  const planText = isTrial
+    ? `Free trial (${TRIAL_DAYS} days, card on file)`
+    : isMember
+      ? "Membership (starts billing today)"
+      : "Not recorded";
+
+  const rows: AlertRow[] = [
+    { label: "Business", value: businessName ?? "Not provided" },
+    { label: "Contact", value: contactName ?? "Not provided" },
+    { label: "Email", value: email ?? "Not provided" },
+    { label: "Phone", value: phone ?? "Not provided" },
+    {
+      label: "Locations",
+      value: locations === null ? "Not provided" : String(locations),
+    },
+    { label: "Plan", value: planText },
+    {
+      label: "Due today",
+      value:
+        dueToday === null
+          ? "Not reported by Stripe"
+          : paymentPending
+            ? `${formatMoney(dueToday, currency)} (payment still pending)`
+            : formatMoney(dueToday, currency),
+    },
+  ];
+  if (discount > 0) {
+    rows.push({
+      label: "Discount",
+      value: `${formatMoney(discount, currency)} off (promo code)`,
+    });
+  }
+  if (isTrial) {
+    rows.push({ label: "Trial ends", value: formatDate(trialEnd) });
+    if (locations !== null) {
+      rows.push({
+        label: "First charge",
+        value: `About ${formatMoney(expectedFirstChargeCents(locations), currency)} on that date (${expectedFirstChargeFormula(locations, currency)}), before any promo code`,
+      });
+    }
+  }
+  rows.push({ label: "Signed up", value: formatDateTime(ctx.created) });
+
+  const links: AlertLink[] = [];
+  if (customerId) {
+    links.push({
+      label: "Open customer in Stripe",
+      url: dashboardUrl(ctx.livemode, "customers", customerId),
+    });
+  }
+  if (subscriptionId) {
+    links.push({
+      label: "Open subscription in Stripe",
+      url: dashboardUrl(ctx.livemode, "subscriptions", subscriptionId),
+    });
+  }
+
+  const note = isTrial
+    ? "Nothing was charged today. The card on file is billed automatically when the trial ends, and you will get a second email when that payment goes through."
+    : isMember
+      ? paymentPending
+        ? "This client chose to pay today, but Stripe has not confirmed the payment yet."
+        : "This client skipped the free trial and paid at checkout."
+      : null;
+
+  const html = renderAlertEmail({
+    subject,
+    preheader: isTrial
+      ? `${displayName} started a free trial. Nothing is due today.`
+      : `${displayName} signed up${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`,
+    tone: isTrial ? "trial" : "paid",
+    badge: isTrial
+      ? "Free trial started"
+      : isMember
+        ? "New member"
+        : "New signup",
+    headline: displayName,
+    subline: isTrial
+      ? "Just started the 7 day free trial."
+      : isMember
+        ? "Just joined as a paying member."
+        : "Just signed up through checkout.",
+    testMode: !ctx.livemode,
+    rows,
+    links,
+    note,
+  });
+
+  return {
+    dedupeKey: `signup:${subscriptionId ?? session.id}`,
+    subject,
+    html,
+  };
+}
+
+// ---- Alert B: trial client paid -------------------------------------------
+
+// Where the subscription lives on an invoice depends on the Stripe API version
+// the webhook endpoint is pinned to. Newer versions: invoice.parent
+// .subscription_details.{subscription,metadata}. Older versions: a top-level
+// invoice.subscription (and invoice.subscription_details.metadata). The SDK
+// types only describe the newer shape, so this reads both through plain
+// objects instead of trusting either one.
+export function readInvoiceSubscription(invoice: Stripe.Invoice): {
+  subscriptionId: string | null;
+  metadata: Record<string, string> | null;
+} {
+  const raw = invoice as unknown as PlainObject;
+  const parent = isPlainObject(raw["parent"]) ? raw["parent"] : null;
+  const parentDetails =
+    parent && isPlainObject(parent["subscription_details"])
+      ? parent["subscription_details"]
+      : null;
+  const legacyDetails = isPlainObject(raw["subscription_details"])
+    ? raw["subscription_details"]
+    : null;
+  const legacySubscription = raw["subscription"];
+
+  const subscriptionId =
+    idOf(parentDetails?.["subscription"]) ??
+    idOf(legacySubscription) ??
+    idOf(legacyDetails?.["subscription"]);
+
+  const metadata =
+    metadataOf(parentDetails?.["metadata"]) ??
+    metadataOf(legacyDetails?.["metadata"]) ??
+    (isPlainObject(legacySubscription)
+      ? metadataOf(legacySubscription["metadata"])
+      : null);
+
+  return { subscriptionId, metadata };
+}
+
+// Cheap checks that need no network: money actually changed hands, and it is
+// not the $0 invoice Stripe creates when a trial subscription starts.
+export function isRealChargeAfterSubscriptionStart(
+  invoice: Stripe.Invoice,
+): boolean {
+  return (
+    invoice.amount_paid > 0 && invoice.billing_reason !== "subscription_create"
+  );
+}
+
+function invoiceLineSummaries(
+  invoice: Stripe.Invoice,
+  currency: string,
+): string[] {
+  const lines = isPlainObject(invoice.lines) ? invoice.lines["data"] : null;
+  if (!Array.isArray(lines)) return [];
+  const out: string[] = [];
+  for (const line of lines) {
+    if (!isPlainObject(line) || typeof line["amount"] !== "number") continue;
+    const description = nonEmptyString(line["description"]) ?? "Line item";
+    out.push(`${description}: ${formatMoney(line["amount"], currency)}`);
+  }
+  return out;
+}
+
+// Pure: builds the "trial client paid" email from the invoice Stripe sent plus
+// the subscription's metadata. The amount is whatever Stripe says was paid.
+export function buildTrialPaymentAlert(
+  invoice: Stripe.Invoice,
+  subscriptionId: string,
+  metadata: Record<string, string>,
+  ctx: EventContext,
+): OwnerAlert {
+  const businessName = nonEmptyString(metadata["businessName"]);
+  const contactName =
+    nonEmptyString(metadata["contactName"]) ??
+    nonEmptyString(invoice.customer_name);
+  const phone = nonEmptyString(metadata["phone"]);
+  const email = nonEmptyString(invoice.customer_email);
+  const locations = parseLocations(metadata["locations"]);
+  const customerId = idOf(invoice.customer);
+
+  const currency = invoice.currency ?? "usd";
+  const paid = invoice.amount_paid;
+  const paidAt = invoice.status_transitions?.paid_at ?? ctx.created;
+
+  const displayName = businessName ?? email ?? "Unknown business";
+  const testPrefix = ctx.livemode ? "" : "[TEST] ";
+  const subject = `${testPrefix}Trial client paid: ${cleanForSubject(displayName)} (${formatMoney(paid, currency)})`;
+
+  const rows: AlertRow[] = [
+    { label: "Business", value: businessName ?? "Not provided" },
+    { label: "Contact", value: contactName ?? "Not provided" },
+    { label: "Email", value: email ?? "Not provided" },
+    { label: "Phone", value: phone ?? "Not provided" },
+    {
+      label: "Locations",
+      value: locations === null ? "Not provided" : String(locations),
+    },
+    { label: "Amount paid", value: formatMoney(paid, currency) },
+  ];
+  const lineSummaries = invoiceLineSummaries(invoice, currency);
+  lineSummaries.forEach((text, index) => {
+    rows.push({ label: index === 0 ? "Charged for" : "", value: text });
+  });
+  rows.push({ label: "Paid on", value: formatDateTime(paidAt) });
+  const invoiceNumber = nonEmptyString(invoice.number);
+  if (invoiceNumber) rows.push({ label: "Invoice", value: invoiceNumber });
+
+  // The first charge should be the monthly price per location plus the one-time
+  // setup fee. Say whether Stripe's real amount matches, but never replace it.
+  let note: string | null = null;
+  if (locations !== null) {
+    const expected = expectedFirstChargeCents(locations);
+    note =
+      paid === expected
+        ? `This matches the usual first charge (${expectedFirstChargeFormula(locations, currency)}).`
+        : `The usual first charge for ${locations} ${locations === 1 ? "location" : "locations"} is ${formatMoney(expected, currency)} (${expectedFirstChargeFormula(locations, currency)}), but Stripe collected ${formatMoney(paid, currency)}. A promo code, a changed quantity or a missing setup fee can explain that, so it is worth a quick look in Stripe.`;
+  }
+
+  const links: AlertLink[] = [];
+  if (customerId) {
+    links.push({
+      label: "Open customer in Stripe",
+      url: dashboardUrl(ctx.livemode, "customers", customerId),
+    });
+  }
+  links.push({
+    label: "Open subscription in Stripe",
+    url: dashboardUrl(ctx.livemode, "subscriptions", subscriptionId),
+  });
+  if (invoice.id) {
+    links.push({
+      label: "Open invoice in Stripe",
+      url: dashboardUrl(ctx.livemode, "invoices", invoice.id),
+    });
+  }
+
+  const html = renderAlertEmail({
+    subject,
+    preheader: `${displayName} paid ${formatMoney(paid, currency)} after the free trial.`,
+    tone: "paid",
+    badge: "Trial client paid",
+    headline: displayName,
+    subline: `Paid ${formatMoney(paid, currency)} after the free trial. This is their first real payment.`,
+    testMode: !ctx.livemode,
+    rows,
+    links,
+    note,
+  });
+
+  return { dedupeKey: `trial-paid:${subscriptionId}`, subject, html };
+}
+
+// ---- Claiming (exactly once) ----------------------------------------------
+
+type Claim = { id: string };
+
+// Insert-or-skip. Returns the claim when this delivery owns the alert, or null
+// when it was already handled (or is being handled right now). An unfinished
+// claim older than STALE_CLAIM_MS (the process died or timed out between
+// claiming and sending) is taken over in a single UPDATE, so two deliveries
+// cannot both take it.
+async function claimAlert(
+  dedupeKey: string,
+  topic: string,
+): Promise<Claim | null> {
+  const db = getDb();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const [inserted] = await db
+      .insert(crmWebhookEvents)
+      .values({ provider: PROVIDER, dedupeKey, topic })
+      .onConflictDoNothing({
+        target: [crmWebhookEvents.provider, crmWebhookEvents.dedupeKey],
+      })
+      .returning({ id: crmWebhookEvents.id });
+    if (inserted) return { id: inserted.id };
+
+    const [taken] = await db
+      .update(crmWebhookEvents)
+      .set({ receivedAt: new Date(), topic })
+      .where(
+        and(
+          eq(crmWebhookEvents.provider, PROVIDER),
+          eq(crmWebhookEvents.dedupeKey, dedupeKey),
+          isNull(crmWebhookEvents.processedAt),
+          lt(
+            crmWebhookEvents.receivedAt,
+            new Date(Date.now() - STALE_CLAIM_MS),
+          ),
+        ),
+      )
+      .returning({ id: crmWebhookEvents.id });
+    if (taken) return { id: taken.id };
+
+    // Not claimable. If the row is still there it was handled or is in flight.
+    // If it vanished (another delivery released its claim after a failed send
+    // between our insert and our update), go around once and try to claim it.
+    const [existing] = await db
+      .select({ id: crmWebhookEvents.id })
+      .from(crmWebhookEvents)
+      .where(
+        and(
+          eq(crmWebhookEvents.provider, PROVIDER),
+          eq(crmWebhookEvents.dedupeKey, dedupeKey),
+        ),
+      )
+      .limit(1);
+    if (existing) return null;
+  }
+  return null;
+}
+
+async function finishClaim(
+  claim: Claim,
+  errorMessage: string | null,
+): Promise<void> {
+  try {
+    await getDb()
+      .update(crmWebhookEvents)
+      .set({ processedAt: new Date(), errorMessage })
+      .where(eq(crmWebhookEvents.id, claim.id));
+  } catch (error) {
+    console.error("[owner-alerts] failed to mark alert as sent", error);
+  }
+}
+
+// Frees the dedupe key so a Stripe "Resend event" can try again.
+async function releaseClaim(claim: Claim): Promise<void> {
+  try {
+    await getDb()
+      .delete(crmWebhookEvents)
+      .where(eq(crmWebhookEvents.id, claim.id));
+  } catch (error) {
+    console.error("[owner-alerts] failed to release alert claim", error);
+  }
+}
+
+// ---- Sending --------------------------------------------------------------
+
+// The display name makes these easy to filter in Gmail; the address is the
+// same support inbox the welcome email already sends from.
+const ALERT_FROM = `UpTrend Scaling Alerts <${UPTREND_SUPPORT_EMAIL}>`;
+
+async function deliverAlert(claim: Claim, alert: OwnerAlert): Promise<void> {
+  let failure: string | null = null;
+  try {
+    // The Resend idempotency key is tied to this claim's row id. If this
+    // process dies after Resend accepted the email but before the claim was
+    // marked done, the stale-claim takeover reuses the same row (same key) and
+    // Resend answers with the first result instead of sending a second email.
+    // A released claim is deleted, so a later retry gets a new row and a new key
+    // and cannot be blocked by a remembered failure.
+    const result = await raceTimeout(
+      sendEmail(
+        UPTREND_SUPPORT_EMAIL,
+        alert.subject,
+        alert.html,
+        ALERT_FROM,
+        undefined,
+        { idempotencyKey: `owner-alert-${claim.id}` },
+      ),
+      SEND_TIMEOUT_MS,
+    );
+    if (result === TIMED_OUT) failure = "email request timed out";
+    else if (!result.ok) failure = result.error;
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+  }
+
+  if (failure) {
+    console.error(
+      `[owner-alerts] could not send "${alert.subject}": ${failure}`,
+    );
+    await releaseClaim(claim);
+    return;
+  }
+  await finishClaim(claim, null);
+}
+
+// ---- Stripe lookups (only when the event itself is not enough) ------------
+
+async function fetchSubscriptionMetadata(
+  stripe: Stripe,
+  subscriptionId: string,
+): Promise<Record<string, string> | null> {
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    return metadataOf(subscription.metadata) ?? {};
+  } catch (error) {
+    console.error(
+      "[owner-alerts] could not look up subscription",
+      subscriptionId,
+      error,
+    );
+    return null;
+  }
+}
+
+// True when this subscription already had a real payment before this invoice.
+// Normally the dedupe claim alone makes "first charge only" true, but it cannot
+// know about payments from before this feature was switched on, or about a day-7
+// alert whose email failed and was released. Asking Stripe settles it. If the
+// lookup fails we assume "first" so a real day-7 payment is never silently lost.
+async function hasEarlierRealPayment(
+  stripe: Stripe,
+  subscriptionId: string,
+  currentInvoiceId: string,
+): Promise<boolean> {
+  try {
+    const page = await stripe.invoices.list({
+      subscription: subscriptionId,
+      status: "paid",
+      limit: 20,
+    });
+    return page.data.some(
+      (other) =>
+        other.id !== currentInvoiceId &&
+        other.amount_paid > 0 &&
+        other.billing_reason !== "subscription_create",
+    );
+  } catch (error) {
+    console.error(
+      "[owner-alerts] could not check earlier invoices",
+      subscriptionId,
+      error,
+    );
+    return false;
+  }
+}
+
+// ---- Orchestration ---------------------------------------------------------
+
+async function processSignup(event: Stripe.Event): Promise<void> {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const alert = buildSignupAlert(session, {
+    livemode: event.livemode,
+    created: event.created,
+    type: event.type,
+  });
+  if (!alert) return;
+
+  const claim = await claimAlert(alert.dedupeKey, event.type);
+  if (!claim) return;
+  await deliverAlert(claim, alert);
+}
+
+async function processPaidInvoice(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  const invoice = event.data.object as Stripe.Invoice;
+  if (!isRealChargeAfterSubscriptionStart(invoice)) return;
+
+  const ref = readInvoiceSubscription(invoice);
+  if (!ref.subscriptionId) return;
+
+  // The invoice carries a snapshot of the subscription's metadata. If it is
+  // missing the plan (older invoices, or an API version without it), ask Stripe.
+  let metadata = ref.metadata;
+  if (!metadata || typeof metadata["plan"] !== "string") {
+    metadata = await fetchSubscriptionMetadata(stripe, ref.subscriptionId);
+  }
+  if (!metadata || metadata["plan"] !== "trial") return;
+
+  const alert = buildTrialPaymentAlert(invoice, ref.subscriptionId, metadata, {
+    livemode: event.livemode,
+    created: event.created,
+    type: event.type,
+  });
+
+  const claim = await claimAlert(alert.dedupeKey, event.type);
+  if (!claim) return;
+
+  if (
+    await hasEarlierRealPayment(stripe, ref.subscriptionId, invoice.id ?? "")
+  ) {
+    await finishClaim(
+      claim,
+      "Not the first real payment for this subscription",
+    );
+    return;
+  }
+  await deliverAlert(claim, alert);
+}
+
+async function processOwnerAlert(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  if (event.type === SIGNUP_EVENT) {
+    await processSignup(event);
+  } else if (PAID_INVOICE_EVENTS.has(event.type)) {
+    await processPaidInvoice(stripe, event);
+  }
+}
+
+// Entry point used by the webhook. Never throws, never returns anything the
+// caller needs, and gives up after OVERALL_TIMEOUT_MS so Stripe always gets its
+// answer promptly. Dormant until Resend is configured (checked before claiming,
+// so nothing is marked as handled while emails cannot go out).
+export async function sendOwnerAlertForEvent(
+  stripe: Stripe,
+  event: Stripe.Event,
+): Promise<void> {
+  try {
+    if (!isOwnerAlertEventType(event.type)) return;
+    if (!isResendConfigured()) return;
+
+    const outcome = await raceTimeout(
+      processOwnerAlert(stripe, event),
+      OVERALL_TIMEOUT_MS,
+    );
+    if (outcome === TIMED_OUT) {
+      console.error(
+        `[owner-alerts] gave up waiting on ${event.type} ${event.id}`,
+      );
+    }
+  } catch (error) {
+    console.error(
+      `[owner-alerts] failed to handle ${event.type} ${event.id}`,
+      error,
+    );
+  }
+}

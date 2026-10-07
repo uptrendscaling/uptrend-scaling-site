@@ -7,6 +7,14 @@
     {
       "path": "/cron/lead-followups",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/cron/weekly-summary",
+      "schedule": "0 14 * * 1"
+    },
+    {
+      "path": "/cron/google-sync",
+      "schedule": "0 11 * * *"
     }
   ]
 }

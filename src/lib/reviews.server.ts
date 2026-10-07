@@ -11,7 +11,7 @@ import {
   getRequestHeader,
   setResponseStatus,
 } from "@tanstack/react-start/server";
-import { and, desc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -40,8 +40,8 @@ import {
   initialSmsBody,
   isResendConfigured,
   isTelnyxConfigured,
-  newSubscriberEmailHtml,
-  newSubscriberEmailSubject,
+  normalizeEmail,
+  normalizeUsPhone,
   reminderEmailHtml,
   reminderEmailSubject,
   reminderSmsBody,
@@ -57,6 +57,10 @@ import {
 } from "./messaging.server";
 
 const REMINDER_DELAY_MS = 48 * 60 * 60 * 1000;
+// A reminder that failed to send is retried by each daily run, but only for
+// customers added within this window: a "quick reminder" a month late reads
+// as spam, not as a nudge.
+const REMINDER_RETRY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 export function isCrmConfigured(): boolean {
   return isDbConfigured() && isAuthConfigured();
@@ -118,7 +122,7 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       return {
         ok: false,
         reason: "not_configured",
-        message: "Account setup isn't switched on yet -- check back soon.",
+        message: "Account setup isn't switched on yet. Check back soon.",
       };
     }
 
@@ -243,31 +247,12 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         }
       }
 
-      // Best-effort: let Colby know a new business just subscribed. Same
-      // dormant-safe guard as the welcome email above, and covers both
-      // branches above (brand-new business row, or one that already
-      // existed but hadn't set a password yet) since both represent a
-      // first-time subscribe. Sent to (and from) the support inbox.
-      if (isResendConfigured()) {
-        const notifyResult = await sendEmail(
-          UPTREND_SUPPORT_EMAIL,
-          newSubscriberEmailSubject(welcomeBusinessName),
-          newSubscriberEmailHtml(
-            welcomeBusinessName,
-            welcomeContactName,
-            email,
-            phone,
-            plan,
-          ),
-          UPTREND_SUPPORT_EMAIL,
-        );
-        if (!notifyResult.ok) {
-          console.error(
-            "[reviews] failed to send new-subscriber notification",
-            notifyResult.error,
-          );
-        }
-      }
+      // The "new subscriber" heads-up to hello@ is no longer sent from here.
+      // It only fired once the client had set a password (so a signup that
+      // never finished this page was never reported) and carried no amounts.
+      // It now comes from the Stripe webhook the moment checkout completes,
+      // with the amount due, trial dates and Stripe links: see
+      // ./owner-alerts.server.ts.
 
       await createBusinessSession(businessId);
       return { ok: true };
@@ -296,7 +281,7 @@ export const loginBusiness = createServerFn({ method: "POST" })
     if (!isCrmConfigured()) {
       return {
         ok: false,
-        message: "Sign-in isn't switched on yet -- check back soon.",
+        message: "Sign-in isn't switched on yet. Check back soon.",
       };
     }
 
@@ -372,7 +357,7 @@ export const requestPasswordReset = createServerFn({ method: "POST" })
       return {
         ok: false,
         reason: "not_configured",
-        message: "Password reset isn't switched on yet -- check back soon.",
+        message: "Password reset isn't switched on yet. Check back soon.",
       };
     }
     if (!isResendConfigured()) {
@@ -439,7 +424,7 @@ export const resetPassword = createServerFn({ method: "POST" })
       return {
         ok: false,
         reason: "not_configured",
-        message: "Password reset isn't switched on yet -- check back soon.",
+        message: "Password reset isn't switched on yet. Check back soon.",
       };
     }
 
@@ -507,12 +492,61 @@ export const updateGoogleReviewUrl = createServerFn({ method: "POST" })
 // the send/log logic and copy templates only live in one place.
 type ReviewRequestKind = "initial" | "manual" | "reminder";
 
+// True when the business has filled in its Google review link. Without it a
+// customer's tracked link (/r/:token) can only fall back to our own homepage,
+// so nothing automatic may go out until the owner has set it.
+export function hasReviewLink(business: Pick<Business, "googleReviewUrl">) {
+  return Boolean(business.googleReviewUrl?.trim());
+}
+
+// Friendly text for the manual add-customer form and resend button (and
+// anything else a person reads directly). The review link field lives in
+// Settings, and on the Overview checklist while it is still missing.
+export const NO_REVIEW_LINK_MESSAGE =
+  "Add your Google review link first (you can do that in Settings), so your customers have somewhere to leave their review. Then try again.";
+
+export type SendRequestOptions = {
+  // A stable id for this one send, e.g. the CRM webhook's per-invoice key.
+  // Becomes Resend's Idempotency-Key, so a retry after a crash can never email
+  // the same person twice for the same paid invoice.
+  sendKey?: string | undefined;
+  // Set when this is a retry of a send an earlier attempt already started
+  // (the claim was re-taken after a crash or failure). Any channel already
+  // logged for this customer since this moment is NOT sent again; its logged
+  // result is reported instead.
+  alreadyAttemptedSince?: Date | undefined;
+};
+
+export type SendOutcome = {
+  // true = sent, false = tried and failed, null = not attempted (no contact
+  // info for the channel, or the provider isn't configured yet).
+  smsSent: boolean | null;
+  emailSent: boolean | null;
+  smsError: string | null;
+  emailError: string | null;
+};
+
+// A failed insert into the message log must never throw: by then the message
+// has already left, and a throw would make a CRM webhook look failed and be
+// retried, texting the customer a second time.
+async function logMessage(
+  db: ReturnType<typeof getDb>,
+  row: typeof messages.$inferInsert,
+): Promise<void> {
+  try {
+    await db.insert(messages).values(row);
+  } catch (error) {
+    console.error("[reviews] failed to log a sent message", error);
+  }
+}
+
 async function sendReviewRequestAndLog(
   db: ReturnType<typeof getDb>,
   business: Business,
   customer: Pick<Customer, "id" | "name" | "phone" | "email" | "reviewToken">,
   kind: ReviewRequestKind,
-): Promise<{ smsSent: boolean | null; emailSent: boolean | null }> {
+  options: SendRequestOptions = {},
+): Promise<SendOutcome> {
   const link = reviewLinkFor(customer.reviewToken);
   const smsBody =
     kind === "reminder"
@@ -527,38 +561,100 @@ async function sendReviewRequestAndLog(
       ? reminderEmailHtml(business.businessName, customer.name, link)
       : initialEmailHtml(business.businessName, customer.name, link);
 
+  // Older rows (and hand-typed manual entries) may hold a number in any
+  // format. Telnyx only accepts E.164, so normalize here; a number that can't
+  // be normalized is treated as "no phone" rather than sent and rejected.
+  const phone = normalizeUsPhone(customer.phone);
+  const email = normalizeEmail(customer.email);
+
   let smsSent: boolean | null = null;
   let emailSent: boolean | null = null;
+  let smsError: string | null = null;
+  let emailError: string | null = null;
 
-  if (customer.phone && isTelnyxConfigured()) {
-    const result = await sendSms(customer.phone, smsBody);
-    smsSent = result.ok;
-    await db.insert(messages).values({
-      businessId: business.id,
-      customerId: customer.id,
-      channel: "sms",
-      kind,
-      status: result.ok ? "sent" : "failed",
-      providerMessageId: result.ok ? result.providerMessageId : null,
-      errorMessage: result.ok ? null : result.error,
-    });
+  // Retry of an earlier, interrupted attempt: find which channels it already
+  // got to, so each channel is attempted at most once per paid invoice.
+  const earlier = new Map<
+    "sms" | "email",
+    { sent: boolean; error: string | null }
+  >();
+  if (options.alreadyAttemptedSince) {
+    const rows = await db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.customerId, customer.id),
+          eq(messages.kind, kind),
+          gte(messages.sentAt, options.alreadyAttemptedSince),
+        ),
+      );
+    for (const row of rows) {
+      const previous = earlier.get(row.channel);
+      // If a channel was logged twice, "sent" wins.
+      if (!previous || row.status === "sent") {
+        earlier.set(row.channel, {
+          sent: row.status === "sent",
+          error: row.errorMessage,
+        });
+      }
+    }
   }
 
-  if (customer.email && isResendConfigured()) {
-    const result = await sendEmail(customer.email, emailSubject, emailHtml);
-    emailSent = result.ok;
-    await db.insert(messages).values({
-      businessId: business.id,
-      customerId: customer.id,
-      channel: "email",
-      kind,
-      status: result.ok ? "sent" : "failed",
-      providerMessageId: result.ok ? result.providerMessageId : null,
-      errorMessage: result.ok ? null : result.error,
-    });
+  // Each channel is independent: a failed, slow or unconfigured text must
+  // never stop the email, and the other way round.
+  if (phone && isTelnyxConfigured()) {
+    const done = earlier.get("sms");
+    if (done) {
+      smsSent = done.sent;
+      smsError = done.error;
+    } else {
+      const result = await sendSms(phone, smsBody);
+      smsSent = result.ok;
+      smsError = result.ok ? null : result.error;
+      await logMessage(db, {
+        businessId: business.id,
+        customerId: customer.id,
+        channel: "sms",
+        kind,
+        status: result.ok ? "sent" : "failed",
+        providerMessageId: result.ok ? result.providerMessageId : null,
+        errorMessage: result.ok ? null : result.error,
+      });
+    }
   }
 
-  return { smsSent, emailSent };
+  if (email && isResendConfigured()) {
+    const done = earlier.get("email");
+    if (done) {
+      emailSent = done.sent;
+      emailError = done.error;
+    } else {
+      const result = await sendEmail(
+        email,
+        emailSubject,
+        emailHtml,
+        undefined,
+        undefined,
+        options.sendKey
+          ? { idempotencyKey: `${options.sendKey}/${kind}/email` }
+          : undefined,
+      );
+      emailSent = result.ok;
+      emailError = result.ok ? null : result.error;
+      await logMessage(db, {
+        businessId: business.id,
+        customerId: customer.id,
+        channel: "email",
+        kind,
+        status: result.ok ? "sent" : "failed",
+        providerMessageId: result.ok ? result.providerMessageId : null,
+        errorMessage: result.ok ? null : result.error,
+      });
+    }
+  }
+
+  return { smsSent, emailSent, smsError, emailError };
 }
 
 export type CreateCustomerAndSendInput = {
@@ -571,13 +667,15 @@ export type CreateCustomerAndSendInput = {
 };
 
 export type CreateCustomerAndSendResult =
+  | ({ ok: true; customerId: string } & SendOutcome)
   | {
-      ok: true;
-      customerId: string;
-      smsSent: boolean | null;
-      emailSent: boolean | null;
-    }
-  | { ok: false; message: string };
+      ok: false;
+      // "no_review_link": nothing was created or sent because the business
+      // has no Google review link yet. "error": the customer row could not
+      // be created or found.
+      reason: "no_review_link" | "error";
+      message: string;
+    };
 
 // Creates a customer (or reuses their existing row, for a person we've
 // already seen via the same CRM connection) AND immediately fires off their
@@ -594,8 +692,23 @@ export type CreateCustomerAndSendResult =
 export async function createCustomerAndSendReviewRequest(
   business: Business,
   input: CreateCustomerAndSendInput,
+  options: SendRequestOptions = {},
 ): Promise<CreateCustomerAndSendResult> {
+  // No review link means every message would point at our homepage. Stop
+  // before creating anything, so the caller can tell the owner what to fix.
+  if (!hasReviewLink(business)) {
+    return {
+      ok: false,
+      reason: "no_review_link",
+      message: NO_REVIEW_LINK_MESSAGE,
+    };
+  }
+
   const db = getDb();
+  // Store the E.164 form so every later send (reminders, manual resend) uses
+  // a number Telnyx accepts. An unusable number or address becomes null.
+  const phone = normalizeUsPhone(input.phone);
+  const email = normalizeEmail(input.email);
 
   const matchExisting = input.externalId
     ? and(
@@ -613,24 +726,44 @@ export async function createCustomerAndSendReviewRequest(
       .where(matchExisting)
       .limit(1);
     customer = existing;
+
+    // The CRM is the source of truth for contact details. A repeat customer
+    // may have a new phone number or have withdrawn text consent since their
+    // last invoice, so the stored row follows what the CRM says now.
+    if (
+      customer &&
+      (customer.name !== input.name ||
+        customer.phone !== phone ||
+        customer.email !== email)
+    ) {
+      const [updated] = await db
+        .update(customers)
+        .set({ name: input.name, phone, email })
+        .where(eq(customers.id, customer.id))
+        .returning();
+      customer = updated ?? customer;
+    }
   }
 
   if (!customer) {
     const reviewToken = randomUUID();
+    // No conflict target on purpose: the unique index that guards CRM
+    // customers is a partial one (only where external_id is set), and
+    // Postgres refuses "ON CONFLICT (columns)" for a partial index unless the
+    // index's WHERE clause is repeated. A bare DO NOTHING covers it, and any
+    // lost race is picked up by the select below.
     const [inserted] = await db
       .insert(customers)
       .values({
         businessId: business.id,
         name: input.name,
-        phone: input.phone,
-        email: input.email,
+        phone,
+        email,
         reviewToken,
         source: input.source,
         externalId: input.externalId,
       })
-      .onConflictDoNothing({
-        target: [customers.businessId, customers.source, customers.externalId],
-      })
+      .onConflictDoNothing()
       .returning();
     customer = inserted;
 
@@ -646,18 +779,23 @@ export async function createCustomerAndSendReviewRequest(
         customer = raced;
       }
       if (!customer) {
-        return { ok: false, message: "Could not create that customer." };
+        return {
+          ok: false,
+          reason: "error",
+          message: "Could not create that customer.",
+        };
       }
     }
   }
 
-  const { smsSent, emailSent } = await sendReviewRequestAndLog(
+  const outcome = await sendReviewRequestAndLog(
     db,
     business,
     customer,
     "initial",
+    options,
   );
-  return { ok: true, customerId: customer.id, smsSent, emailSent };
+  return { ok: true, customerId: customer.id, ...outcome };
 }
 
 const addCustomerSchema = z
@@ -689,7 +827,19 @@ export const addCustomer = createServerFn({ method: "POST" })
     if (!isCrmConfigured()) {
       return {
         ok: false,
-        message: "The CRM isn't switched on yet -- check back soon.",
+        message: "The CRM isn't switched on yet. Check back soon.",
+      };
+    }
+
+    // A typo'd number is caught here, while the person is still looking at
+    // the form, instead of being saved and silently never texted.
+    const typedPhone = data.phone?.trim() || null;
+    const phone = typedPhone ? normalizeUsPhone(typedPhone) : null;
+    if (typedPhone && !phone) {
+      return {
+        ok: false,
+        message:
+          "That phone number doesn't look right. Use a 10 digit US number like (602) 555-0123, or clear it and add an email instead.",
       };
     }
 
@@ -706,12 +856,12 @@ export const addCustomer = createServerFn({ method: "POST" })
 
       const result = await createCustomerAndSendReviewRequest(business, {
         name: data.name,
-        phone: data.phone?.trim() || null,
+        phone,
         email: data.email?.trim() || null,
         source: "manual",
         externalId: null,
       });
-      if (!result.ok) return result;
+      if (!result.ok) return { ok: false, message: result.message };
       return { ok: true, smsSent: result.smsSent, emailSent: result.emailSent };
     } catch (error) {
       console.error("[reviews] failed to add customer", error);
@@ -734,7 +884,7 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
     if (!isCrmConfigured()) {
       return {
         ok: false,
-        message: "The CRM isn't switched on yet -- check back soon.",
+        message: "The CRM isn't switched on yet. Check back soon.",
       };
     }
 
@@ -761,6 +911,12 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
       if (!business)
         return { ok: false, message: "Your account could not be found." };
 
+      // Same guard as the automatic path: without the business's own Google
+      // review link, the message would send people to our home page.
+      if (!hasReviewLink(business)) {
+        return { ok: false, message: NO_REVIEW_LINK_MESSAGE };
+      }
+
       const { smsSent, emailSent } = await sendReviewRequestAndLog(
         db,
         business,
@@ -773,7 +929,7 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
         return {
           ok: false,
           message: hasContact
-            ? "No messaging provider is connected yet -- check back soon."
+            ? "No messaging provider is connected yet. Check back soon."
             : "This customer has no phone number or email on file.",
         };
       }
@@ -1159,14 +1315,22 @@ export type ReminderRunResult =
   { ok: true; sent: number } | { ok: false; reason: "not_configured" };
 
 // Finds every customer who hasn't clicked their review link, hasn't already
-// gotten a reminder, and was created more than 48 hours ago, and sends them
-// exactly one reminder. Called by the /cron/reminders route on a schedule --
-// never invoked directly by a user.
+// gotten a reminder, and was created more than 48 hours ago (but less than 7
+// days ago), and sends them exactly one reminder. Called by the
+// /cron/reminders route on a schedule, never invoked directly by a user.
+//
+// A customer is only marked as reminded when at least one channel really
+// sent. If every attempt failed (Telnyx or Resend down, bad number), the mark
+// is taken back off so tomorrow's run tries again, until the 7 day window
+// closes. Businesses that are canceled or have no review link are skipped
+// without marking anyone, so nothing is lost if they come back or fix it.
 export async function sendDueReminders(): Promise<ReminderRunResult> {
   if (!isDbConfigured()) return { ok: false, reason: "not_configured" };
 
   const db = getDb();
-  const cutoff = new Date(Date.now() - REMINDER_DELAY_MS);
+  const now = Date.now();
+  const cutoff = new Date(now - REMINDER_DELAY_MS);
+  const windowStart = new Date(now - REMINDER_RETRY_WINDOW_MS);
 
   const due = await db
     .select()
@@ -1177,25 +1341,66 @@ export async function sendDueReminders(): Promise<ReminderRunResult> {
         isNull(customers.linkClickedAt),
         isNull(customers.markedReviewedAt),
         lt(customers.createdAt, cutoff),
+        gt(customers.createdAt, windowStart),
       ),
     );
 
+  // Many customers share a business, so look each business up once per run.
+  const businessCache = new Map<string, Business | null>();
+
   let sent = 0;
   for (const customer of due) {
-    const [business] = await db
-      .select()
-      .from(businesses)
-      .where(eq(businesses.id, customer.businessId))
-      .limit(1);
-    if (!business) continue;
+    try {
+      let business = businessCache.get(customer.businessId);
+      if (business === undefined) {
+        const [row] = await db
+          .select()
+          .from(businesses)
+          .where(eq(businesses.id, customer.businessId))
+          .limit(1);
+        business = row ?? null;
+        businessCache.set(customer.businessId, business);
+      }
+      if (!business) continue;
+      // A canceled client's customers must not be texted, and without a
+      // review link the reminder's link would only lead to our homepage.
+      if (business.accessRevoked || !hasReviewLink(business)) continue;
 
-    await sendReviewRequestAndLog(db, business, customer, "reminder");
+      // Take the mark first (only if nobody else has), then send. Vercel Cron
+      // can occasionally fire a job twice; with the mark taken up front the
+      // second run skips this customer instead of texting them again. The
+      // mark is given back below if nothing was delivered.
+      const [taken] = await db
+        .update(customers)
+        .set({ reminderSentAt: new Date() })
+        .where(
+          and(eq(customers.id, customer.id), isNull(customers.reminderSentAt)),
+        )
+        .returning({ id: customers.id });
+      if (!taken) continue;
 
-    await db
-      .update(customers)
-      .set({ reminderSentAt: new Date() })
-      .where(eq(customers.id, customer.id));
-    sent += 1;
+      let delivered = false;
+      try {
+        const outcome = await sendReviewRequestAndLog(
+          db,
+          business,
+          customer,
+          "reminder",
+        );
+        delivered = outcome.smsSent === true || outcome.emailSent === true;
+      } finally {
+        if (!delivered) {
+          await db
+            .update(customers)
+            .set({ reminderSentAt: null })
+            .where(eq(customers.id, customer.id));
+        }
+      }
+      if (delivered) sent += 1;
+    } catch (error) {
+      // One customer's problem must not stop everyone else's reminder.
+      console.error("[reviews] reminder failed for a customer", error);
+    }
   }
 
   return { ok: true, sent };

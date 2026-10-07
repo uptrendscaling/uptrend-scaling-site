@@ -11,6 +11,14 @@ import { handleStripeWebhookRequest } from "../lib/stripe-webhook.server";
 // the client from a page route's loader.
 // handleStripeWebhookRequest() verifies Stripe's signature before touching
 // anything.
+//
+// The endpoint in the Stripe Dashboard must be subscribed to these events
+// (anything else is acknowledged and ignored):
+//   customer.subscription.created / .updated / .deleted  (setup fee, access)
+//   checkout.session.completed                          (owner alert: new signup)
+//   invoice.paid                                        (owner alert: trial client paid)
+// Sending the owner alerts only needs Resend to be configured; with it unset
+// they are skipped silently.
 export const Route = createFileRoute("/stripe/webhook")({
   server: {
     handlers: {
