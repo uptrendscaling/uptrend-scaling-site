@@ -19,13 +19,18 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
+import { Route as CronWeeklySummaryRouteImport } from './routes/cron.weekly-summary'
+import { Route as QTokenRouteImport } from './routes/q.$token'
 import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as StartSuccessRouteImport } from './routes/start_.success'
 import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
+import { Route as ConnectGoogleCallbackRouteImport } from './routes/connect.google.callback'
+import { Route as ConnectGoogleStartRouteImport } from './routes/connect.google.start'
 import { Route as ConnectJobberCallbackRouteImport } from './routes/connect.jobber.callback'
 import { Route as ConnectJobberStartRouteImport } from './routes/connect.jobber.start'
 import { Route as ConnectSquareCallbackRouteImport } from './routes/connect.square.callback'
@@ -81,6 +86,11 @@ const UnsubscribeRoute = UnsubscribeRouteImport.update({
   path: '/unsubscribe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CronGoogleSyncRoute = CronGoogleSyncRouteImport.update({
+  id: '/cron/google-sync',
+  path: '/cron/google-sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CronLeadFollowupsRoute = CronLeadFollowupsRouteImport.update({
   id: '/cron/lead-followups',
   path: '/cron/lead-followups',
@@ -89,6 +99,16 @@ const CronLeadFollowupsRoute = CronLeadFollowupsRouteImport.update({
 const CronRemindersRoute = CronRemindersRouteImport.update({
   id: '/cron/reminders',
   path: '/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CronWeeklySummaryRoute = CronWeeklySummaryRouteImport.update({
+  id: '/cron/weekly-summary',
+  path: '/cron/weekly-summary',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QTokenRoute = QTokenRouteImport.update({
+  id: '/q/$token',
+  path: '/q/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RTokenRoute = RTokenRouteImport.update({
@@ -114,6 +134,16 @@ const WebhooksJobberRoute = WebhooksJobberRouteImport.update({
 const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
   id: '/webhooks/square',
   path: '/webhooks/square',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectGoogleCallbackRoute = ConnectGoogleCallbackRouteImport.update({
+  id: '/connect/google/callback',
+  path: '/connect/google/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectGoogleStartRoute = ConnectGoogleStartRouteImport.update({
+  id: '/connect/google/start',
+  path: '/connect/google/start',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ConnectJobberCallbackRoute = ConnectJobberCallbackRouteImport.update({
@@ -148,13 +178,18 @@ export interface FileRoutesByFullPath {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/weekly-summary': typeof CronWeeklySummaryRoute
+  '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/google/callback': typeof ConnectGoogleCallbackRoute
+  '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
@@ -171,13 +206,18 @@ export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/weekly-summary': typeof CronWeeklySummaryRoute
+  '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/google/callback': typeof ConnectGoogleCallbackRoute
+  '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
@@ -195,13 +235,18 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/weekly-summary': typeof CronWeeklySummaryRoute
+  '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
   '/start_/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/connect/google/callback': typeof ConnectGoogleCallbackRoute
+  '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
@@ -220,13 +265,18 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/weekly-summary'
+    | '/q/$token'
     | '/r/$token'
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/connect/google/callback'
+    | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
     | '/connect/square/callback'
@@ -243,13 +293,18 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/weekly-summary'
+    | '/q/$token'
     | '/r/$token'
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/connect/google/callback'
+    | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
     | '/connect/square/callback'
@@ -266,13 +321,18 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/weekly-summary'
+    | '/q/$token'
     | '/r/$token'
     | '/start_/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/connect/google/callback'
+    | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
     | '/connect/square/callback'
@@ -290,13 +350,18 @@ export interface RootRouteChildren {
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  CronGoogleSyncRoute: typeof CronGoogleSyncRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
+  CronWeeklySummaryRoute: typeof CronWeeklySummaryRoute
+  QTokenRoute: typeof QTokenRoute
   RTokenRoute: typeof RTokenRoute
   StartSuccessRoute: typeof StartSuccessRoute
   StripeWebhookRoute: typeof StripeWebhookRoute
   WebhooksJobberRoute: typeof WebhooksJobberRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
+  ConnectGoogleCallbackRoute: typeof ConnectGoogleCallbackRoute
+  ConnectGoogleStartRoute: typeof ConnectGoogleStartRoute
   ConnectJobberCallbackRoute: typeof ConnectJobberCallbackRoute
   ConnectJobberStartRoute: typeof ConnectJobberStartRoute
   ConnectSquareCallbackRoute: typeof ConnectSquareCallbackRoute
@@ -375,6 +440,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UnsubscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cron/google-sync': {
+      id: '/cron/google-sync'
+      path: '/cron/google-sync'
+      fullPath: '/cron/google-sync'
+      preLoaderRoute: typeof CronGoogleSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cron/lead-followups': {
       id: '/cron/lead-followups'
       path: '/cron/lead-followups'
@@ -387,6 +459,20 @@ declare module '@tanstack/react-router' {
       path: '/cron/reminders'
       fullPath: '/cron/reminders'
       preLoaderRoute: typeof CronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cron/weekly-summary': {
+      id: '/cron/weekly-summary'
+      path: '/cron/weekly-summary'
+      fullPath: '/cron/weekly-summary'
+      preLoaderRoute: typeof CronWeeklySummaryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/q/$token': {
+      id: '/q/$token'
+      path: '/q/$token'
+      fullPath: '/q/$token'
+      preLoaderRoute: typeof QTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/r/$token': {
@@ -422,6 +508,20 @@ declare module '@tanstack/react-router' {
       path: '/webhooks/square'
       fullPath: '/webhooks/square'
       preLoaderRoute: typeof WebhooksSquareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/google/callback': {
+      id: '/connect/google/callback'
+      path: '/connect/google/callback'
+      fullPath: '/connect/google/callback'
+      preLoaderRoute: typeof ConnectGoogleCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/google/start': {
+      id: '/connect/google/start'
+      path: '/connect/google/start'
+      fullPath: '/connect/google/start'
+      preLoaderRoute: typeof ConnectGoogleStartRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/connect/jobber/callback': {
@@ -466,13 +566,18 @@ const rootRouteChildren: RootRouteChildren = {
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  CronGoogleSyncRoute: CronGoogleSyncRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
+  CronWeeklySummaryRoute: CronWeeklySummaryRoute,
+  QTokenRoute: QTokenRoute,
   RTokenRoute: RTokenRoute,
   StartSuccessRoute: StartSuccessRoute,
   StripeWebhookRoute: StripeWebhookRoute,
   WebhooksJobberRoute: WebhooksJobberRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
+  ConnectGoogleCallbackRoute: ConnectGoogleCallbackRoute,
+  ConnectGoogleStartRoute: ConnectGoogleStartRoute,
   ConnectJobberCallbackRoute: ConnectJobberCallbackRoute,
   ConnectJobberStartRoute: ConnectJobberStartRoute,
   ConnectSquareCallbackRoute: ConnectSquareCallbackRoute,
