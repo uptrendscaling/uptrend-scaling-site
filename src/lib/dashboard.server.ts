@@ -40,6 +40,7 @@ import type {
 } from "../components/dashboard/types";
 import { getSessionBusinessId, isAuthConfigured } from "./auth.server";
 import type { ConnectionSummary } from "./crm/connections.server";
+import { isQuickBooksOfferedTo } from "./crm/quickbooks.server";
 import {
   WEBHOOK_PROVIDERS,
   isInvoiceProvider,
@@ -304,7 +305,7 @@ function chip(
 }
 
 function crmChip(
-  key: "square" | "jobber",
+  key: "quickbooks" | "square" | "jobber",
   label: string,
   connection: ConnectionSummary | undefined,
 ): IntegrationChip {
@@ -314,7 +315,7 @@ function crmChip(
   if (connection.lastErrorMessage) {
     return chip(key, label, "needs reconnect", "warn", { opensSettings: true });
   }
-  // Square and Jobber push events to us, so there is no "sync". Only claim
+  // QuickBooks, Square and Jobber push events to us, so there is no "sync". Only claim
   // something when an event really arrived.
   if (connection.lastEventAt) {
     return chip(key, label, "listening", "ok", {
@@ -360,12 +361,19 @@ export function computeChips(input: {
   connections: ConnectionSummary[];
   google: GoogleStatus;
   messaging: MessagingStatus;
+  quickbooksOffered?: boolean;
 }): IntegrationChip[] {
   const byProvider = new Map(
     input.connections.map((connection) => [connection.provider, connection]),
   );
   const { sms, email } = input.messaging;
+  // QuickBooks gets a chip once it is offered to this business, or when a
+  // connection exists anyway (so a broken one is never hidden).
+  const quickbooks = byProvider.get("quickbooks");
   return [
+    ...(input.quickbooksOffered || quickbooks
+      ? [crmChip("quickbooks", "QuickBooks", quickbooks)]
+      : []),
     crmChip("square", "Square", byProvider.get("square")),
     crmChip("jobber", "Jobber", byProvider.get("jobber")),
     sms === "on"
@@ -385,6 +393,7 @@ export function computeTodos(input: {
   connections: ConnectionSummary[];
   google: GoogleStatus;
   messaging: MessagingStatus;
+  quickbooksOffered?: boolean;
 }): SetupTodo[] {
   const todos: SetupTodo[] = [];
   const byProvider = new Map(
@@ -400,6 +409,15 @@ export function computeTodos(input: {
     });
   }
 
+  if (byProvider.get("quickbooks")?.lastErrorMessage) {
+    todos.push({
+      id: "reconnect-quickbooks",
+      title: "Reconnect QuickBooks",
+      detail:
+        "We lost access to your QuickBooks company. New paid invoices will not get a review request until you reconnect.",
+      blocking: true,
+    });
+  }
   if (byProvider.get("square")?.lastErrorMessage) {
     todos.push({
       id: "reconnect-square",
@@ -428,10 +446,16 @@ export function computeTodos(input: {
     });
   }
 
-  if (!byProvider.has("square") && !byProvider.has("jobber")) {
+  if (
+    !byProvider.has("square") &&
+    !byProvider.has("jobber") &&
+    !byProvider.has("quickbooks")
+  ) {
     todos.push({
       id: "crm",
-      title: "Connect Square or Jobber",
+      title: input.quickbooksOffered
+        ? "Connect QuickBooks, Square or Jobber"
+        : "Connect Square or Jobber",
       detail:
         "So a review request goes out on its own the moment an invoice is paid.",
       blocking: false,
@@ -540,17 +564,20 @@ export async function loadDashboardShell(
       todos: [],
       live: false,
       connections: [],
+      quickbooksOffered: false,
       google: IDLE_GOOGLE_STATUS,
       messaging,
     };
   }
 
   const google = await options.getGoogleStatus();
+  const quickbooksOffered = isQuickBooksOfferedTo(business);
   const todos = computeTodos({
     business,
     connections: connectionRows,
     google,
     messaging,
+    quickbooksOffered,
   });
   const live =
     Boolean(business.googleReviewUrl) &&
@@ -565,10 +592,16 @@ export async function loadDashboardShell(
     generatedAt: now.toISOString(),
     timezone,
     weeklySummaryEnabled: business.weeklySummaryEnabled,
-    chips: computeChips({ connections: connectionRows, google, messaging }),
+    chips: computeChips({
+      connections: connectionRows,
+      google,
+      messaging,
+      quickbooksOffered,
+    }),
     todos,
     live,
     connections: connectionRows,
+    quickbooksOffered,
     google,
     messaging,
   };

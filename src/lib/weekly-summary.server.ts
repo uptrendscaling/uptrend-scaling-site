@@ -265,17 +265,27 @@ export type WeeklySummaryStats = {
   // Null when the business has no QR code at all (nothing to measure).
   qrScans: number | null;
   // Of requestsSent, how many were sent by a connected tool.
-  automaticRequests: { jobber: number; square: number };
+  automaticRequests: { jobber: number; square: number; quickbooks: number };
   requestsByDay: number[];
   dayShortNames: string[];
   dayLongNames: string[];
   // Customers whose message failed on every channel and who got nothing else.
   failedCustomers: number;
   // Paid-invoice events we could not turn into a request.
-  skippedInvoices: { jobber: number; square: number; allNoContact: boolean };
+  skippedInvoices: {
+    jobber: number;
+    square: number;
+    quickbooks: number;
+    allNoContact: boolean;
+  };
   reviewLinkMissing: boolean;
-  connected: { jobber: boolean; square: boolean; google: boolean };
-  needsReconnect: Array<"jobber" | "square" | "zapier" | "google">;
+  connected: {
+    jobber: boolean;
+    square: boolean;
+    quickbooks: boolean;
+    google: boolean;
+  };
+  needsReconnect: Array<"jobber" | "square" | "zapier" | "quickbooks" | "google">;
   hasQrCode: boolean;
   google: GoogleStats | null;
 };
@@ -393,7 +403,7 @@ async function gatherStats(
       .from(crmConnections)
       .where(eq(crmConnections.businessId, business.id)),
     // "stripe" rows in this table are claim markers, not CRM events, so only
-    // Jobber and Square rows count here.
+    // Jobber, Square and QuickBooks rows count here.
     db
       .select({
         provider: crmWebhookEvents.provider,
@@ -403,7 +413,7 @@ async function gatherStats(
       .where(
         and(
           eq(crmWebhookEvents.businessId, business.id),
-          inArray(crmWebhookEvents.provider, ["jobber", "square"]),
+          inArray(crmWebhookEvents.provider, ["jobber", "square", "quickbooks"]),
           isNotNull(crmWebhookEvents.errorMessage),
           gte(crmWebhookEvents.receivedAt, start),
           lt(crmWebhookEvents.receivedAt, end),
@@ -438,7 +448,7 @@ async function gatherStats(
   ).length;
 
   const requestsByDay = win.dayStarts.slice(0, 7).map(() => 0);
-  const automaticRequests = { jobber: 0, square: 0 };
+  const automaticRequests = { jobber: 0, square: 0, quickbooks: 0 };
   for (const { at, source } of firstRequest.values()) {
     let dayIndex = 0;
     for (let i = 0; i < 7; i += 1) {
@@ -447,6 +457,7 @@ async function gatherStats(
     requestsByDay[dayIndex] = (requestsByDay[dayIndex] ?? 0) + 1;
     if (source === "jobber") automaticRequests.jobber += 1;
     if (source === "square") automaticRequests.square += 1;
+    if (source === "quickbooks") automaticRequests.quickbooks += 1;
   }
 
   // Link opens and marked-reviewed come straight from customer rows. Two small
@@ -545,16 +556,18 @@ async function gatherStats(
     };
   }
 
-  const skipped = { jobber: 0, square: 0, allNoContact: true };
+  const skipped = { jobber: 0, square: 0, quickbooks: 0, allNoContact: true };
   for (const row of skippedRows) {
     if (row.provider === "jobber") skipped.jobber += 1;
     if (row.provider === "square") skipped.square += 1;
+    if (row.provider === "quickbooks") skipped.quickbooks += 1;
     if (row.errorMessage !== NO_CONTACT_ERROR) skipped.allNoContact = false;
   }
 
   const connected = {
     jobber: connectionRows.some((row) => row.provider === "jobber"),
     square: connectionRows.some((row) => row.provider === "square"),
+    quickbooks: connectionRows.some((row) => row.provider === "quickbooks"),
     google: connectionRows.some((row) => row.provider === "google"),
   };
   const needsReconnect = connectionRows
@@ -671,6 +684,7 @@ function leadSentence(s: WeeklySummaryStats): string {
 const PROVIDER_NAMES = {
   jobber: "Jobber",
   square: "Square",
+  quickbooks: "QuickBooks",
   zapier: "Zapier",
   google: "Google",
 };
@@ -697,11 +711,15 @@ function attentionItems(s: WeeklySummaryStats): Tip[] {
       body: "The phone number or email we have for them may be wrong. You can fix it in your dashboard.",
     });
   }
-  const skipped = s.skippedInvoices.jobber + s.skippedInvoices.square;
+  const skipped =
+    s.skippedInvoices.jobber +
+    s.skippedInvoices.square +
+    s.skippedInvoices.quickbooks;
   if (skipped > 0) {
     const where = joinNames([
       ...(s.skippedInvoices.jobber > 0 ? [PROVIDER_NAMES.jobber] : []),
       ...(s.skippedInvoices.square > 0 ? [PROVIDER_NAMES.square] : []),
+      ...(s.skippedInvoices.quickbooks > 0 ? [PROVIDER_NAMES.quickbooks] : []),
     ]);
     items.push({
       title: `${plural(skipped, "paid invoice")} in ${where} did not turn into a review request.`,
@@ -731,7 +749,7 @@ function nextSteps(s: WeeklySummaryStats): string[] {
       `Reply to your ${lowReview.stars}-star review on Google. A calm, friendly answer shows future customers you care.`,
     );
   }
-  if (!s.connected.jobber && !s.connected.square) {
+  if (!s.connected.jobber && !s.connected.square && !s.connected.quickbooks) {
     steps.push(
       "Connect Jobber or Square, and a review request goes out on its own the moment an invoice is paid.",
     );
@@ -768,7 +786,7 @@ function getStartedSteps(s: WeeklySummaryStats): Step[] {
     {
       title: "Connect Jobber or Square (optional)",
       body: "Then a review request goes out on its own every time an invoice is paid.",
-      done: s.connected.jobber || s.connected.square,
+      done: s.connected.jobber || s.connected.square || s.connected.quickbooks,
     },
     {
       title: "Connect your Google Business Profile (optional)",
@@ -1028,11 +1046,17 @@ function dayChart(s: WeeklySummaryStats): string {
 
 function activityLines(s: WeeklySummaryStats): string[] {
   const lines: string[] = [];
-  const auto = s.automaticRequests.jobber + s.automaticRequests.square;
+  const auto =
+    s.automaticRequests.jobber +
+    s.automaticRequests.square +
+    s.automaticRequests.quickbooks;
   if (auto > 0) {
     const from = joinNames([
       ...(s.automaticRequests.jobber > 0 ? [PROVIDER_NAMES.jobber] : []),
       ...(s.automaticRequests.square > 0 ? [PROVIDER_NAMES.square] : []),
+      ...(s.automaticRequests.quickbooks > 0
+        ? [PROVIDER_NAMES.quickbooks]
+        : []),
     ]);
     lines.push(
       `${plural(auto, "review request")} went out on their own after a paid invoice in ${from}.`,
