@@ -155,7 +155,8 @@ export const Route = createFileRoute("/")({
 // here is prefixed "lp-" and styled in the "Landing page" block at the end of
 // styles.css, so the shared site classes used by /start, /login, /terms and
 // /privacy are untouched. The dashboard preview is an illustration with
-// example numbers, labeled as such on the page.
+// example numbers (Colby asked on 2026-10-08 to drop the on-screen
+// "Example" tag; the screen reader label still says it is an example).
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
@@ -693,9 +694,8 @@ function Index() {
   );
 }
 
-// A static picture of the real client dashboard, with example numbers. It is
-// marked "Example" on screen and hidden from screen readers' data reading
-// (one label describes it instead).
+// A static picture of the real client dashboard, with example numbers.
+// Screen readers get one label describing it instead of the numbers.
 function DashboardPreview() {
   const max = Math.max(...PREVIEW_BARS);
   return (
@@ -715,7 +715,6 @@ function DashboardPreview() {
           <span>QR codes</span>
           <span>Reports</span>
         </span>
-        <span className="lp-preview-example">Example</span>
       </div>
       <div className="lp-preview-body" aria-hidden="true">
         <div className="lp-preview-greet">
