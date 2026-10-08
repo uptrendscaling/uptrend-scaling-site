@@ -2,6 +2,7 @@
 // Requests and Reports tabs (which render them). Types and tiny constants
 // only, so it is safe to import from both server and browser code.
 
+import type { CustomerSource } from "../../lib/crm/providers";
 import type { PillTone } from "./types";
 
 // ---------------------------------------------------------------- requests
@@ -11,7 +12,7 @@ export type RequestChannel = "sms" | "email";
 // resend the owner triggered from the Customers tab.
 export type RequestKind = "initial" | "reminder" | "manual";
 export type RequestStatus = "sent" | "failed";
-export type RequestSource = "manual" | "jobber" | "square";
+export type RequestSource = CustomerSource;
 
 export type RequestsLogFilters = {
   channel?: RequestChannel;
@@ -45,7 +46,8 @@ export type RequestLogRow = {
 export type AttentionItem = {
   id: string;
   at: string; // ISO string
-  provider: "Square" | "Jobber";
+  // Display name of the connector, e.g. "Square".
+  provider: string;
   kind: "skipped" | "failed";
   // "Maria G." when the invoice told us who paid, otherwise null.
   customer: string | null;

@@ -39,6 +39,7 @@ const KIND_LABEL: Record<RequestKind, string> = {
 const SOURCE_LABEL: Record<RequestSource, string> = {
   square: "Square",
   jobber: "Jobber",
+  zapier: "Zapier",
   manual: "Added by you",
 };
 
