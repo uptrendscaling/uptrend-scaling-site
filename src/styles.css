@@ -1,6 +1,7 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./theme-light.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -6522,4 +6523,87 @@ h1 strong {
   .lp-pv-report-stats .lp-pstat:nth-child(5) {
     grid-column: span 2;
   }
+}
+
+/* ---- Light / dark switch + promo banner ------------------------------- */
+.site-nav-actions,
+.lp-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.theme-toggle:hover {
+  border-color: var(--ring);
+}
+.theme-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.theme-toggle.is-dash {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border-color: var(--dash-border);
+  background: var(--dash-panel);
+  color: var(--dash-text);
+}
+.theme-toggle.is-dash svg {
+  width: 16px;
+  height: 16px;
+}
+.promo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1px solid oklch(0.86 0.17 92 / 55%);
+  background: oklch(0.86 0.17 92 / 8%);
+  font-size: 15px;
+  line-height: 1.4;
+}
+.promo-banner strong {
+  color: oklch(0.86 0.17 92);
+}
+.promo-banner code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px dashed oklch(0.86 0.17 92 / 70%);
+  letter-spacing: 0.04em;
+}
+.theme-toggle .tt-sun {
+  display: none;
+}
+:root[data-theme="dark"] .theme-toggle .tt-sun {
+  display: block;
+}
+:root[data-theme="dark"] .theme-toggle .tt-moon {
+  display: none;
 }
