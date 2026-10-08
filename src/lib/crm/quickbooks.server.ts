@@ -48,7 +48,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { eq } from "drizzle-orm";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { z } from "zod";
 
 import {
   createOAuthState,
@@ -215,63 +214,105 @@ async function tokenRequest(
   return (await response.json()) as QuickBooksTokenResponse;
 }
 
-const completeConnectionSchema = z.object({
-  code: z.string().trim().min(1),
-  state: z.string().trim().min(1),
-  realmId: z.string().trim().min(1),
-});
-
 export type CompleteConnectionResult =
   { ok: true } | { ok: false; message: string };
 
-export const completeQuickBooksConnection = createServerFn({ method: "POST" })
-  .validator((input: unknown) => completeConnectionSchema.parse(input))
-  .handler(async ({ data }): Promise<CompleteConnectionResult> => {
-    if (!isQuickBooksConfigured()) return { ok: false, message: NOT_ON };
+// Finishes the connection after Intuit sends the owner back. Plain function
+// (not a server function) so the callback route can call it straight from
+// the raw request; see handleQuickBooksCallbackRequest for why.
+export async function finishQuickBooksConnection(input: {
+  code: string;
+  state: string;
+  realmId: string;
+}): Promise<CompleteConnectionResult> {
+  if (!isQuickBooksConfigured()) return { ok: false, message: NOT_ON };
 
-    const verified = verifyOAuthState(data.state, PROVIDER);
-    if (!verified) {
-      return {
-        ok: false,
-        message:
-          "That connection link expired or was invalid. Please try again.",
-      };
-    }
-    const sessionBusinessId = await getSessionBusinessId();
-    if (!sessionBusinessId || sessionBusinessId !== verified.businessId) {
-      return {
-        ok: false,
-        message: "Please sign in and try connecting QuickBooks again.",
-      };
-    }
+  // A QuickBooks company id is digits only. Checked as text, never turned
+  // into a number (it is longer than a JavaScript number can hold exactly).
+  if (!/^\d{1,32}$/.test(input.realmId)) {
+    return { ok: false, message: "QuickBooks sent an unexpected company id." };
+  }
 
-    try {
-      const tokens = await tokenRequest(
-        {
-          grant_type: "authorization_code",
-          code: data.code,
-          redirect_uri: REDIRECT_URI,
-        },
-        "token exchange",
-      );
-      await saveConnection(verified.businessId, PROVIDER, {
-        externalAccountId: data.realmId,
-        accessToken: tokens.access_token,
-        refreshToken: tokens.refresh_token ?? null,
-        expiresAt: expiryFrom(tokens.expires_in),
-        scope: SCOPE,
-      });
-      return { ok: true };
-    } catch (error) {
-      // The unique index on (provider, external account) also lands here when
-      // this QuickBooks company is already connected to another business.
-      console.error("[quickbooks] failed to complete connection", error);
-      return {
-        ok: false,
-        message: "Couldn't connect to QuickBooks. Please try again.",
-      };
-    }
+  const verified = verifyOAuthState(input.state, PROVIDER);
+  if (!verified) {
+    return {
+      ok: false,
+      message: "That connection link expired or was invalid. Please try again.",
+    };
+  }
+  const sessionBusinessId = await getSessionBusinessId();
+  if (!sessionBusinessId || sessionBusinessId !== verified.businessId) {
+    return {
+      ok: false,
+      message: "Please sign in and try connecting QuickBooks again.",
+    };
+  }
+
+  try {
+    const tokens = await tokenRequest(
+      {
+        grant_type: "authorization_code",
+        code: input.code,
+        redirect_uri: REDIRECT_URI,
+      },
+      "token exchange",
+    );
+    await saveConnection(verified.businessId, PROVIDER, {
+      externalAccountId: input.realmId,
+      accessToken: tokens.access_token,
+      refreshToken: tokens.refresh_token ?? null,
+      expiresAt: expiryFrom(tokens.expires_in),
+      scope: SCOPE,
+    });
+    return { ok: true };
+  } catch (error) {
+    // The unique index on (provider, external account) also lands here when
+    // this QuickBooks company is already connected to another business.
+    console.error("[quickbooks] failed to complete connection", error);
+    return {
+      ok: false,
+      message: "Couldn't connect to QuickBooks. Please try again.",
+    };
+  }
+}
+
+function redirectTo(path: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: { location: path, "cache-control": "no-store" },
   });
+}
+
+// GET /connect/quickbooks/callback. Intuit sends the owner here with
+// ?code=...&state=...&realmId=... (or ?error=access_denied).
+//
+// This is a server route reading the request URL itself, NOT a page route
+// loader: the page router turns number-looking query values into numbers
+// before any page code sees them (even its "raw" search string is rebuilt
+// from those numbers), and a realmId like 9341458448689811 is longer than a
+// JavaScript number can hold, so it came out as ...812 and every webhook for
+// the company then failed to match the stored connection.
+export async function handleQuickBooksCallbackRequest(
+  request: Request,
+): Promise<Response> {
+  const params = new URL(request.url).searchParams;
+  const read = (name: string) => params.get(name)?.trim() || undefined;
+  const code = read("code");
+  const state = read("state");
+  const realmId = read("realmId");
+
+  if (read("error") || !code || !state || !realmId) {
+    return redirectTo("/app?crmError=quickbooks");
+  }
+  try {
+    const result = await finishQuickBooksConnection({ code, state, realmId });
+    if (!result.ok) console.error(`[quickbooks] connect failed: ${result.message}`);
+    return redirectTo(result.ok ? "/app?tab=settings" : "/app?crmError=quickbooks");
+  } catch (error) {
+    console.error("[quickbooks] callback failed", error);
+    return redirectTo("/app?crmError=quickbooks");
+  }
+}
 
 // Best effort: tells Intuit to cancel the connection's tokens when the owner
 // disconnects from our side. Never throws; the row is deleted either way.
