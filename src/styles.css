@@ -6235,3 +6235,29 @@ h1 strong {
     transition: none !important;
   }
 }
+
+/* ---- Settings: Zapier API key (added 2026-10-08) ------------------------- */
+.dash-key-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  max-width: 560px;
+}
+.dash-key-input {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.dash-key-help {
+  max-width: 560px;
+  margin: 10px 0 0;
+  color: var(--dash-muted);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.dash-key-help strong {
+  color: var(--dash-text-2);
+}
