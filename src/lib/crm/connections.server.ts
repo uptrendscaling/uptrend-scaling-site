@@ -29,13 +29,21 @@ import {
   hasReviewLink,
 } from "../reviews.server";
 
-export type CrmProvider = "jobber" | "square" | "google";
-
-// The providers that send us webhooks. crm_webhook_events.provider is a
-// wider list (it also holds "stripe" owner-alert markers) and
-// crm_connections.provider also holds "google", so the webhook code uses this
-// narrow type to stay inside what it actually handles.
-export type CrmWebhookProvider = "jobber" | "square";
+// The provider lists live in ./providers (shared with browser code).
+// crm_webhook_events.provider is a wider list (it also holds "stripe"
+// owner-alert markers) and crm_connections.provider also holds "google", so
+// the webhook code uses CrmWebhookProvider to stay inside what it handles.
+export {
+  CONNECTION_PROVIDERS,
+  WEBHOOK_PROVIDERS,
+  type CrmProvider,
+  type CrmWebhookProvider,
+} from "./providers";
+import {
+  CONNECTION_PROVIDERS,
+  type CrmProvider,
+  type CrmWebhookProvider,
+} from "./providers";
 
 export function isCrmFrameworkConfigured(): boolean {
   return isDbConfigured() && isAuthConfigured() && isEncryptionConfigured();
@@ -195,7 +203,7 @@ export async function updateConnectionTokens(
     .where(eq(crmConnections.id, connectionId));
 }
 
-const disconnectSchema = z.object({ provider: z.enum(["jobber", "square", "google"]) });
+const disconnectSchema = z.object({ provider: z.enum(CONNECTION_PROVIDERS) });
 
 export type DisconnectResult = { ok: true } | { ok: false; message: string };
 
