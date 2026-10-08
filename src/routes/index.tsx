@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import {
   MONTHLY_PRICE_CENTS,
@@ -154,9 +154,8 @@ export const Route = createFileRoute("/")({
 // graphite palette, Inter type, 12px panels, stat cards and chips. Every class
 // here is prefixed "lp-" and styled in the "Landing page" block at the end of
 // styles.css, so the shared site classes used by /start, /login, /terms and
-// /privacy are untouched. The dashboard preview is an illustration with
-// example numbers (Colby asked on 2026-10-08 to drop the on-screen
-// "Example" tag; the screen reader label still says it is an example).
+// /privacy are untouched. Colby asked (2026-10-08) for no "example" or
+// "sample" wording anywhere in the previews.
 
 const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
@@ -386,12 +385,15 @@ function Index() {
                     takes them straight to your Google review page.
                   </p>
                 </div>
-                <div className="lp-messages" aria-label="Example text message">
+                <div
+                  className="lp-messages"
+                  aria-label="Review request text message"
+                >
                   <div className="lp-msg-head">
                     <span className="lp-avatar">AP</span>
                     <div>
                       <strong>Ace Plumbing</strong>
-                      <small>Text message · example</small>
+                      <small>Text message</small>
                     </div>
                   </div>
                   <p className="lp-bubble lp-bubble-in">
@@ -694,112 +696,549 @@ function Index() {
   );
 }
 
-// A static picture of the real client dashboard, with example numbers.
-// Screen readers get one label describing it instead of the numbers.
+// A clickable copy of the client dashboard (/app). The tabs switch between
+// small versions of the real Overview, Customers, Requests, QR codes and
+// Reports screens so visitors can see what they get after signing up. The
+// three QR codes are real and open this homepage.
+type PreviewTab = "overview" | "customers" | "requests" | "qr" | "reports";
+
+const PREVIEW_TABS: { id: PreviewTab; label: string }[] = [
+  { id: "overview", label: "Overview" },
+  { id: "customers", label: "Customers" },
+  { id: "requests", label: "Requests" },
+  { id: "qr", label: "QR codes" },
+  { id: "reports", label: "Reports" },
+];
+
 function DashboardPreview() {
-  const max = Math.max(...PREVIEW_BARS);
+  const [tab, setTab] = useState<PreviewTab>("overview");
   return (
     <div
       className="lp-preview"
-      role="img"
-      aria-label="Example of the UpTrend Scaling dashboard, showing Google rating, reviews this month, requests sent, a rising weekly reviews chart and recent activity"
+      role="region"
+      aria-label="UpTrend Scaling dashboard preview"
     >
-      <div className="lp-preview-bar" aria-hidden="true">
-        <span className="lp-preview-brand">
+      <div className="lp-preview-bar">
+        <span className="lp-preview-brand" aria-hidden="true">
           <BrandMark small /> UpTrend
         </span>
-        <span className="lp-preview-tabs">
-          <b>Overview</b>
-          <span>Customers</span>
-          <span>Requests</span>
-          <span>QR codes</span>
-          <span>Reports</span>
+        <div
+          className="lp-preview-tabs"
+          role="tablist"
+          aria-label="Dashboard pages"
+        >
+          {PREVIEW_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              id={`lp-tab-${item.id}`}
+              aria-selected={tab === item.id}
+              aria-controls="lp-preview-panel"
+              className={tab === item.id ? "is-active" : undefined}
+              onClick={() => setTab(item.id)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div
+        className="lp-preview-body"
+        id="lp-preview-panel"
+        role="tabpanel"
+        aria-labelledby={`lp-tab-${tab}`}
+      >
+        {tab === "overview" ? <PreviewOverview /> : null}
+        {tab === "customers" ? <PreviewCustomers /> : null}
+        {tab === "requests" ? <PreviewRequests /> : null}
+        {tab === "qr" ? <PreviewQr /> : null}
+        {tab === "reports" ? <PreviewReports /> : null}
+      </div>
+    </div>
+  );
+}
+
+function PreviewHead({ title, sub }: { title: string; sub: string }) {
+  return (
+    <div className="lp-preview-greet">
+      <strong>{title}</strong>
+      <span>{sub}</span>
+    </div>
+  );
+}
+
+function PreviewOverview() {
+  const max = Math.max(...PREVIEW_BARS);
+  return (
+    <>
+      <div className="lp-preview-greet">
+        <strong>Good morning, Mike.</strong>
+        <span>
+          <b>3 new Google reviews</b> since yesterday. Everything else is
+          running on its own.
         </span>
       </div>
-      <div className="lp-preview-body" aria-hidden="true">
-        <div className="lp-preview-greet">
-          <strong>Good morning, Mike.</strong>
-          <span>
-            <b>3 new Google reviews</b> since yesterday. Everything else is
-            running on its own.
-          </span>
+      <div className="lp-preview-stats">
+        <div className="lp-pstat lp-pstat-hero">
+          <small>Google rating</small>
+          <strong>
+            4.9 <Stars small />
+          </strong>
+          <em>▲ 0.3 in 90 days</em>
         </div>
-        <div className="lp-preview-stats">
-          <div className="lp-pstat lp-pstat-hero">
-            <small>Google rating</small>
-            <strong>
-              4.9 <Stars small />
-            </strong>
-            <em>▲ 0.3 in 90 days</em>
-          </div>
-          <div className="lp-pstat">
-            <small>Reviews this month</small>
-            <strong>35</strong>
-            <em>41 last month</em>
-          </div>
-          <div className="lp-pstat">
-            <small>Requests sent</small>
-            <strong>43</strong>
-            <em>88% automatic</em>
-          </div>
-          <div className="lp-pstat lp-pstat-hide-sm">
-            <small>Review rate</small>
-            <strong>
-              36<span>%</span>
-            </strong>
-            <em>of customers asked</em>
-          </div>
+        <div className="lp-pstat">
+          <small>Reviews this month</small>
+          <strong>35</strong>
+          <em>41 last month</em>
         </div>
-        <div className="lp-preview-main">
-          <div className="lp-preview-chart">
-            <div className="lp-preview-chart-head">
-              <strong>Reviews earned per week</strong>
-              <span>last 12 weeks</span>
-            </div>
-            <div className="lp-preview-bars">
-              {PREVIEW_BARS.map((value, index) => (
-                <i
-                  key={index}
-                  style={{ height: `${Math.round((value / max) * 100)}%` }}
-                />
-              ))}
-            </div>
+        <div className="lp-pstat">
+          <small>Requests sent</small>
+          <strong>43</strong>
+          <em>88% automatic</em>
+        </div>
+        <div className="lp-pstat lp-pstat-hide-sm">
+          <small>Review rate</small>
+          <strong>
+            36<span>%</span>
+          </strong>
+          <em>of customers asked</em>
+        </div>
+      </div>
+      <div className="lp-preview-main">
+        <div className="lp-preview-chart">
+          <div className="lp-preview-chart-head">
+            <strong>Reviews earned per week</strong>
+            <span>last 12 weeks</span>
           </div>
-          <div className="lp-preview-feed">
-            <strong>Live activity</strong>
-            {[
-              {
-                icon: <StarIcon />,
-                title: "New 5-star Google review",
-                sub: "Maria G. “Fixed our water heater same day.”",
-                hot: true,
-              },
-              {
-                icon: <ChatIcon />,
-                title: "Review request texted",
-                sub: "James R. paid an invoice in Square",
-              },
-              {
-                icon: <RefreshIcon />,
-                title: "Reminder sent",
-                sub: "Dana K. after 2 days",
-              },
-            ].map((row) => (
-              <div
-                key={row.title}
-                className={`lp-feed-row${row.hot ? " is-hot" : ""}`}
-              >
-                <span className="lp-feed-icon">{row.icon}</span>
-                <span>
-                  <b>{row.title}</b>
-                  <small>{row.sub}</small>
-                </span>
-              </div>
+          <div className="lp-preview-bars">
+            {PREVIEW_BARS.map((value, index) => (
+              <i
+                key={index}
+                style={{ height: `${Math.round((value / max) * 100)}%` }}
+              />
             ))}
           </div>
         </div>
+        <div className="lp-preview-feed">
+          <strong>Live activity</strong>
+          {[
+            {
+              icon: <StarIcon />,
+              title: "New 5-star Google review",
+              sub: "Maria G. “Fixed our water heater same day.”",
+              hot: true,
+            },
+            {
+              icon: <ChatIcon />,
+              title: "Review request texted",
+              sub: "James R. paid an invoice in Square",
+            },
+            {
+              icon: <RefreshIcon />,
+              title: "Reminder sent",
+              sub: "Dana K. after 2 days",
+            },
+          ].map((row) => (
+            <div
+              key={row.title}
+              className={`lp-feed-row${row.hot ? " is-hot" : ""}`}
+            >
+              <span className="lp-feed-icon">{row.icon}</span>
+              <span>
+                <b>{row.title}</b>
+                <small>{row.sub}</small>
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
+  );
+}
+
+const PREVIEW_CUSTOMERS = [
+  {
+    name: "Maria Gomez",
+    contact: "(602) ***-1142",
+    added: "Today",
+    sms: true,
+    email: true,
+    clicked: "Opened",
+    reviewed: true,
+  },
+  {
+    name: "James Rivera",
+    contact: "(602) ***-1168",
+    added: "Today",
+    sms: true,
+    email: false,
+    clicked: "Not yet",
+    reviewed: false,
+  },
+  {
+    name: "Dana Kim",
+    contact: "(480) ***-2290",
+    added: "Oct 5",
+    sms: true,
+    email: true,
+    clicked: "Opened",
+    reviewed: false,
+  },
+  {
+    name: "Marcus Delgado",
+    contact: "m***@gmail.com",
+    added: "Oct 5",
+    sms: false,
+    email: true,
+    clicked: "Opened",
+    reviewed: true,
+  },
+  {
+    name: "Nora Foster",
+    contact: "(623) ***-0417",
+    added: "Oct 4",
+    sms: true,
+    email: false,
+    clicked: "Not yet",
+    reviewed: false,
+  },
+  {
+    name: "Hank Patel",
+    contact: "(602) ***-7731",
+    added: "Oct 3",
+    sms: true,
+    email: true,
+    clicked: "Opened",
+    reviewed: true,
+  },
+];
+
+function PreviewCustomers() {
+  return (
+    <>
+      <PreviewHead
+        title="Customers"
+        sub="Everyone we have asked for a review, and what happened next."
+      />
+      <div className="lp-pv-panel">
+        <div className="lp-pv-panel-head">
+          <strong>Customers</strong>
+          <span>176 total</span>
+        </div>
+        <div className="lp-pv-table lp-pv-customers" role="table">
+          <div className="lp-pv-row lp-pv-th" role="row">
+            <span role="columnheader">Name</span>
+            <span role="columnheader" className="lp-pv-hide-sm">
+              Added
+            </span>
+            <span role="columnheader">Sent</span>
+            <span role="columnheader" className="lp-pv-hide-sm">
+              Clicked
+            </span>
+            <span role="columnheader">Reviewed</span>
+          </div>
+          {PREVIEW_CUSTOMERS.map((row) => (
+            <div className="lp-pv-row" role="row" key={row.name}>
+              <span role="cell" className="lp-pv-name">
+                <b>{row.name}</b>
+                <small>{row.contact}</small>
+              </span>
+              <span role="cell" className="lp-pv-hide-sm">
+                {row.added}
+              </span>
+              <span role="cell" className="lp-pv-chips">
+                {row.sms ? <i className="lp-pv-chip">SMS ×1</i> : null}
+                {row.email ? <i className="lp-pv-chip">Email ×1</i> : null}
+              </span>
+              <span role="cell" className="lp-pv-hide-sm">
+                <i
+                  className={`lp-pv-chip${row.clicked === "Opened" ? " is-on" : ""}`}
+                >
+                  {row.clicked}
+                </i>
+              </span>
+              <span role="cell">
+                {row.reviewed ? (
+                  <i className="lp-pv-chip is-good">Reviewed</i>
+                ) : (
+                  <i className="lp-pv-chip is-quiet">Waiting</i>
+                )}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+const PREVIEW_REQUESTS = [
+  {
+    when: "9:16 AM",
+    name: "Maria Gomez",
+    channel: "Text",
+    type: "Request",
+    from: "Square",
+  },
+  {
+    when: "9:16 AM",
+    name: "Maria Gomez",
+    channel: "Email",
+    type: "Request",
+    from: "Square",
+  },
+  {
+    when: "8:30 AM",
+    name: "Dana Kim",
+    channel: "Text",
+    type: "Reminder",
+    from: "Jobber",
+  },
+  {
+    when: "Yesterday",
+    name: "James Rivera",
+    channel: "Text",
+    type: "Request",
+    from: "Jobber",
+  },
+  {
+    when: "Yesterday",
+    name: "Marcus Delgado",
+    channel: "Email",
+    type: "Request",
+    from: "Added by you",
+  },
+  {
+    when: "Oct 4",
+    name: "Nora Foster",
+    channel: "Text",
+    type: "Request",
+    from: "Square",
+  },
+];
+
+function PreviewRequests() {
+  return (
+    <>
+      <PreviewHead
+        title="Requests"
+        sub="Every text and email we send for you, and whether it went through."
+      />
+      <div className="lp-pv-panel">
+        <div className="lp-pv-panel-head">
+          <strong>Message log</strong>
+          <span>323 messages</span>
+          <span className="lp-pv-filters lp-pv-hide-sm" aria-hidden="true">
+            <i className="is-on">All</i>
+            <i>Texts</i>
+            <i>Emails</i>
+          </span>
+        </div>
+        <div className="lp-pv-table lp-pv-requests" role="table">
+          <div className="lp-pv-row lp-pv-th" role="row">
+            <span role="columnheader">When</span>
+            <span role="columnheader">Customer</span>
+            <span role="columnheader">Channel</span>
+            <span role="columnheader" className="lp-pv-hide-sm">
+              Type
+            </span>
+            <span role="columnheader" className="lp-pv-hide-sm">
+              From
+            </span>
+            <span role="columnheader">Result</span>
+          </div>
+          {PREVIEW_REQUESTS.map((row, index) => (
+            <div className="lp-pv-row" role="row" key={index}>
+              <span role="cell" className="lp-pv-dim">
+                {row.when}
+              </span>
+              <span role="cell" className="lp-pv-name">
+                <b>{row.name}</b>
+              </span>
+              <span role="cell" className="lp-pv-channel">
+                {row.channel === "Text" ? <ChatIcon /> : <MailIcon />}
+                {row.channel}
+              </span>
+              <span role="cell" className="lp-pv-hide-sm">
+                {row.type}
+              </span>
+              <span role="cell" className="lp-pv-hide-sm lp-pv-dim">
+                {row.from}
+              </span>
+              <span role="cell">
+                <i className="lp-pv-chip is-good">Sent</i>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Real QR codes (version 3, low error correction) for
+// https://www.uptrendscaling.com/?qr=counter, ?qr=truck and ?qr=van. Each
+// string is the 29 rows of the code, every row a base-36 number whose bits
+// are the dark squares. Made with the "qrcode" package so the page doesn't
+// have to ship it.
+const PREVIEW_QR_CODES = [
+  {
+    name: "Front counter stand",
+    made: "Made Aug 27",
+    total: 39,
+    week: 12,
+    last: "1h ago",
+    rows: "8uaiyn.4jetz5.6h3y3h.6haf6l.6g9lct.4j2wxt.8tz2pr.d8u8.75aofj.1u2ozj.58owa9.2sqziz.72ac8y.31wixr.1mjjrx.65czwj.6h995u.69aigr.1mtdn9.1netf.7h9wjd.148wh.8tbmfx.4jaln6.6h4r95.6gg6n5.6gp9u7.4jcvkr.8tzjaq",
+  },
+  {
+    name: "Truck door",
+    made: "Made Sep 16",
+    total: 14,
+    week: 10,
+    last: "Yesterday",
+    rows: "8ti073.4ilhs1.6hdobh.6gsvh9.6gefkt.4io0n5.8tz2pr.1648w.8bapc4.1v1x6x.4nnmiv.7hsxzm.1h4hxn.1daw9.61vcdn.3vx18q.8q9l9n.2x49cd.5en7xf.2iaj62.6h2ar4.rg9j.8u1umz.4j642i.6h9r00.6gmyhj.6h71dl.4j118y.8u4jsr",
+  },
+  {
+    name: "Service van 3",
+    made: "Made Oct 4",
+    total: 6,
+    week: 6,
+    last: "3h ago",
+    rows: "8ub88v.4jfsqp.6h3uxp.6hac0t.6g98pp.4j27nl.8tz2pr.cw74.75bqcv.69w73z.6217ch.324t3v.6dc22q.7izbvj.8quhp.74n5xf.7l8oma.5m5wcb.1nrsk5.1y6coz.80sxrt.td01.8tax5p.4izpqq.6hadiy.6gfu01.6gjnkf.4jcvkr.8u55ki",
+  },
+];
+
+// Turns one of the strings above into an SVG path (one 1x1 square per dark
+// module), with a 2-module quiet zone around it.
+function qrPath(rows: string): { d: string; size: number } {
+  const lines = rows.split(".");
+  const size = lines.length;
+  let d = "";
+  lines.forEach((line, y) => {
+    let value = BigInt(0);
+    for (const ch of line) {
+      value = value * BigInt(36) + BigInt(parseInt(ch, 36));
+    }
+    const bits = value.toString(2).padStart(size, "0");
+    for (let x = 0; x < size; x++) {
+      if (bits[x] === "1") d += `M${x + 2} ${y + 2}h1v1h-1z`;
+    }
+  });
+  return { d, size: size + 4 };
+}
+
+function PreviewQr() {
+  return (
+    <>
+      <PreviewHead
+        title="QR codes"
+        sub="Print a code, put it where customers pay or wait. Every scan lands on your Google review page."
+      />
+      <div className="lp-pv-qr-grid">
+        {PREVIEW_QR_CODES.map((code) => {
+          const { d, size } = qrPath(code.rows);
+          return (
+            <div className="lp-pv-panel lp-pv-qr" key={code.name}>
+              <div className="lp-pv-qr-img">
+                <svg
+                  viewBox={`0 0 ${size} ${size}`}
+                  role="img"
+                  aria-label={`QR code: ${code.name}`}
+                  shapeRendering="crispEdges"
+                >
+                  <rect width={size} height={size} fill="#fff" />
+                  <path d={d} fill="#111" />
+                </svg>
+              </div>
+              <strong>{code.name}</strong>
+              <small>{code.made}</small>
+              <div className="lp-pv-qr-stats">
+                <span>
+                  <em>Total scans</em>
+                  <b>{code.total}</b>
+                </span>
+                <span className="lp-pv-hide-sm">
+                  <em>Last 7 days</em>
+                  <b>{code.week}</b>
+                </span>
+                <span>
+                  <em>Last scanned</em>
+                  <b>{code.last}</b>
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+const REPORT_BARS = [6, 8, 9, 10, 12, 11, 14, 15, 17, 18, 25, 28];
+
+function PreviewReports() {
+  const max = 30;
+  const points = REPORT_BARS.map((value, index) => {
+    const avg =
+      REPORT_BARS.slice(Math.max(0, index - 2), index + 1).reduce(
+        (sum, n) => sum + n,
+        0,
+      ) / Math.min(index + 1, 3);
+    const x = ((index + 0.5) / REPORT_BARS.length) * 100;
+    const y = 100 - (avg / max) * 100;
+    return `${x.toFixed(2)},${y.toFixed(2)}`;
+  });
+  return (
+    <>
+      <PreviewHead
+        title="Reports"
+        sub="Your results over time, in plain numbers."
+      />
+      <div className="lp-preview-stats lp-pv-report-stats">
+        {[
+          ["Requests sent", "43", "74 last month"],
+          ["Reminders sent", "8", "22 last month"],
+          ["Links opened", "10", "32 last month"],
+          ["QR scans", "17", "32 last month"],
+          ["Google reviews", "35", "41 last month"],
+        ].map(([label, value, foot], index) => (
+          <div
+            className={`lp-pstat${index === 4 ? " lp-pstat-hero" : ""}${index === 1 || index === 2 ? " lp-pstat-hide-sm" : ""}`}
+            key={label}
+          >
+            <small>{label}</small>
+            <strong>{value}</strong>
+            <em>{foot}</em>
+          </div>
+        ))}
+      </div>
+      <div className="lp-preview-chart">
+        <div className="lp-preview-chart-head">
+          <strong>Requests sent per week</strong>
+          <span>last 12 weeks</span>
+        </div>
+        <div className="lp-pv-chart-wrap">
+          <div className="lp-preview-bars">
+            {REPORT_BARS.map((value, index) => (
+              <i
+                key={index}
+                style={{ height: `${Math.round((value / max) * 100)}%` }}
+              />
+            ))}
+          </div>
+          <svg
+            className="lp-pv-trend"
+            viewBox="0 0 100 100"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+          >
+            <polyline className="lp-pv-trend-halo" points={points.join(" ")} />
+            <polyline points={points.join(" ")} />
+          </svg>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -914,7 +1353,7 @@ function DecorativeQR() {
       className="lp-qr-code"
       viewBox="0 0 23 23"
       role="img"
-      aria-label="Example QR code"
+      aria-label="QR code"
     >
       {squares.map(([x, y, w, h], index) => (
         <rect key={index} x={x} y={y} width={w} height={h} rx=".4" />
