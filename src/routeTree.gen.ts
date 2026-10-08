@@ -29,6 +29,8 @@ import { Route as StartSuccessRouteImport } from './routes/start_.success'
 import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
+import { Route as ApiV1MeRouteImport } from './routes/api.v1.me'
+import { Route as ApiV1ReviewRequestsRouteImport } from './routes/api.v1.review-requests'
 import { Route as ConnectGoogleCallbackRouteImport } from './routes/connect.google.callback'
 import { Route as ConnectGoogleStartRouteImport } from './routes/connect.google.start'
 import { Route as ConnectJobberCallbackRouteImport } from './routes/connect.jobber.callback'
@@ -136,6 +138,16 @@ const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
   path: '/webhooks/square',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiV1MeRoute = ApiV1MeRouteImport.update({
+  id: '/api/v1/me',
+  path: '/api/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiV1ReviewRequestsRoute = ApiV1ReviewRequestsRouteImport.update({
+  id: '/api/v1/review-requests',
+  path: '/api/v1/review-requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConnectGoogleCallbackRoute = ConnectGoogleCallbackRouteImport.update({
   id: '/connect/google/callback',
   path: '/connect/google/callback',
@@ -188,6 +200,8 @@ export interface FileRoutesByFullPath {
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
@@ -216,6 +230,8 @@ export interface FileRoutesByTo {
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
@@ -245,6 +261,8 @@ export interface FileRoutesById {
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/api/v1/me': typeof ApiV1MeRoute
+  '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
@@ -275,6 +293,8 @@ export interface FileRouteTypes {
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/api/v1/me'
+    | '/api/v1/review-requests'
     | '/connect/google/callback'
     | '/connect/google/start'
     | '/connect/jobber/callback'
@@ -303,6 +323,8 @@ export interface FileRouteTypes {
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/api/v1/me'
+    | '/api/v1/review-requests'
     | '/connect/google/callback'
     | '/connect/google/start'
     | '/connect/jobber/callback'
@@ -331,6 +353,8 @@ export interface FileRouteTypes {
     | '/stripe/webhook'
     | '/webhooks/jobber'
     | '/webhooks/square'
+    | '/api/v1/me'
+    | '/api/v1/review-requests'
     | '/connect/google/callback'
     | '/connect/google/start'
     | '/connect/jobber/callback'
@@ -360,6 +384,8 @@ export interface RootRouteChildren {
   StripeWebhookRoute: typeof StripeWebhookRoute
   WebhooksJobberRoute: typeof WebhooksJobberRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
+  ApiV1MeRoute: typeof ApiV1MeRoute
+  ApiV1ReviewRequestsRoute: typeof ApiV1ReviewRequestsRoute
   ConnectGoogleCallbackRoute: typeof ConnectGoogleCallbackRoute
   ConnectGoogleStartRoute: typeof ConnectGoogleStartRoute
   ConnectJobberCallbackRoute: typeof ConnectJobberCallbackRoute
@@ -510,6 +536,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebhooksSquareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/v1/me': {
+      id: '/api/v1/me'
+      path: '/api/v1/me'
+      fullPath: '/api/v1/me'
+      preLoaderRoute: typeof ApiV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/v1/review-requests': {
+      id: '/api/v1/review-requests'
+      path: '/api/v1/review-requests'
+      fullPath: '/api/v1/review-requests'
+      preLoaderRoute: typeof ApiV1ReviewRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/connect/google/callback': {
       id: '/connect/google/callback'
       path: '/connect/google/callback'
@@ -576,6 +616,8 @@ const rootRouteChildren: RootRouteChildren = {
   StripeWebhookRoute: StripeWebhookRoute,
   WebhooksJobberRoute: WebhooksJobberRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
+  ApiV1MeRoute: ApiV1MeRoute,
+  ApiV1ReviewRequestsRoute: ApiV1ReviewRequestsRoute,
   ConnectGoogleCallbackRoute: ConnectGoogleCallbackRoute,
   ConnectGoogleStartRoute: ConnectGoogleStartRoute,
   ConnectJobberCallbackRoute: ConnectJobberCallbackRoute,

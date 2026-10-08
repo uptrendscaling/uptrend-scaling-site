@@ -40,6 +40,13 @@ import type {
 } from "../components/dashboard/types";
 import { getSessionBusinessId, isAuthConfigured } from "./auth.server";
 import type { ConnectionSummary } from "./crm/connections.server";
+import {
+  WEBHOOK_PROVIDERS,
+  isInvoiceProvider,
+  providerLabel,
+  type CrmWebhookProvider,
+  type CustomerSource,
+} from "./crm/providers";
 import type { GoogleStatus, GoogleSummary } from "./dashboard-types";
 import { getDb, isDbConfigured } from "./db/client";
 import {
@@ -767,14 +774,14 @@ type FeedMessageRow = {
   errorMessage: string | null;
   sentAt: Date;
   customerName: string;
-  customerSource: "manual" | "jobber" | "square";
+  customerSource: CustomerSource;
 };
 
 type FeedCustomerEvent = { id: string; name: string; at: Date };
 
 type FeedProblemRow = {
   id: string;
-  provider: "jobber" | "square" | "stripe";
+  provider: CrmWebhookProvider | "stripe";
   errorMessage: string | null;
   receivedAt: Date;
 };
@@ -863,7 +870,7 @@ async function loadFeedRows(db: Db, businessId: string) {
           and(
             eq(crmWebhookEvents.businessId, businessId),
             webhookProblemCondition(),
-            inArray(crmWebhookEvents.provider, ["jobber", "square"]),
+            inArray(crmWebhookEvents.provider, [...WEBHOOK_PROVIDERS]),
           ),
         )
         .orderBy(desc(crmWebhookEvents.receivedAt))
@@ -888,17 +895,14 @@ async function loadFeedRows(db: Db, businessId: string) {
   };
 }
 
-const PROVIDER_NAMES: Record<string, string> = {
-  square: "Square",
-  jobber: "Jobber",
-};
 
 // One Overview feed row for a paid invoice we could not act on. Only rows
 // that pass isWebhookProblem should be handed in: "Skipped:" (no request was
 // sent) or "Failed:" (we hit an error, the provider retries).
 export function webhookFeedItem(row: FeedProblemRow): ActivityItem {
   const raw = (row.errorMessage ?? "").trim();
-  const provider = PROVIDER_NAMES[row.provider] ?? "Your invoicing app";
+  const provider = providerLabel(row.provider);
+  const invoice = isInvoiceProvider(row.provider);
   const match = /^(Skipped|Failed):\s*([\s\S]*)$/.exec(raw);
   const failed = match?.[1] === "Failed";
   const body = (match?.[2] ?? raw).trim();
@@ -907,9 +911,13 @@ export function webhookFeedItem(row: FeedProblemRow): ActivityItem {
   return {
     id: `skip-${row.id}`,
     icon: "alert",
-    title: failed
-      ? "Paid invoice could not be processed"
-      : "Paid invoice skipped",
+    title: invoice
+      ? failed
+        ? "Paid invoice could not be processed"
+        : "Paid invoice skipped"
+      : failed
+        ? "Review request could not be processed"
+        : "Review request skipped",
     detail,
     at: row.receivedAt.toISOString(),
     reviewsOnly: false,
@@ -1003,7 +1011,9 @@ export function messageFeedItems(rows: FeedMessageRow[]): ActivityItem[] {
     const detail =
       first.customerSource === "manual"
         ? `${name} added by you`
-        : `${name} paid an invoice in ${PROVIDER_NAMES[first.customerSource] ?? "your invoicing app"}`;
+        : isInvoiceProvider(first.customerSource)
+          ? `${name} paid an invoice in ${providerLabel(first.customerSource)}`
+          : `${name} sent from ${providerLabel(first.customerSource)}`;
     return {
       id: `msg-${first.id}`,
       icon: "mail",
@@ -1418,7 +1428,7 @@ export function buildSubline(
 
   const crmRunning = shell.connections.some(
     (connection) =>
-      (connection.provider === "square" || connection.provider === "jobber") &&
+      (WEBHOOK_PROVIDERS as readonly string[]).includes(connection.provider) &&
       !connection.lastErrorMessage,
   );
   if (crmRunning && shell.business.googleReviewUrl) {

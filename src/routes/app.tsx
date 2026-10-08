@@ -22,6 +22,7 @@ import {
   type DashboardShell,
   type DashboardTab,
 } from "../components/dashboard/types";
+import { CONNECTION_PROVIDERS } from "../lib/crm/providers";
 import type { GoogleLocationOption } from "../lib/dashboard-types";
 import {
   getDashboardOverview,
@@ -34,7 +35,7 @@ const searchSchema = z.object({
   // Which part of the dashboard to show. Missing or unknown means Overview.
   tab: z.enum(DASHBOARD_TABS).optional().catch(undefined),
   // Set by /connect/{provider}/callback when the OAuth handshake fails.
-  crmError: z.enum(["jobber", "square", "google"]).optional().catch(undefined),
+  crmError: z.enum(CONNECTION_PROVIDERS).optional().catch(undefined),
 });
 
 type DashboardLoaderData = {

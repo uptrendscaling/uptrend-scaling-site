@@ -11,6 +11,12 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import {
+  CONNECTION_PROVIDERS,
+  CUSTOMER_SOURCES,
+  WEBHOOK_PROVIDERS,
+} from "../crm/providers";
+
 // One row per signed-up business (the tenant). Also doubles as the login
 // account for that business's owner, since this product is single-user per
 // business for now, not a multi-seat team tool.
@@ -67,7 +73,7 @@ export const customers = pgTable(
     // Where this customer came from. Manual entries (typed in on /app) default
     // to "manual"; customers pulled in automatically via a connected CRM
     // record which provider sent them.
-    source: text("source", { enum: ["manual", "jobber", "square"] })
+    source: text("source", { enum: CUSTOMER_SOURCES })
       .notNull()
       .default("manual"),
     // The provider's own id for this person (Jobber client id, Square
@@ -195,7 +201,7 @@ export const crmConnections = pgTable(
       .notNull()
       .references(() => businesses.id, { onDelete: "cascade" }),
     provider: text("provider", {
-      enum: ["jobber", "square", "google"],
+      enum: CONNECTION_PROVIDERS,
     }).notNull(),
     // The provider's own id for the connected account (Jobber accountId,
     // Square merchant_id, Google Business Profile account name). Inbound
@@ -255,7 +261,7 @@ export const crmWebhookEvents = pgTable(
     // "stripe" rows are not CRM webhooks: they are claim markers that make
     // the owner alert emails (trial started, day-7 payment) send exactly once.
     provider: text("provider", {
-      enum: ["jobber", "square", "stripe"],
+      enum: [...WEBHOOK_PROVIDERS, "stripe"],
     }).notNull(),
     // Square supplies a native event_id (a uuid), used as-is. Jobber's
     // payload has no native id, so we synthesize "topic:itemId:occurredAt"

@@ -5,6 +5,8 @@ import {
   type ConnectionSummary,
   type CrmProvider,
 } from "../../lib/crm/connections.server";
+import { PROVIDER_LABELS, ZAPIER_APP_URL } from "../../lib/crm/providers";
+import { createZapierKey, getZapierKey } from "../../lib/crm/zapier.server";
 import type { GoogleLocationOption } from "../../lib/dashboard-types";
 import { setWeeklySummaryEnabled } from "../../lib/dashboard.server";
 import {
@@ -26,12 +28,6 @@ import {
 } from "./primitives";
 import type { DashboardShell } from "./types";
 import { useNow } from "./use-now";
-
-const PROVIDER_LABELS: Record<CrmProvider, string> = {
-  jobber: "Jobber",
-  square: "Square",
-  google: "Google Business Profile",
-};
 
 // ------------------------------------------------------- Google review link
 
@@ -226,6 +222,211 @@ function CrmConnectionRow({
       }
       actions={disconnect}
     />
+  );
+}
+
+// Zapier (and anything else that can call our API): the owner creates a key
+// here and pastes it into our Zapier app. Covers Housecall Pro, Workiz,
+// ServiceM8 and thousands of other tools without a connector of our own.
+function ZapierConnectionRow({
+  connection,
+  nowMs,
+  onChanged,
+}: {
+  connection: ConnectionSummary | undefined;
+  nowMs: number;
+  onChanged: () => void;
+}) {
+  const [key, setKey] = useState<string | null>(null);
+  const [busy, setBusy] = useState<null | "create" | "show" | "rotate" | "off">(
+    null,
+  );
+  const [confirmRotate, setConfirmRotate] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  async function run(
+    kind: "create" | "show" | "rotate",
+    action: () => Promise<
+      { ok: true; key: string | null } | { ok: false; message: string }
+    >,
+  ) {
+    setBusy(kind);
+    setMessage(null);
+    setCopied(false);
+    try {
+      const result = await action();
+      if (result.ok) {
+        setKey(result.key);
+        if (kind !== "show") onChanged();
+      } else {
+        setMessage(result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      setMessage("Something went wrong. Please try again.");
+    } finally {
+      setBusy(null);
+      setConfirmRotate(false);
+    }
+  }
+
+  async function handleTurnOff() {
+    setBusy("off");
+    try {
+      await disconnectConnection({ data: { provider: "zapier" } });
+      setKey(null);
+      onChanged();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleCopy() {
+    if (!key) return;
+    try {
+      await navigator.clipboard.writeText(key);
+      setCopied(true);
+    } catch {
+      setMessage("Couldn't copy automatically. Select the key and copy it.");
+    }
+  }
+
+  const openZapier = ZAPIER_APP_URL ? (
+    <DashButton
+      href={ZAPIER_APP_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      variant="ghost"
+      size="sm"
+    >
+      Open in Zapier
+    </DashButton>
+  ) : null;
+
+  const keyBox = key ? (
+    <div className="dash-key-box">
+      <DashInput
+        readOnly
+        value={key}
+        aria-label="Your Zapier API key"
+        className="dash-key-input"
+        onFocus={(event) => event.currentTarget.select()}
+      />
+      <DashButton size="sm" variant="primary" onClick={() => void handleCopy()}>
+        {copied ? "Copied" : "Copy"}
+      </DashButton>
+    </div>
+  ) : null;
+
+  const help = (
+    <p className="dash-key-help">
+      In Zapier, add the UpTrend Scaling app, pick the{" "}
+      <strong>Send Review Request</strong> action, and paste this key when it
+      asks. Then choose your trigger, like &ldquo;Job completed&rdquo; in
+      Housecall Pro or &ldquo;Invoice paid&rdquo; in QuickBooks. Only send for
+      customers who agreed to be contacted. Treat the key like a password.
+    </p>
+  );
+
+  if (!connection) {
+    return (
+      <ConnectionRow
+        name="Zapier"
+        status={<DashPill>Not connected</DashPill>}
+        detail="Connect Housecall Pro, QuickBooks, Workiz, ServiceM8 and thousands of other apps through Zapier."
+        actions={
+          <>
+            {openZapier}
+            <DashButton
+              variant="primary"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => void run("create", () => createZapierKey())}
+            >
+              {busy === "create" ? "Creating..." : "Create API key"}
+            </DashButton>
+          </>
+        }
+      >
+        {message ? <DashAlert tone="error">{message}</DashAlert> : null}
+      </ConnectionRow>
+    );
+  }
+
+  return (
+    <ConnectionRow
+      name="Zapier"
+      status={<DashPill tone="ok">Connected</DashPill>}
+      detail={
+        connection.lastEventAt
+          ? `Last review request from Zapier ${agoPhrase(new Date(connection.lastEventAt).toISOString(), nowMs)}.`
+          : "Your API key is ready. Nothing has come in from Zapier yet."
+      }
+      actions={
+        <>
+          {openZapier}
+          {key ? null : (
+            <DashButton
+              variant="ghost"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => void run("show", () => getZapierKey())}
+            >
+              {busy === "show" ? "Loading..." : "Show key"}
+            </DashButton>
+          )}
+          {confirmRotate ? (
+            <>
+              <DashButton
+                variant="danger"
+                size="sm"
+                disabled={busy !== null}
+                onClick={() => void run("rotate", () => createZapierKey())}
+              >
+                {busy === "rotate" ? "Replacing..." : "Yes, replace it"}
+              </DashButton>
+              <DashButton
+                variant="quiet"
+                size="sm"
+                onClick={() => setConfirmRotate(false)}
+              >
+                Keep current key
+              </DashButton>
+            </>
+          ) : (
+            <DashButton
+              variant="ghost"
+              size="sm"
+              disabled={busy !== null}
+              onClick={() => setConfirmRotate(true)}
+            >
+              New key
+            </DashButton>
+          )}
+          <DashButton
+            variant="ghost"
+            size="sm"
+            disabled={busy !== null}
+            onClick={() => void handleTurnOff()}
+          >
+            {busy === "off" ? "Turning off..." : "Turn off"}
+          </DashButton>
+        </>
+      }
+    >
+      {confirmRotate ? (
+        <p className="dash-key-help">
+          A new key stops the old one right away. You&rsquo;ll need to paste the
+          new key into Zapier.
+        </p>
+      ) : null}
+      {keyBox}
+      {key ? help : null}
+      {message ? <DashAlert tone="error">{message}</DashAlert> : null}
+    </ConnectionRow>
   );
 }
 
@@ -500,9 +701,9 @@ function ConnectionsPanel({
     <DashPanel title="Connections">
       <DashText>
         Connect Jobber or Square and we&rsquo;ll automatically send a review
-        request the moment an invoice is paid. No manual entry needed. By
-        connecting, you confirm your customers have already agreed to be
-        contacted about their service.
+        request the moment an invoice is paid. Use Zapier for other apps. No
+        manual entry needed. By connecting, you confirm your customers have
+        already agreed to be contacted about their service.
       </DashText>
       {crmError ? (
         <DashAlert tone="error">
@@ -519,6 +720,11 @@ function ConnectionsPanel({
         <CrmConnectionRow
           provider="jobber"
           connection={byProvider.get("jobber")}
+          nowMs={nowMs}
+          onChanged={onChanged}
+        />
+        <ZapierConnectionRow
+          connection={byProvider.get("zapier")}
           nowMs={nowMs}
           onChanged={onChanged}
         />
