@@ -34,6 +34,7 @@ export type ChipKey =
   | "quickbooks"
   | "square"
   | "jobber"
+  | "zapier"
   | "google"
   | "sms"
   | "email";
