@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/cron/reminders",
-      "schedule": "0 13 * * *"
+      "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/cron/reminders",
+      "schedule": "0 22 * * *"
     },
     {
       "path": "/cron/lead-followups",
