@@ -701,7 +701,16 @@ export async function deliverPaidInvoiceRequest(args: {
     if (result.emailError) {
       notes.push(`the email failed (${shorten(result.emailError, 120)})`);
     }
-    if (result.smsSent === null && result.emailSent === null) {
+    if (result.smsHeld) {
+      notes.push(
+        "the text is waiting for daytime (texts only go out 10am to 7pm local time) and will send automatically",
+      );
+    }
+    if (
+      result.smsSent === null &&
+      result.emailSent === null &&
+      !result.smsHeld
+    ) {
       notes.push(
         "nothing was sent because text and email sending are not switched on yet",
       );
