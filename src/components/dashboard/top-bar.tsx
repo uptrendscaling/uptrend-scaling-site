@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 
 import { logoutBusiness } from "../../lib/reviews.server";
 import { cx, initialsOf } from "./format";
+import { ThemeToggle } from "../theme-toggle";
 import {
   IconCaret,
   IconGear,
@@ -146,6 +147,7 @@ export function DashTopBar({
           </nav>
         )}
         <div className="dash-topbar-right">
+          <ThemeToggle className="is-dash" />
           {paused ? (
             <span className="dash-live is-off">PAUSED</span>
           ) : live ? (
