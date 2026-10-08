@@ -5371,16 +5371,33 @@ h1 strong {
 .lp-preview-tabs {
   display: flex;
   gap: 4px;
-  color: var(--dash-muted);
-  overflow: hidden;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.lp-preview-tabs > * {
-  padding: 5px 10px;
+.lp-preview-tabs::-webkit-scrollbar {
+  display: none;
+}
+.lp-preview-tabs button {
+  flex: none;
+  padding: 6px 11px;
+  border: 0;
   border-radius: 7px;
+  background: transparent;
+  color: var(--dash-muted);
+  font: 500 12px/1.2 var(--font-sans);
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
-.lp-preview-tabs b {
-  background: oklch(1 0 0 / 7%);
+.lp-preview-tabs button:hover {
+  color: var(--dash-text);
+  background: oklch(1 0 0 / 5%);
+}
+.lp-preview-tabs button.is-active {
+  background: oklch(1 0 0 / 9%);
   color: var(--dash-text);
   font-weight: 600;
 }
@@ -5396,7 +5413,9 @@ h1 strong {
 }
 .lp-preview-body {
   display: grid;
+  align-content: start;
   gap: 14px;
+  min-height: 470px;
   padding: 20px 20px 28px;
 }
 .lp-preview-greet {
@@ -6167,8 +6186,18 @@ h1 strong {
     margin-top: 40px;
     border-radius: 12px;
   }
-  .lp-preview-tabs > :not(b) {
+  .lp-preview-bar {
+    gap: 10px;
+    padding: 0 10px;
+  }
+  .lp-preview-brand {
     display: none;
+  }
+  .lp-preview-body {
+    min-height: 430px;
+  }
+  .lp-pv-hide-sm {
+    display: none !important;
   }
   .lp-preview-body {
     padding: 14px 14px 22px;
@@ -6260,4 +6289,237 @@ h1 strong {
 }
 .dash-key-help strong {
   color: var(--dash-text-2);
+}
+
+/* ---- Landing page: clickable dashboard preview views (2026-10-08) ------- */
+.lp-pv-panel {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--dash-border);
+  border-radius: 10px;
+  background: linear-gradient(180deg, oklch(0.19 0 0), oklch(0.176 0 0));
+}
+.lp-pv-panel-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.lp-pv-panel-head > span {
+  color: var(--dash-muted);
+}
+.lp-pv-filters {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.lp-pv-filters i {
+  padding: 3px 9px;
+  border: 1px solid var(--dash-border);
+  border-radius: 999px;
+  color: var(--dash-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+}
+.lp-pv-filters i.is-on {
+  background: oklch(0.97 0 0);
+  color: oklch(0.16 0 0);
+}
+.lp-pv-table {
+  display: grid;
+}
+.lp-pv-row {
+  display: grid;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-top: 1px solid var(--dash-line);
+}
+.lp-pv-row b {
+  font-weight: 600;
+}
+.lp-pv-customers .lp-pv-row {
+  grid-template-columns: minmax(0, 1.6fr) 0.7fr 1.2fr 0.8fr 0.9fr;
+}
+.lp-pv-requests .lp-pv-row {
+  grid-template-columns: 0.8fr minmax(0, 1.3fr) 0.8fr 0.8fr 0.9fr 0.7fr;
+}
+.lp-pv-th {
+  border-top: 0;
+  padding-block: 4px 6px;
+  color: var(--dash-faint);
+  font: 400 9px/1.3 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.lp-pv-name {
+  display: grid;
+  min-width: 0;
+}
+.lp-pv-name b,
+.lp-pv-name small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lp-pv-name small,
+.lp-pv-dim {
+  color: var(--dash-muted);
+  font-size: 11px;
+}
+.lp-pv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.lp-pv-chip {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: oklch(1 0 0 / 8%);
+  color: var(--dash-text-2);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lp-pv-chip.is-on {
+  background: oklch(1 0 0 / 14%);
+  color: var(--dash-text);
+}
+.lp-pv-chip.is-good {
+  background: oklch(0.82 0.16 150 / 16%);
+  color: var(--dash-green);
+}
+.lp-pv-chip.is-quiet {
+  background: transparent;
+  color: var(--dash-faint);
+  border: 1px solid var(--dash-border);
+}
+.lp-pv-channel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.lp-pv-channel .lp-icon {
+  width: 13px;
+  height: 13px;
+  color: var(--dash-muted);
+}
+.lp-pv-qr-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.lp-pv-qr {
+  display: grid;
+  gap: 4px;
+}
+.lp-pv-qr-img {
+  justify-self: center;
+  width: min(150px, 100%);
+  margin-bottom: 8px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff;
+}
+.lp-pv-qr-img svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.lp-pv-qr small {
+  color: var(--dash-muted);
+  font-size: 11px;
+}
+.lp-pv-qr-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--dash-line);
+}
+.lp-pv-qr-stats span {
+  display: grid;
+  gap: 3px;
+}
+.lp-pv-qr-stats em {
+  color: var(--dash-faint);
+  font: 400 8.5px/1.3 var(--font-mono);
+  font-style: normal;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.lp-pv-qr-stats b {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lp-pv-report-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.lp-pv-chart-wrap {
+  position: relative;
+}
+.lp-pv-chart-wrap .lp-preview-bars {
+  height: 190px;
+}
+.lp-pv-trend {
+  position: absolute;
+  inset: 24px 0 0;
+  width: 100%;
+  height: calc(100% - 24px);
+  overflow: visible;
+  pointer-events: none;
+}
+.lp-pv-trend polyline {
+  fill: none;
+  stroke: oklch(0.97 0 0);
+  stroke-width: 1.6;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+}
+.lp-pv-trend polyline.lp-pv-trend-halo {
+  stroke: oklch(0.16 0 0 / 75%);
+  stroke-width: 4;
+  stroke-dasharray: none;
+}
+@media (max-width: 980px) {
+  .lp-pv-report-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 720px) {
+  .lp-pv-customers .lp-pv-row {
+    grid-template-columns: minmax(0, 1.5fr) 1fr 1fr;
+  }
+  .lp-pv-requests .lp-pv-row {
+    grid-template-columns: 0.9fr minmax(0, 1.3fr) 0.9fr 0.8fr;
+  }
+  .lp-pv-dim {
+    white-space: nowrap;
+  }
+  .lp-pv-qr-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lp-pv-qr strong {
+    font-size: 12px;
+  }
+  .lp-pv-qr-stats b {
+    font-size: 13px;
+  }
+  .lp-pv-qr-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lp-pv-qr-grid > :nth-child(3) {
+    display: none;
+  }
+  .lp-pv-report-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .lp-pv-report-stats .lp-pstat:nth-child(5) {
+    grid-column: span 2;
+  }
 }
