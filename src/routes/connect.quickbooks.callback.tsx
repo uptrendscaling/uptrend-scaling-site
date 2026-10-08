@@ -1,26 +1,28 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { z } from "zod";
 
 import { completeQuickBooksConnection } from "../lib/crm/quickbooks.server";
 
-const searchSchema = z.object({
-  code: z.string().trim().optional(),
-  state: z.string().trim().optional(),
-  // The QuickBooks company id, sent alongside the code.
-  realmId: z.string().trim().optional(),
-  error: z.string().trim().optional(),
-});
+// Read straight from the raw query string, never from the router's parsed
+// search: the router turns number-looking values into numbers, and Intuit's
+// realmId (e.g. 9341458448689811) is longer than a JavaScript number can hold
+// exactly, so it would come out with the wrong digits.
+function rawParam(searchStr: string, name: string): string | undefined {
+  const value = new URLSearchParams(searchStr).get(name)?.trim();
+  return value ? value : undefined;
+}
 
-// Intuit redirects here after the business approves (or denies) access.
+// Intuit redirects here after the business approves (or denies) access, with
+// ?code=...&state=...&realmId=... (or ?error=access_denied).
 export const Route = createFileRoute("/connect/quickbooks/callback")({
-  validateSearch: (search: Record<string, unknown>) =>
-    searchSchema.parse(search),
+  // Nothing from the parsed search is used (see rawParam).
+  validateSearch: () => ({}),
   loader: async ({ location }) => {
-    const { code, state, realmId, error } = location.search as z.infer<
-      typeof searchSchema
-    >;
+    const searchStr = location.searchStr;
+    const code = rawParam(searchStr, "code");
+    const state = rawParam(searchStr, "state");
+    const realmId = rawParam(searchStr, "realmId");
 
-    if (error || !code || !state || !realmId) {
+    if (rawParam(searchStr, "error") || !code || !state || !realmId) {
       throw redirect({ to: "/app", search: { crmError: "quickbooks" } });
     }
 
@@ -29,9 +31,7 @@ export const Route = createFileRoute("/connect/quickbooks/callback")({
     });
     throw redirect({
       to: "/app",
-      search: result.ok
-        ? { tab: "settings" }
-        : { crmError: "quickbooks" },
+      search: result.ok ? { tab: "settings" } : { crmError: "quickbooks" },
     });
   },
   component: () => null,
