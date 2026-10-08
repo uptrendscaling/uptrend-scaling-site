@@ -30,7 +30,13 @@ export const NAV_TABS: ReadonlyArray<{ id: DashboardTab; label: string }> = [
 // ------------------------------------------------------------------ shell
 
 export type ChipTone = "ok" | "warn" | "off";
-export type ChipKey = "square" | "jobber" | "google" | "sms" | "email";
+export type ChipKey =
+  | "quickbooks"
+  | "square"
+  | "jobber"
+  | "google"
+  | "sms"
+  | "email";
 
 // One small status chip under the top bar, e.g. "Square synced 2m ago".
 export type IntegrationChip = {
@@ -48,6 +54,7 @@ export type IntegrationChip = {
 
 export type SetupTodoId =
   | "review-link"
+  | "reconnect-quickbooks"
   | "reconnect-square"
   | "reconnect-jobber"
   | "reconnect-google"
@@ -82,6 +89,9 @@ export type DashboardShell = {
   // connection errors.
   live: boolean;
   connections: ConnectionSummary[];
+  // Show the QuickBooks connector to this business (keys are in, and with
+  // test keys only admin accounts see it).
+  quickbooksOffered: boolean;
   google: GoogleStatus;
   messaging: MessagingStatus;
 };

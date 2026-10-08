@@ -28,6 +28,7 @@ import { Route as RTokenRouteImport } from './routes/r.$token'
 import { Route as StartSuccessRouteImport } from './routes/start_.success'
 import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
+import { Route as WebhooksQuickbooksRouteImport } from './routes/webhooks.quickbooks'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
 import { Route as ApiV1MeRouteImport } from './routes/api.v1.me'
 import { Route as ApiV1ReviewRequestsRouteImport } from './routes/api.v1.review-requests'
@@ -35,6 +36,9 @@ import { Route as ConnectGoogleCallbackRouteImport } from './routes/connect.goog
 import { Route as ConnectGoogleStartRouteImport } from './routes/connect.google.start'
 import { Route as ConnectJobberCallbackRouteImport } from './routes/connect.jobber.callback'
 import { Route as ConnectJobberStartRouteImport } from './routes/connect.jobber.start'
+import { Route as ConnectQuickbooksCallbackRouteImport } from './routes/connect.quickbooks.callback'
+import { Route as ConnectQuickbooksDisconnectedRouteImport } from './routes/connect.quickbooks.disconnected'
+import { Route as ConnectQuickbooksStartRouteImport } from './routes/connect.quickbooks.start'
 import { Route as ConnectSquareCallbackRouteImport } from './routes/connect.square.callback'
 import { Route as ConnectSquareStartRouteImport } from './routes/connect.square.start'
 
@@ -133,6 +137,11 @@ const WebhooksJobberRoute = WebhooksJobberRouteImport.update({
   path: '/webhooks/jobber',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WebhooksQuickbooksRoute = WebhooksQuickbooksRouteImport.update({
+  id: '/webhooks/quickbooks',
+  path: '/webhooks/quickbooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
   id: '/webhooks/square',
   path: '/webhooks/square',
@@ -168,6 +177,23 @@ const ConnectJobberStartRoute = ConnectJobberStartRouteImport.update({
   path: '/connect/jobber/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnectQuickbooksCallbackRoute =
+  ConnectQuickbooksCallbackRouteImport.update({
+    id: '/connect/quickbooks/callback',
+    path: '/connect/quickbooks/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ConnectQuickbooksDisconnectedRoute =
+  ConnectQuickbooksDisconnectedRouteImport.update({
+    id: '/connect/quickbooks/disconnected',
+    path: '/connect/quickbooks/disconnected',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ConnectQuickbooksStartRoute = ConnectQuickbooksStartRouteImport.update({
+  id: '/connect/quickbooks/start',
+  path: '/connect/quickbooks/start',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ConnectSquareCallbackRoute = ConnectSquareCallbackRouteImport.update({
   id: '/connect/square/callback',
   path: '/connect/square/callback',
@@ -199,6 +225,7 @@ export interface FileRoutesByFullPath {
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -206,6 +233,9 @@ export interface FileRoutesByFullPath {
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/quickbooks/callback': typeof ConnectQuickbooksCallbackRoute
+  '/connect/quickbooks/disconnected': typeof ConnectQuickbooksDisconnectedRoute
+  '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
 }
@@ -229,6 +259,7 @@ export interface FileRoutesByTo {
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -236,6 +267,9 @@ export interface FileRoutesByTo {
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/quickbooks/callback': typeof ConnectQuickbooksCallbackRoute
+  '/connect/quickbooks/disconnected': typeof ConnectQuickbooksDisconnectedRoute
+  '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
 }
@@ -260,6 +294,7 @@ export interface FileRoutesById {
   '/start_/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
+  '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -267,6 +302,9 @@ export interface FileRoutesById {
   '/connect/google/start': typeof ConnectGoogleStartRoute
   '/connect/jobber/callback': typeof ConnectJobberCallbackRoute
   '/connect/jobber/start': typeof ConnectJobberStartRoute
+  '/connect/quickbooks/callback': typeof ConnectQuickbooksCallbackRoute
+  '/connect/quickbooks/disconnected': typeof ConnectQuickbooksDisconnectedRoute
+  '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
 }
@@ -292,6 +330,7 @@ export interface FileRouteTypes {
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
+    | '/webhooks/quickbooks'
     | '/webhooks/square'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -299,6 +338,9 @@ export interface FileRouteTypes {
     | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
+    | '/connect/quickbooks/callback'
+    | '/connect/quickbooks/disconnected'
+    | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
   fileRoutesByTo: FileRoutesByTo
@@ -322,6 +364,7 @@ export interface FileRouteTypes {
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
+    | '/webhooks/quickbooks'
     | '/webhooks/square'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -329,6 +372,9 @@ export interface FileRouteTypes {
     | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
+    | '/connect/quickbooks/callback'
+    | '/connect/quickbooks/disconnected'
+    | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
   id:
@@ -352,6 +398,7 @@ export interface FileRouteTypes {
     | '/start_/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
+    | '/webhooks/quickbooks'
     | '/webhooks/square'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -359,6 +406,9 @@ export interface FileRouteTypes {
     | '/connect/google/start'
     | '/connect/jobber/callback'
     | '/connect/jobber/start'
+    | '/connect/quickbooks/callback'
+    | '/connect/quickbooks/disconnected'
+    | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
   fileRoutesById: FileRoutesById
@@ -383,6 +433,7 @@ export interface RootRouteChildren {
   StartSuccessRoute: typeof StartSuccessRoute
   StripeWebhookRoute: typeof StripeWebhookRoute
   WebhooksJobberRoute: typeof WebhooksJobberRoute
+  WebhooksQuickbooksRoute: typeof WebhooksQuickbooksRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
   ApiV1ReviewRequestsRoute: typeof ApiV1ReviewRequestsRoute
@@ -390,6 +441,9 @@ export interface RootRouteChildren {
   ConnectGoogleStartRoute: typeof ConnectGoogleStartRoute
   ConnectJobberCallbackRoute: typeof ConnectJobberCallbackRoute
   ConnectJobberStartRoute: typeof ConnectJobberStartRoute
+  ConnectQuickbooksCallbackRoute: typeof ConnectQuickbooksCallbackRoute
+  ConnectQuickbooksDisconnectedRoute: typeof ConnectQuickbooksDisconnectedRoute
+  ConnectQuickbooksStartRoute: typeof ConnectQuickbooksStartRoute
   ConnectSquareCallbackRoute: typeof ConnectSquareCallbackRoute
   ConnectSquareStartRoute: typeof ConnectSquareStartRoute
 }
@@ -529,6 +583,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebhooksJobberRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/webhooks/quickbooks': {
+      id: '/webhooks/quickbooks'
+      path: '/webhooks/quickbooks'
+      fullPath: '/webhooks/quickbooks'
+      preLoaderRoute: typeof WebhooksQuickbooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/webhooks/square': {
       id: '/webhooks/square'
       path: '/webhooks/square'
@@ -578,6 +639,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnectJobberStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connect/quickbooks/callback': {
+      id: '/connect/quickbooks/callback'
+      path: '/connect/quickbooks/callback'
+      fullPath: '/connect/quickbooks/callback'
+      preLoaderRoute: typeof ConnectQuickbooksCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/quickbooks/disconnected': {
+      id: '/connect/quickbooks/disconnected'
+      path: '/connect/quickbooks/disconnected'
+      fullPath: '/connect/quickbooks/disconnected'
+      preLoaderRoute: typeof ConnectQuickbooksDisconnectedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect/quickbooks/start': {
+      id: '/connect/quickbooks/start'
+      path: '/connect/quickbooks/start'
+      fullPath: '/connect/quickbooks/start'
+      preLoaderRoute: typeof ConnectQuickbooksStartRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/connect/square/callback': {
       id: '/connect/square/callback'
       path: '/connect/square/callback'
@@ -615,6 +697,7 @@ const rootRouteChildren: RootRouteChildren = {
   StartSuccessRoute: StartSuccessRoute,
   StripeWebhookRoute: StripeWebhookRoute,
   WebhooksJobberRoute: WebhooksJobberRoute,
+  WebhooksQuickbooksRoute: WebhooksQuickbooksRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
   ApiV1MeRoute: ApiV1MeRoute,
   ApiV1ReviewRequestsRoute: ApiV1ReviewRequestsRoute,
@@ -622,6 +705,9 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectGoogleStartRoute: ConnectGoogleStartRoute,
   ConnectJobberCallbackRoute: ConnectJobberCallbackRoute,
   ConnectJobberStartRoute: ConnectJobberStartRoute,
+  ConnectQuickbooksCallbackRoute: ConnectQuickbooksCallbackRoute,
+  ConnectQuickbooksDisconnectedRoute: ConnectQuickbooksDisconnectedRoute,
+  ConnectQuickbooksStartRoute: ConnectQuickbooksStartRoute,
   ConnectSquareCallbackRoute: ConnectSquareCallbackRoute,
   ConnectSquareStartRoute: ConnectSquareStartRoute,
 }

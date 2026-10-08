@@ -139,7 +139,7 @@ function CrmConnectionRow({
   nowMs,
   onChanged,
 }: {
-  provider: "square" | "jobber";
+  provider: "quickbooks" | "square" | "jobber";
   connection: ConnectionSummary | undefined;
   nowMs: number;
   onChanged: () => void;
@@ -700,7 +700,8 @@ function ConnectionsPanel({
   return (
     <DashPanel title="Connections">
       <DashText>
-        Connect Jobber or Square and we&rsquo;ll automatically send a review
+        Connect {shell.quickbooksOffered ? "QuickBooks, Square or Jobber" : "Jobber or Square"}{" "}
+        and we&rsquo;ll automatically send a review
         request the moment an invoice is paid. Use Zapier for other apps. No
         manual entry needed. By connecting, you confirm your customers have
         already agreed to be contacted about their service.
@@ -711,6 +712,14 @@ function ConnectionsPanel({
         </DashAlert>
       ) : null}
       <div className="dash-conn-list">
+        {shell.quickbooksOffered || byProvider.has("quickbooks") ? (
+          <CrmConnectionRow
+            provider="quickbooks"
+            connection={byProvider.get("quickbooks")}
+            nowMs={nowMs}
+            onChanged={onChanged}
+          />
+        ) : null}
         <CrmConnectionRow
           provider="square"
           connection={byProvider.get("square")}

@@ -53,9 +53,11 @@ function ReviewLinkForm({ onSaved }: { onSaved: () => void }) {
 
 function TodoAction({
   todo,
+  quickbooksOffered,
   onChanged,
 }: {
   todo: SetupTodo;
+  quickbooksOffered: boolean;
   onChanged: () => void;
 }) {
   switch (todo.id) {
@@ -64,6 +66,15 @@ function TodoAction({
     case "crm":
       return (
         <div className="dash-todo-actions">
+          {quickbooksOffered ? (
+            <DashButton
+              href="/connect/quickbooks/start"
+              variant="ghost"
+              size="sm"
+            >
+              Connect QuickBooks
+            </DashButton>
+          ) : null}
           <DashButton href="/connect/square/start" variant="ghost" size="sm">
             Connect Square
           </DashButton>
@@ -77,6 +88,18 @@ function TodoAction({
         <div className="dash-todo-actions">
           <DashButton href="/connect/google/start" variant="ghost" size="sm">
             Connect Google
+          </DashButton>
+        </div>
+      );
+    case "reconnect-quickbooks":
+      return (
+        <div className="dash-todo-actions">
+          <DashButton
+            href="/connect/quickbooks/start"
+            variant="ghost"
+            size="sm"
+          >
+            Reconnect QuickBooks
           </DashButton>
         </div>
       );
@@ -125,9 +148,11 @@ function TodoAction({
 // important first. It disappears by itself once everything is done.
 export function DashSetupChecklist({
   todos,
+  quickbooksOffered = false,
   onChanged,
 }: {
   todos: SetupTodo[];
+  quickbooksOffered?: boolean;
   onChanged: () => void;
 }) {
   if (todos.length === 0) return null;
@@ -166,7 +191,11 @@ export function DashSetupChecklist({
             <div className="dash-todo-body">
               <div className="dash-todo-title">{todo.title}</div>
               <div className="dash-todo-detail">{todo.detail}</div>
-              <TodoAction todo={todo} onChanged={onChanged} />
+              <TodoAction
+                todo={todo}
+                quickbooksOffered={quickbooksOffered}
+                onChanged={onChanged}
+              />
             </div>
           </li>
         ))}

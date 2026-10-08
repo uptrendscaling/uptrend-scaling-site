@@ -5,7 +5,12 @@
 
 // Connectors that hand us customers to message (by webhook or by our own
 // API), and so write rows to crm_webhook_events and customers.source.
-export const WEBHOOK_PROVIDERS = ["jobber", "square", "zapier"] as const;
+export const WEBHOOK_PROVIDERS = [
+  "jobber",
+  "square",
+  "zapier",
+  "quickbooks",
+] as const;
 export type CrmWebhookProvider = (typeof WEBHOOK_PROVIDERS)[number];
 
 // Everything that can have a row in crm_connections. Google only reads the
@@ -21,6 +26,7 @@ export const PROVIDER_LABELS: Record<CrmProvider, string> = {
   jobber: "Jobber",
   square: "Square",
   zapier: "Zapier",
+  quickbooks: "QuickBooks",
   google: "Google Business Profile",
 };
 
@@ -39,5 +45,9 @@ export function providerLabel(provider: string): string {
 // own invoicing tool (as opposed to Zapier, where the business decides what
 // the trigger is).
 export function isInvoiceProvider(provider: string): boolean {
-  return provider === "jobber" || provider === "square";
+  return (
+    provider === "jobber" ||
+    provider === "square" ||
+    provider === "quickbooks"
+  );
 }

@@ -104,7 +104,11 @@ export function OverviewTab({
         </div>
       </section>
 
-      <DashSetupChecklist todos={shell.todos} onChanged={refresh} />
+      <DashSetupChecklist
+        todos={shell.todos}
+        quickbooksOffered={shell.quickbooksOffered}
+        onChanged={refresh}
+      />
 
       <section className="dash-stats" aria-label="Key numbers">
         {overview.stats.map((card) => (
