@@ -8,6 +8,7 @@ import {
   formatUsd,
 } from "../lib/pricing";
 import { CANONICAL_SITE_URL } from "../lib/site";
+import { ThemeToggle } from "../components/theme-toggle";
 
 const START_TRIAL = "/start?plan=trial";
 const START_MEMBERSHIP = "/start?plan=membership";
@@ -222,6 +223,7 @@ function Index() {
             ))}
           </nav>
           <div className="lp-nav-actions">
+            <ThemeToggle />
             <a className="lp-btn lp-btn-quiet lp-nav-login" href="/login">
               Log in
             </a>

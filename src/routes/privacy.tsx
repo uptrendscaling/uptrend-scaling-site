@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ThemeToggle } from "../components/theme-toggle";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -25,9 +26,12 @@ function PrivacyPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/">
-            Back to site
-          </a>
+          <div className="site-nav-actions">
+            <ThemeToggle />
+            <a className="button button-ghost nav-cta" href="/">
+              Back to site
+            </a>
+          </div>
         </div>
       </header>
 

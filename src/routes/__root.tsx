@@ -15,6 +15,7 @@ import { trackEvent } from "../lib/analytics.server";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { GOOGLE_ADS_CONVERSION_ID } from "../lib/google-ads";
 import { META_PIXEL_ID } from "../lib/meta-pixel";
+import { THEME_INIT_SCRIPT } from "../components/theme-toggle";
 
 function NotFoundComponent() {
   return (
@@ -109,8 +110,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="light" suppressHydrationWarning>
       <head>
+        {/* Light mode by default; applies a saved dark-mode choice before paint. */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <HeadContent />
         {/* Google tag (gtag.js) -- loads sitewide so the conversion event
             fired from start.success.tsx has somewhere to report to. Set up

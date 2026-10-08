@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { resetPassword } from "../lib/reviews.server";
+import { ThemeToggle } from "../components/theme-toggle";
 
 const searchSchema = z.object({
   token: z.string().trim().optional(),
@@ -73,9 +74,12 @@ function ResetPasswordPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/login">
-            Back to sign in
-          </a>
+          <div className="site-nav-actions">
+            <ThemeToggle />
+            <a className="button button-ghost nav-cta" href="/login">
+              Back to sign in
+            </a>
+          </div>
         </div>
       </header>
 

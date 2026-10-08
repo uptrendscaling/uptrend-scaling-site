@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
 import { requestPasswordReset } from "../lib/reviews.server";
+import { ThemeToggle } from "../components/theme-toggle";
 
 export const Route = createFileRoute("/forgot-password")({
   head: () => ({
@@ -49,9 +50,12 @@ function ForgotPasswordPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/login">
-            Back to sign in
-          </a>
+          <div className="site-nav-actions">
+            <ThemeToggle />
+            <a className="button button-ghost nav-cta" href="/login">
+              Back to sign in
+            </a>
+          </div>
         </div>
       </header>
 

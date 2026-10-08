@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ThemeToggle } from "../components/theme-toggle";
 
 // The Disconnect URL registered in the Intuit developer portal: where Intuit
 // sends an owner who disconnected our app from inside QuickBooks. Nothing is
@@ -30,6 +31,7 @@ function QuickBooksDisconnectedPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
+          <ThemeToggle />
         </div>
       </header>
 

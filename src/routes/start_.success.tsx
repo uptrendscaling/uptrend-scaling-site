@@ -6,6 +6,7 @@ import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server"
 import { claimBusinessAccount } from "../lib/reviews.server";
 import { fireLeadConversion } from "../lib/google-ads";
 import { fireSignupEvent } from "../lib/meta-pixel";
+import { ThemeToggle } from "../components/theme-toggle";
 
 const searchSchema = z.object({
   session_id: z.string().trim().optional(),
@@ -107,6 +108,7 @@ function SuccessPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
+          <ThemeToggle />
         </div>
       </header>
 

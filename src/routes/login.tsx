@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 
 import { loginBusiness } from "../lib/reviews.server";
+import { ThemeToggle } from "../components/theme-toggle";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -50,9 +51,12 @@ function LoginPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/">
-            Back to site
-          </a>
+          <div className="site-nav-actions">
+            <ThemeToggle />
+            <a className="button button-ghost nav-cta" href="/">
+              Back to site
+            </a>
+          </div>
         </div>
       </header>
 

@@ -11,6 +11,7 @@ import {
   formatUsd,
   monthlyTotalCents,
 } from "../lib/pricing";
+import { ThemeToggle } from "../components/theme-toggle";
 
 const searchSchema = z.object({
   plan: z.enum(["trial", "membership"]).catch("trial"),
@@ -111,9 +112,12 @@ function StartPage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <a className="button button-ghost nav-cta" href="/">
-            Back to site
-          </a>
+          <div className="site-nav-actions">
+            <ThemeToggle />
+            <a className="button button-ghost nav-cta" href="/">
+              Back to site
+            </a>
+          </div>
         </div>
       </header>
 
@@ -123,38 +127,10 @@ function StartPage() {
             {/* UPTREND50 promo banner. Hides itself automatically after the code
                 expires at the end of Oct 15, 2026 (Arizona time). */}
             {Date.now() < Date.parse("2026-10-16T07:00:00Z") && (
-              <div
-                role="note"
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  gap: "8px 12px",
-                  marginBottom: "20px",
-                  padding: "12px 16px",
-                  borderRadius: "14px",
-                  border: "1px solid rgba(250, 204, 21, 0.55)",
-                  background: "rgba(250, 204, 21, 0.08)",
-                  color: "inherit",
-                  fontSize: "15px",
-                  lineHeight: 1.4,
-                }}
-              >
-                <strong style={{ color: "#facc15" }}>50% off your first month</strong>
+              <div className="promo-banner" role="note">
+                <strong>50% off your first month</strong>
                 <span>
-                  Use code{" "}
-                  <code
-                    style={{
-                      fontWeight: 700,
-                      padding: "2px 8px",
-                      borderRadius: "6px",
-                      border: "1px dashed rgba(250, 204, 21, 0.7)",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    UPTREND50
-                  </code>{" "}
-                  on the payment page. Ends 10/15.
+                  Use code <code>UPTREND50</code> on the payment page. Ends 10/15.
                 </span>
               </div>
             )}

@@ -16,6 +16,7 @@ import {
 } from "../lib/analytics.server";
 import { cx, dashButtonClass } from "../components/dashboard/format";
 import { IconTrend } from "../components/dashboard/icons";
+import { ThemeToggle } from "../components/theme-toggle";
 import {
   DashButton,
   DashEmpty,
@@ -990,6 +991,7 @@ function AdminDashboard() {
             ))}
           </nav>
           <div className="dash-topbar-right">
+            <ThemeToggle className="is-dash" />
             <DashButton href="/app" variant="quiet" size="sm">
               Your dashboard
             </DashButton>

@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { z } from "zod";
 
 import { unsubscribeLead } from "../lib/leads.server";
+import { ThemeToggle } from "../components/theme-toggle";
 
 // The page behind the Unsubscribe button in every outreach email. The link in
 // the email carries the lead's id (?l=...). Someone who lands here without one
@@ -73,6 +74,7 @@ function UnsubscribePage() {
               UpTrend <em>Scaling</em>
             </span>
           </a>
+          <ThemeToggle />
         </div>
       </header>
 
