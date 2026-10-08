@@ -120,6 +120,44 @@ function StartPage() {
       <main className="start-main">
         <div className="page-width start-grid">
           <div className="start-copy">
+            {/* UPTREND50 promo banner. Hides itself automatically after the code
+                expires at the end of Oct 15, 2026 (Arizona time). */}
+            {Date.now() < Date.parse("2026-10-16T07:00:00Z") && (
+              <div
+                role="note"
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  gap: "8px 12px",
+                  marginBottom: "20px",
+                  padding: "12px 16px",
+                  borderRadius: "14px",
+                  border: "1px solid rgba(250, 204, 21, 0.55)",
+                  background: "rgba(250, 204, 21, 0.08)",
+                  color: "inherit",
+                  fontSize: "15px",
+                  lineHeight: 1.4,
+                }}
+              >
+                <strong style={{ color: "#facc15" }}>50% off your first month</strong>
+                <span>
+                  Use code{" "}
+                  <code
+                    style={{
+                      fontWeight: 700,
+                      padding: "2px 8px",
+                      borderRadius: "6px",
+                      border: "1px dashed rgba(250, 204, 21, 0.7)",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    UPTREND50
+                  </code>{" "}
+                  on the payment page. Ends 10/15.
+                </span>
+              </div>
+            )}
             <p className="eyebrow">
               <span /> {plan === "trial" ? `${TRIAL_DAYS}-day free trial` : "Start your membership"}
             </p>
