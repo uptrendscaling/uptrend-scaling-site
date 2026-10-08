@@ -220,14 +220,24 @@ export const disconnectConnection = createServerFn({ method: "POST" })
     if (!businessId) return { ok: false, message: "Not signed in." };
 
     const db = getDb();
-    await db
-      .delete(crmConnections)
-      .where(
-        and(
-          eq(crmConnections.businessId, businessId),
-          eq(crmConnections.provider, data.provider),
-        ),
-      );
+    const match = and(
+      eq(crmConnections.businessId, businessId),
+      eq(crmConnections.provider, data.provider),
+    );
+
+    // Intuit asks apps to revoke the tokens when the owner disconnects.
+    // Loaded on demand: quickbooks.server imports this module.
+    if (data.provider === "quickbooks") {
+      const [row] = await db.select().from(crmConnections).where(match).limit(1);
+      if (row) {
+        const { revokeQuickBooksConnection } = await import(
+          "./quickbooks.server"
+        );
+        await revokeQuickBooksConnection(row);
+      }
+    }
+
+    await db.delete(crmConnections).where(match);
     return { ok: true };
   });
 
