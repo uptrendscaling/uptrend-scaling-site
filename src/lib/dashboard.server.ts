@@ -327,8 +327,27 @@ function crmChip(
   return chip(key, label, "listening", "ok", { opensSettings: true });
 }
 
+// Zapier has no "listening" state of its own: the owner's Zaps call us. So it
+// reads "on" once a key exists, and "last request 5m ago" once one came in.
+function zapierChip(connection: ConnectionSummary | undefined): IntegrationChip {
+  if (!connection) {
+    return chip("zapier", "Zapier", "not connected", "off", {
+      opensSettings: true,
+    });
+  }
+  if (connection.lastEventAt) {
+    return chip("zapier", "Zapier", "on", "ok", {
+      since: new Date(connection.lastEventAt).toISOString(),
+      sincePrefix: "last request",
+      opensSettings: true,
+    });
+  }
+  return chip("zapier", "Zapier", "on", "ok", { opensSettings: true });
+}
+
 function googleChip(google: GoogleStatus): IntegrationChip {
-  const label = "Google Business Profile";
+  // Short so all the chips fit on one line; Settings uses the full name.
+  const label = "Google";
   if (!google.configured) {
     return chip("google", label, "coming soon", "off", { opensSettings: true });
   }
@@ -376,6 +395,7 @@ export function computeChips(input: {
       : []),
     crmChip("square", "Square", byProvider.get("square")),
     crmChip("jobber", "Jobber", byProvider.get("jobber")),
+    zapierChip(byProvider.get("zapier")),
     sms === "on"
       ? chip("sms", "SMS", "on", "ok")
       : sms === "pending"
