@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import {
   MONTHLY_PRICE_CENTS,
@@ -42,7 +42,7 @@ const FAQ_ITEMS = [
   {
     question: "How fast do review requests go out after a job is finished?",
     answer:
-      "Within minutes of a job being marked complete, while the experience is still fresh for the customer.",
+      "Within minutes of a job being marked complete, while the experience is still fresh for the customer. Texts only go out between 10am and 7pm your local time, so a job closed out late at night gets its text the next morning.",
   },
   {
     question: "What happens if a customer doesn't respond?",
@@ -150,71 +150,39 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
+// Homepage, redesigned 2026-10-08 to match the client dashboard (/app): same
+// graphite palette, Inter type, 12px panels, stat cards and chips. Every class
+// here is prefixed "lp-" and styled in the "Landing page" block at the end of
+// styles.css, so the shared site classes used by /start, /login, /terms and
+// /privacy are untouched. The dashboard preview is an illustration with
+// example numbers, labeled as such on the page.
+
+const NAV_LINKS = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#features", label: "Features" },
+  { href: "#pricing", label: "Pricing" },
+  { href: "#faq", label: "FAQ" },
+];
+
+const PREVIEW_BARS = [3, 5, 4, 6, 7, 6, 9, 10, 11, 14, 16, 19];
+
+const INDUSTRIES = [
+  "Plumbing",
+  "HVAC",
+  "Electrical",
+  "Roofing",
+  "Landscaping",
+  "Cleaning",
+  "Auto repair & detailing",
+  "Restaurants & cafés",
+  "Salons & spas",
+  "Medical & dental",
+  "Retail & specialty shops",
+];
+
 function Index() {
-  const progressRef = useRef<HTMLDivElement>(null);
-  const heroVideoRef = useRef<HTMLVideoElement>(null);
-  const closingVideoRef = useRef<HTMLVideoElement>(null);
-  const [motionAllowed, setMotionAllowed] = useState(false);
-
-  useEffect(() => {
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
-    setMotionAllowed(!reduceMotion);
-    const revealElements =
-      document.querySelectorAll<HTMLElement>("[data-reveal]");
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add("is-visible");
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.16 },
-    );
-    revealElements.forEach((element) => observer.observe(element));
-
-    const updateScroll = () => {
-      const maxScroll =
-        document.documentElement.scrollHeight - window.innerHeight;
-      const progress = maxScroll > 0 ? window.scrollY / maxScroll : 0;
-      progressRef.current?.style.setProperty(
-        "--scroll-progress",
-        `${progress * 100}%`,
-      );
-    };
-    updateScroll();
-    window.addEventListener("scroll", updateScroll, { passive: true });
-
-    const videos = [heroVideoRef.current, closingVideoRef.current].filter(
-      (video): video is HTMLVideoElement => video !== null,
-    );
-    const videoObserver = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const video = entry.target as HTMLVideoElement;
-          if (entry.isIntersecting && !reduceMotion) {
-            void video.play().catch(() => undefined);
-          } else {
-            video.pause();
-          }
-        });
-      },
-      { threshold: 0.15 },
-    );
-    videos.forEach((video) => videoObserver.observe(video));
-
-    return () => {
-      observer.disconnect();
-      videoObserver.disconnect();
-      window.removeEventListener("scroll", updateScroll);
-    };
-  }, []);
-
   return (
-    <div className="site-shell">
+    <div className="lp-root">
       <script
         type="application/ld+json"
         suppressHydrationWarning
@@ -232,542 +200,416 @@ function Index() {
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_SCHEMA) }}
       />
-      <header className="site-nav">
-        <div className="nav-inner">
-          <a className="brand" href="#top" aria-label="UpTrend Scaling home">
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 28 28">
-                <path d="M4 20 11 13l4 4 9-10M17 7h7v7" />
-              </svg>
-            </span>
+
+      <header className="lp-nav">
+        <div className="lp-container lp-nav-inner">
+          <a className="lp-brand" href="#top" aria-label="UpTrend Scaling home">
+            <BrandMark />
             <span>
               UpTrend <em>Scaling</em>
             </span>
           </a>
-          <nav className="nav-links" aria-label="Main navigation">
-            <a href="#how-it-works">How it works</a>
-            <a href="#pricing">Pricing</a>
-            <a href="#industries">Industries</a>
-            <a href="#why-us">Why us</a>
-            <a href="#faq">FAQ</a>
+          <nav className="lp-nav-links" aria-label="Main navigation">
+            {NAV_LINKS.map((link) => (
+              <a key={link.href} href={link.href}>
+                {link.label}
+              </a>
+            ))}
           </nav>
-          <div className="nav-actions">
-            <a className="button button-ghost nav-cta" href="/login">
+          <div className="lp-nav-actions">
+            <a className="lp-btn lp-btn-quiet lp-nav-login" href="/login">
               Log in
             </a>
-            <a className="button button-primary nav-cta" href={START_TRIAL}>
-              Start Free Trial <ArrowIcon />
+            <a className="lp-btn lp-btn-primary lp-btn-sm" href={START_TRIAL}>
+              Start free trial
             </a>
           </div>
         </div>
-        <div ref={progressRef} className="scroll-progress" aria-hidden="true" />
       </header>
 
       <main>
-        <section id="top" className="hero-section">
-          <video
-            ref={heroVideoRef}
-            className="section-video"
-            src="https://videos.pexels.com/video-files/4320605/4320605-sd_960_540_30fps.mp4"
-            autoPlay={motionAllowed}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden="true"
-          />
-          <div className="video-scrim" aria-hidden="true" />
-          <div className="hero-grid page-width">
-            <div className="hero-copy" data-reveal>
-              <p className="eyebrow eyebrow-light">
-                <span /> Google review automation
+        {/* ---- Hero ------------------------------------------------------ */}
+        <section id="top" className="lp-hero">
+          <div className="lp-container">
+            <div className="lp-hero-copy">
+              <p className="lp-pill">
+                <span className="lp-pill-dot" aria-hidden="true" />
+                Google review automation for local businesses
               </p>
               <h1>
-                Put your reputation on an <strong>uptrend.</strong>
+                Get more Google reviews, <br />
+                <span>on autopilot.</span>
               </h1>
-              <p className="hero-lead">
-                UpTrend Scaling turns every finished job into a 5-star Google
-                review with automatic SMS and email follow-ups, timed reminders,
-                and in-person QR codes your customers actually use.
+              <p className="lp-hero-lead">
+                Every finished job gets a friendly text and email with a one-tap
+                link to your Google review page. One reminder if they forget, QR
+                codes for in person, and a dashboard that shows it working.
               </p>
-              <div className="hero-actions">
-                <a className="button button-primary" href={START_TRIAL}>
-                  Start Free Trial <ArrowIcon />
+              <div className="lp-hero-actions">
+                <a
+                  className="lp-btn lp-btn-primary lp-btn-lg"
+                  href={START_TRIAL}
+                >
+                  Start {TRIAL_DAYS}-day free trial <ArrowIcon />
+                </a>
+                <a
+                  className="lp-btn lp-btn-ghost lp-btn-lg"
+                  href="#how-it-works"
+                >
+                  See how it works
                 </a>
               </div>
-              <p className="plan-alt-link">
-                Card required to start, nothing charged for {TRIAL_DAYS} days.{" "}
-                <a href={START_MEMBERSHIP}>Prefer to skip the trial and subscribe today?</a>
-              </p>
-              <p className="hero-price-note">
-                {formatUsd(MONTHLY_PRICE_CENTS)}/mo per location +{" "}
-                {formatUsd(SETUP_FEE_CENTS)} one-time setup · {TRIAL_DAYS}-day
-                free trial · cancel anytime
-              </p>
-              <p className="honesty-note">
-                <ShieldIcon /> Built for owner-operators. No review is ever
-                purchased or faked. We only make it effortless to ask.
+              <ul className="lp-hero-facts">
+                <li>
+                  <CheckIcon /> Nothing charged for {TRIAL_DAYS} days
+                </li>
+                <li>
+                  <CheckIcon /> Set up in minutes, no sales call
+                </li>
+                <li>
+                  <CheckIcon /> Cancel anytime
+                </li>
+              </ul>
+              <p className="lp-hero-fine">
+                Card required to start the trial.{" "}
+                <a href={START_MEMBERSHIP}>
+                  Prefer to skip the trial and subscribe today?
+                </a>
               </p>
             </div>
-          </div>
-          <div className="trend-card-wrap" data-reveal>
-            <div className="trend-card">
-              <div className="trend-card-head">
-                <span>Review momentum</span>
-              </div>
-              <svg
-                className="trend-chart"
-                viewBox="0 0 620 390"
-                role="img"
-                aria-label="Illustrative rising trend line with five star markers"
-              >
-                <defs>
-                  <linearGradient id="area-fill" x1="0" y1="1" x2="0" y2="0">
-                    <stop
-                      offset="0"
-                      stopColor="var(--primary)"
-                      stopOpacity="0"
-                    />
-                    <stop
-                      offset="1"
-                      stopColor="var(--primary)"
-                      stopOpacity=".12"
-                    />
-                  </linearGradient>
-                  <symbol id="star" viewBox="0 0 24 24">
-                    <path d="m12 2.4 2.84 5.75 6.35.92-4.6 4.48 1.09 6.32L12 16.88l-5.68 2.99 1.09-6.32-4.6-4.48 6.35-.92L12 2.4Z" />
-                  </symbol>
-                </defs>
-                <g className="chart-grid">
-                  <path d="M44 70H576M44 150H576M44 230H576M44 310H576" />
-                </g>
-                <path
-                  className="trend-area"
-                  d="M56 300 C126 298 137 267 195 261 S285 234 326 202 S420 157 454 119 S522 76 566 55 L566 326 L56 326Z"
-                />
-                <path
-                  className="trend-path"
-                  pathLength="1"
-                  d="M56 300 C126 298 137 267 195 261 S285 234 326 202 S420 157 454 119 S522 76 566 55"
-                />
-                <g className="chart-stars">
-                  <g
-                    className="star-point star-1"
-                    transform="translate(56 300)"
-                  >
-                    <circle r="19" />
-                    <use href="#star" x="-8" y="-8" width="16" height="16" />
-                  </g>
-                  <g
-                    className="star-point star-2"
-                    transform="translate(195 261)"
-                  >
-                    <circle r="23" />
-                    <use href="#star" x="-10" y="-10" width="20" height="20" />
-                  </g>
-                  <g
-                    className="star-point star-3"
-                    transform="translate(326 202)"
-                  >
-                    <circle r="27" />
-                    <use href="#star" x="-12" y="-12" width="24" height="24" />
-                  </g>
-                  <g
-                    className="star-point star-4"
-                    transform="translate(454 119)"
-                  >
-                    <circle r="31" />
-                    <use href="#star" x="-14" y="-14" width="28" height="28" />
-                  </g>
-                  <g
-                    className="star-point star-5"
-                    transform="translate(566 55)"
-                  >
-                    <circle r="36" />
-                    <use href="#star" x="-17" y="-17" width="34" height="34" />
-                  </g>
-                </g>
-              </svg>
-              <div className="trend-card-foot">
-                <span>Automated ask</span>
-                <i />
-                <span>Reminder</span>
-                <i />
-                <span>Review</span>
-              </div>
-            </div>
-          </div>
-          <div className="hero-rule" />
-        </section>
 
-        <section className="trust-strip" aria-label="Service highlights">
-          <div className="page-width trust-grid">
-            {[
-              "Set up in under a day",
-              "SMS & email, no app required",
-              "Month-to-month, cancel anytime",
-              "Only genuine customer reviews",
-            ].map((item) => (
-              <div key={item} className="trust-item">
-                <CheckIcon /> <span>{item}</span>
-              </div>
-            ))}
+            <DashboardPreview />
           </div>
         </section>
 
-        <section
-          className="section stats-section"
-          aria-labelledby="stats-heading"
-        >
-          <div className="page-width">
-            <div className="stats-heading" data-reveal>
-              <p className="eyebrow">
-                <span /> Why this works
-              </p>
-              <h2 id="stats-heading">
-                Customers already want to leave reviews. Most just need to be
-                asked.
-              </h2>
-            </div>
-            <div className="stats-grid">
-              <Stat value="97%">
-                of consumers read reviews for local businesses before deciding
-              </Stat>
-              <Stat value="83%">
-                of customers asked to leave a review actually leave one
-              </Stat>
-              <Stat value="92%">
-                of consumers say star ratings influence which business they
-                choose
-              </Stat>
-              <Stat value="80%">
-                are more likely to use a business that responds to its reviews
-              </Stat>
-            </div>
-            <p className="stats-source" data-reveal>
-              Source: BrightLocal, 2026 Local Consumer Review Survey
-            </p>
-          </div>
-        </section>
-
-        <section id="how-it-works" className="section how-section">
-          <div className="page-width">
-            <div className="section-heading" data-reveal>
-              <p className="eyebrow">
-                <span /> How it works
-              </p>
-              <h2>Three moments. One steady stream of reviews.</h2>
-              <p>
-                From finished job to public proof, every step happens while you
-                get back to running the business.
-              </p>
-            </div>
-            <div className="steps-grid">
-              <Step
-                number="01"
-                label="Request"
-                title="Ask at the right moment"
-                delay="delay-1"
-              >
-                The instant a job is marked complete, your customer gets a
-                short, friendly text or email asking for a Google review while
-                the experience is still fresh.
-              </Step>
-              <Step
-                number="02"
-                label="Remind"
-                title="Follow up, automatically"
-                delay="delay-2"
-              >
-                No response in 48 hours? A single, polite reminder goes out. No
-                spam and no nagging, just one more chance timed sensibly.
-              </Step>
-              <Step
-                number="03"
-                label="Showcase"
-                title="Capture reviews in person, too"
-                delay="delay-3"
-              >
-                Printed or digital QR codes on invoices, vehicles, or
-                countertops let customers leave a review on the spot, no text
-                required.
-              </Step>
-            </div>
-          </div>
-        </section>
-
-        <section className="section feature-band">
-          <div className="page-width feature-grid">
-            <div className="feature-copy reveal-left" data-reveal>
-              <p className="eyebrow">
-                <span /> SMS & email follow-up
-              </p>
-              <h2>A message customers actually read</h2>
-              <p>
-                No generic blasts. Every message is short, comes from your
-                business name, and links straight to your Google review page
-                with one tap and no sign-in required.
-              </p>
-              <FeatureList
-                items={[
-                  "Sent within minutes of job completion",
-                  "Customized with your business name and tone",
-                  "One-tap opt-out, fully compliant",
-                ]}
-              />
-            </div>
-            <div className="phone-stage reveal-right" data-reveal>
-              <div className="phone-frame">
-                <div className="phone-bar">
-                  <span>9:41</span>
-                  <i />
-                  <span>5G</span>
-                </div>
-                <div className="contact-avatar">AP</div>
-                <strong>Ace Plumbing</strong>
-                <span className="conversation-note">Text Message · Sample</span>
-                <div className="bubble bubble-in">
-                  Hi Maria, thanks for choosing Ace Plumbing today! Got 20
-                  seconds to leave us a quick Google review?
-                  <br />
-                  <a
-                    href="#sample-link"
-                    onClick={(event) => event.preventDefault()}
-                  >
-                    uptrend.review/ace
-                  </a>
-                </div>
-                <div className="bubble bubble-out">
-                  On it. You guys were great.
-                </div>
-                <div className="phone-stars">★★★★★</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section qr-section">
-          <div className="page-width feature-grid reverse">
-            <div className="feature-copy reveal-right" data-reveal>
-              <p className="eyebrow">
-                <span /> In-person QR codes
-              </p>
-              <h2>
-                Catch the customers who are standing right in front of you
-              </h2>
-              <p>
-                Not every review starts with a text. A QR code on a receipt, a
-                service vehicle, or a countertop stand takes customers straight
-                to your review page with no typing or searching.
-              </p>
-              <FeatureList
-                items={[
-                  "Print-ready code, sized for counters, vehicles, and invoices",
-                  "Points to the same tracked review link as SMS & email",
-                ]}
-              />
-            </div>
-            <div className="qr-stage reveal-left" data-reveal>
-              <div className="qr-card">
-                <div className="qr-top">
-                  <span className="mini-mark">↗</span>
-                  <span>How did we do?</span>
-                </div>
-                <DecorativeQR />
-                <strong>Scan to leave a review</strong>
-                <div className="qr-stars">★★★★★</div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="section reporting-section">
-          <div className="page-width feature-grid">
-            <div className="feature-copy reveal-left" data-reveal>
-              <p className="eyebrow">
-                <span /> Simple reporting
-              </p>
-              <h2>Watch the trend line move, week over week</h2>
-              <p>
-                One dashboard shows requests sent, reviews earned, and your
-                response rate, so you know the follow-ups are working without
-                having to guess.
-              </p>
-              <FeatureList
-                items={[
-                  "Weekly summary emailed to you automatically",
-                  "See which requests convert, and which need a better nudge",
-                ]}
-              />
-            </div>
-            <div className="chart-panel reveal-right" data-reveal>
-              <div className="panel-head">
-                <span>Reviews earned / week</span>
-              </div>
-              <div
-                className="bar-chart"
-                aria-label="Illustrative six-week bar chart trending upward"
-              >
-                {["W1", "W2", "W3", "W4", "W5", "W6"].map((week, index) => (
-                  <div className={`bar-column bar-${index + 1}`} key={week}>
-                    <div className="bar">
-                      <span>{[3, 5, 7, 8, 11, 14][index]}</span>
-                    </div>
-                    <small>{week}</small>
-                  </div>
-                ))}
-                <svg
-                  className="bar-trend"
-                  viewBox="0 0 600 220"
-                  preserveAspectRatio="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    pathLength="1"
-                    d="M50 174 150 151 250 128 350 116 450 80 550 39"
-                  />
-                </svg>
-              </div>
-              <div className="panel-summary">
-                <span>6 week direction</span>
-                <strong>
-                  <ArrowUpIcon /> Trending up
-                </strong>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="industries" className="section industries-section">
-          <div className="page-width">
-            <div className="industries-copy" data-reveal>
-              <p className="eyebrow eyebrow-light">
-                <span /> Built for
-              </p>
-              <h2>Local businesses that live and die by their reviews</h2>
-              <p>
-                If customers Google you before they call you, UpTrend Scaling
-                fits your business.
-              </p>
-            </div>
-            <div className="industry-list" data-reveal>
+        {/* ---- Works with ------------------------------------------------ */}
+        <section className="lp-works" aria-label="Works with">
+          <div className="lp-container lp-works-inner">
+            <span className="lp-label">Works with</span>
+            <div className="lp-chips">
               {[
-                "Home services",
-                "Auto sales & service",
-                "Restaurants & cafés",
-                "Salons & spas",
-                "Medical & dental",
-                "Retail & specialty shops",
-              ].map((industry, index) => (
-                <div key={industry}>
-                  <span>0{index + 1}</span>
-                  {industry}
-                  <ArrowIcon />
-                </div>
+                "Square",
+                "Jobber",
+                "Google Business Profile",
+                "Text messages",
+                "Email",
+                "QR codes",
+              ].map((item) => (
+                <span key={item} className="lp-chip">
+                  <span className="lp-chip-dot" aria-hidden="true" />
+                  {item}
+                </span>
               ))}
             </div>
           </div>
         </section>
 
-        <section id="why-us" className="section why-section">
-          <div className="page-width">
-            <div className="section-heading split-heading" data-reveal>
-              <div>
-                <p className="eyebrow">
-                  <span /> Why UpTrend Scaling
-                </p>
-                <h2>Built to earn its place in your business.</h2>
-              </div>
+        {/* ---- Stats ----------------------------------------------------- */}
+        <section className="lp-section" aria-labelledby="stats-heading">
+          <div className="lp-container">
+            <div className="lp-heading">
+              <p className="lp-label">Why this works</p>
+              <h2 id="stats-heading">
+                Customers will leave a review. Most just need to be asked.
+              </h2>
+            </div>
+            <div className="lp-stats">
+              <StatCard value="97" unit="%" label="Read reviews">
+                of consumers read reviews for local businesses before deciding
+              </StatCard>
+              <StatCard value="83" unit="%" label="Leave one when asked">
+                of customers asked to leave a review actually leave one
+              </StatCard>
+              <StatCard value="92" unit="%" label="Ratings decide">
+                say star ratings influence which business they choose
+              </StatCard>
+              <StatCard value="80" unit="%" label="Responses matter">
+                are more likely to use a business that responds to its reviews
+              </StatCard>
+            </div>
+            <p className="lp-source">
+              Source: BrightLocal, 2026 Local Consumer Review Survey
+            </p>
+          </div>
+        </section>
+
+        {/* ---- How it works ---------------------------------------------- */}
+        <section id="how-it-works" className="lp-section">
+          <div className="lp-container">
+            <div className="lp-heading">
+              <p className="lp-label">How it works</p>
+              <h2>Three steps. Then it runs on its own.</h2>
               <p>
-                No bloated software. No manufactured praise. Just a practical
-                system that helps happy customers speak up.
+                From finished job to a new Google review, every step happens
+                while you get back to work.
               </p>
             </div>
-            <div className="why-grid">
-              <WhyCard number="01" title="Minutes to set up">
-                Connect your customer list and your Google Business Profile. The
-                first requests go out the same day.
-              </WhyCard>
-              <WhyCard number="02" title="No long contracts">
-                Month-to-month pricing. If it's not earning its keep, you're not
-                locked in.
-              </WhyCard>
-              <WhyCard number="03" title="Built by a small-business owner">
-                UpTrend Scaling is a new, owner-operated company, and you'll
-                talk to the person who actually built it.
-              </WhyCard>
+            <div className="lp-steps">
+              <StepCard step="1" title="The job is done" icon={<InvoiceIcon />}>
+                An invoice gets paid in Square or Jobber, or you add the
+                customer in a few seconds. That's the only trigger.
+              </StepCard>
+              <StepCard
+                step="2"
+                title="We ask for the review"
+                icon={<ChatIcon />}
+              >
+                Your customer gets a short text and email from your business
+                name with a one-tap link. No app, no sign-in.
+              </StepCard>
+              <StepCard
+                step="3"
+                title="One friendly reminder"
+                icon={<RefreshIcon />}
+              >
+                No review after 48 hours? One polite reminder goes out. Never
+                more than that, so nobody feels nagged.
+              </StepCard>
             </div>
           </div>
         </section>
 
-        <section id="pricing" className="section pricing-section">
-          <div className="page-width">
-            <div className="pricing-card" data-reveal>
-              <div className="pricing-card-copy">
-                <p className="eyebrow">
-                  <span /> Simple pricing
-                </p>
-                <h2>One plan. No demo required.</h2>
-                <p>
-                  Sign up in minutes and start requesting reviews today. Cancel
-                  anytime, no long-term contract.
-                </p>
-                <ul className="pricing-features">
-                  <li>
-                    <CheckIcon />
-                    SMS & email requests, reminders, and QR codes
-                  </li>
-                  <li>
-                    <CheckIcon />
-                    Weekly reporting dashboard
-                  </li>
-                  <li>
-                    <CheckIcon />
-                    Card required to start your {TRIAL_DAYS}-day free trial,
-                    nothing charged until it ends
-                  </li>
-                  <li>
-                    <CheckIcon />
-                    Month-to-month, cancel anytime
-                  </li>
-                </ul>
-                <div className="pricing-actions">
-                  <a className="button button-primary" href={START_TRIAL}>
-                    Start Free Trial <ArrowIcon />
-                  </a>
+        {/* ---- Features -------------------------------------------------- */}
+        <section id="features" className="lp-section">
+          <div className="lp-container">
+            <div className="lp-heading">
+              <p className="lp-label">Features</p>
+              <h2>Everything you need to keep reviews coming in.</h2>
+            </div>
+            <div className="lp-bento">
+              <article className="lp-panel lp-bento-text">
+                <div className="lp-panel-copy">
+                  <h3>A text customers actually open</h3>
+                  <p>
+                    Short, friendly, and sent from your business name. One tap
+                    takes them straight to your Google review page.
+                  </p>
                 </div>
-                <p className="plan-alt-link">
-                  <a href={START_MEMBERSHIP}>Prefer to skip the trial and subscribe today?</a>
+                <div className="lp-messages" aria-label="Example text message">
+                  <div className="lp-msg-head">
+                    <span className="lp-avatar">AP</span>
+                    <div>
+                      <strong>Ace Plumbing</strong>
+                      <small>Text message · example</small>
+                    </div>
+                  </div>
+                  <p className="lp-bubble lp-bubble-in">
+                    Hi Maria, thanks for choosing Ace Plumbing today! Got 20
+                    seconds to leave us a quick Google review?{" "}
+                    <span className="lp-bubble-link">
+                      uptrendscaling.com/r/…
+                    </span>
+                  </p>
+                  <p className="lp-bubble lp-bubble-out">
+                    On it. You guys were great.
+                  </p>
+                  <div className="lp-review-row">
+                    <Stars />
+                    <span>New Google review</span>
+                  </div>
+                </div>
+              </article>
+
+              <article className="lp-panel lp-bento-auto">
+                <div className="lp-panel-copy">
+                  <h3>Automatic with Square and Jobber</h3>
+                  <p>
+                    Connect once. When an invoice is paid, the review request
+                    goes out by itself.
+                  </p>
+                </div>
+                <ol className="lp-flow" aria-label="What happens automatically">
+                  <li>
+                    <InvoiceIcon /> Invoice paid
+                  </li>
+                  <li>
+                    <ChatIcon /> Text and email sent
+                  </li>
+                  <li>
+                    <StarIcon /> Review on Google
+                  </li>
+                </ol>
+              </article>
+
+              <article className="lp-panel lp-bento-qr">
+                <div className="lp-panel-copy">
+                  <h3>QR codes for in person</h3>
+                  <p>
+                    Print-ready codes for the counter, the truck, or the
+                    invoice. Scan and review on the spot.
+                  </p>
+                </div>
+                <div className="lp-qr">
+                  <DecorativeQR />
+                  <span>Scan to leave a review</span>
+                </div>
+              </article>
+
+              <article className="lp-panel lp-bento-report">
+                <div className="lp-panel-copy">
+                  <h3>See it working, every week</h3>
+                  <p>
+                    Requests sent, reviews earned, and your rating over time. A
+                    summary lands in your inbox every Monday.
+                  </p>
+                </div>
+                <MiniBars values={[4, 6, 5, 8, 9, 12, 14]} />
+              </article>
+
+              <article className="lp-panel lp-bento-timing">
+                <div className="lp-panel-copy">
+                  <h3>Polite timing, built in</h3>
+                  <p>
+                    Texts only go out between 10am and 7pm your local time.
+                    Customers can opt out with one reply.
+                  </p>
+                </div>
+                <div className="lp-clock" aria-hidden="true">
+                  <span>10am</span>
+                  <i />
+                  <span>7pm</span>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Industries ------------------------------------------------ */}
+        <section className="lp-section lp-section-tight">
+          <div className="lp-container">
+            <div className="lp-panel lp-industries">
+              <div>
+                <p className="lp-label">Built for</p>
+                <h2>Local businesses that live on their reviews.</h2>
+                <p>
+                  If customers Google you before they call you, UpTrend Scaling
+                  fits your business.
                 </p>
               </div>
-              <div className="pricing-figures">
-                <span className="pricing-amount">
-                  {formatUsd(MONTHLY_PRICE_CENTS)}
-                  <small>/mo per location</small>
+              <div className="lp-chips lp-chips-wrap">
+                {INDUSTRIES.map((item) => (
+                  <span key={item} className="lp-chip lp-chip-lg">
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Why us ---------------------------------------------------- */}
+        <section className="lp-section">
+          <div className="lp-container">
+            <div className="lp-heading">
+              <p className="lp-label">Why UpTrend Scaling</p>
+              <h2>Simple software that earns its keep.</h2>
+            </div>
+            <div className="lp-why">
+              <article className="lp-panel">
+                <span className="lp-icon-tile">
+                  <BoltIcon />
                 </span>
-                <p className="pricing-setup">
+                <h3>Minutes to set up</h3>
+                <p>
+                  Add your Google review link, connect Square or Jobber if you
+                  use them, and the first requests go out the same day.
+                </p>
+              </article>
+              <article className="lp-panel">
+                <span className="lp-icon-tile">
+                  <CalendarIcon />
+                </span>
+                <h3>No long contracts</h3>
+                <p>
+                  Month-to-month. If it isn't earning its keep, cancel from your
+                  dashboard anytime.
+                </p>
+              </article>
+              <article className="lp-panel">
+                <span className="lp-icon-tile">
+                  <ShieldIcon />
+                </span>
+                <h3>Only real reviews</h3>
+                <p>
+                  We never buy, fake, or filter reviews. We just make it easy
+                  for real customers to speak up.
+                </p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        {/* ---- Pricing --------------------------------------------------- */}
+        <section id="pricing" className="lp-section">
+          <div className="lp-container">
+            <div className="lp-heading lp-heading-center">
+              <p className="lp-label">Pricing</p>
+              <h2>One plan. Everything included.</h2>
+            </div>
+            <div className="lp-pricing">
+              <div className="lp-price-side">
+                <span className="lp-pill lp-pill-sm">
+                  {TRIAL_DAYS}-day free trial
+                </span>
+                <div className="lp-price">
+                  <strong>{formatUsd(MONTHLY_PRICE_CENTS)}</strong>
+                  <span>/month per location</span>
+                </div>
+                <p className="lp-price-setup">
                   + {formatUsd(SETUP_FEE_CENTS)} one-time setup fee
                 </p>
+                <a
+                  className="lp-btn lp-btn-primary lp-btn-lg lp-btn-block"
+                  href={START_TRIAL}
+                >
+                  Start free trial <ArrowIcon />
+                </a>
+                <p className="lp-price-fine">
+                  Card required, nothing charged for {TRIAL_DAYS} days.
+                  <br />
+                  <a href={START_MEMBERSHIP}>Or subscribe today</a>
+                </p>
               </div>
+              <ul className="lp-price-list">
+                {[
+                  "Automatic text and email review requests",
+                  "One polite reminder after 48 hours",
+                  "Square and Jobber auto-send on paid invoices",
+                  "Print-ready QR codes",
+                  "Dashboard with your rating, requests and reviews",
+                  "Weekly summary email",
+                  "Month-to-month, cancel anytime",
+                ].map((item) => (
+                  <li key={item}>
+                    <CheckIcon />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
 
-        <section id="faq" className="section faq-section">
-          <div className="page-width">
-            <div className="section-heading" data-reveal>
-              <p className="eyebrow">
-                <span /> Questions
+        {/* ---- FAQ ------------------------------------------------------- */}
+        <section id="faq" className="lp-section">
+          <div className="lp-container lp-faq-grid">
+            <div className="lp-heading">
+              <p className="lp-label">Questions</p>
+              <h2>Straight answers.</h2>
+              <p>
+                Still wondering about something?{" "}
+                <a href="mailto:hello@uptrendscaling.com?subject=Question%20about%20UpTrend%20Scaling">
+                  hello@uptrendscaling.com
+                </a>
               </p>
-              <h2>Straight answers, no sales call required.</h2>
             </div>
-            <div className="faq-list" data-reveal>
+            <div className="lp-faq">
               {FAQ_ITEMS.map((item) => (
-                <details key={item.question} className="faq-item">
+                <details key={item.question} className="lp-faq-item">
                   <summary>
                     <span>{item.question}</span>
-                    <span className="faq-toggle" aria-hidden="true">
-                      <ArrowIcon />
+                    <span className="lp-faq-toggle" aria-hidden="true">
+                      <PlusIcon />
                     </span>
                   </summary>
                   <p>{item.answer}</p>
@@ -777,79 +619,63 @@ function Index() {
           </div>
         </section>
 
-        <section className="closing-cta">
-          <video
-            ref={closingVideoRef}
-            className="section-video"
-            src="https://videos.pexels.com/video-files/853987/853987-hd_1920_1080_25fps.mp4"
-            autoPlay={motionAllowed}
-            muted
-            loop
-            playsInline
-            preload="metadata"
-            aria-hidden="true"
-          />
-          <div className="video-scrim" aria-hidden="true" />
-          <div className="closing-line" aria-hidden="true">
-            <svg viewBox="0 0 1440 180" preserveAspectRatio="none">
-              <path
-                pathLength="1"
-                d="M0 160C240 145 320 165 520 120S830 112 960 69s270-31 480-62"
-              />
-            </svg>
-          </div>
-          <div className="page-width closing-inner" data-reveal>
-            <p className="eyebrow eyebrow-light">
-              <span /> Ready when you are
-            </p>
-            <h2>Stop hoping customers remember to leave a review.</h2>
-            <p>
-              Start your free trial in under two minutes. No demo, no sales
-              call, just sign up and go.
-            </p>
-            <div className="hero-actions closing-actions">
-              <a className="button button-primary" href={START_TRIAL}>
-                Start Free Trial <ArrowIcon />
-              </a>
+        {/* ---- Closing CTA ----------------------------------------------- */}
+        <section className="lp-section lp-section-tight">
+          <div className="lp-container">
+            <div className="lp-cta">
+              <h2>Stop hoping customers remember to leave a review.</h2>
+              <p>
+                Start your free trial in about two minutes. No demo, no sales
+                call.
+              </p>
+              <div className="lp-hero-actions lp-cta-actions">
+                <a
+                  className="lp-btn lp-btn-primary lp-btn-lg"
+                  href={START_TRIAL}
+                >
+                  Start {TRIAL_DAYS}-day free trial <ArrowIcon />
+                </a>
+                <a
+                  className="lp-btn lp-btn-ghost lp-btn-lg"
+                  href="mailto:hello@uptrendscaling.com?subject=Question%20about%20UpTrend%20Scaling"
+                >
+                  <MailIcon /> Email us a question
+                </a>
+              </div>
+              <p className="lp-hero-fine">
+                Card required, nothing charged for {TRIAL_DAYS} days. Cancel
+                anytime.
+              </p>
             </div>
-            <p className="closing-secondary">
-              Card required to start, nothing charged for {TRIAL_DAYS} days.{" "}
-              <a href={START_MEMBERSHIP}>Skip the trial instead</a> · Have questions first?{" "}
-              <a href="mailto:hello@uptrendscaling.com?subject=Question%20about%20UpTrend%20Scaling">
-                Email us <MailIcon />
-              </a>
-            </p>
           </div>
         </section>
       </main>
 
-      <footer className="site-footer">
-        <div className="page-width footer-inner">
-          <div>
-            <a className="brand footer-brand" href="#top">
-              <span className="brand-mark">
-                <svg viewBox="0 0 28 28">
-                  <path d="M4 20 11 13l4 4 9-10M17 7h7v7" />
-                </svg>
-              </span>
+      <footer className="lp-footer">
+        <div className="lp-container lp-footer-inner">
+          <div className="lp-footer-brand">
+            <a className="lp-brand" href="#top">
+              <BrandMark />
               <span>
                 UpTrend <em>Scaling</em>
               </span>
             </a>
             <p>Google review automation for local businesses.</p>
           </div>
-          <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>
-          <span>
-            © 2026 UpTrend Scaling, LLC. All rights reserved. ·{" "}
-            <a href="/terms">Terms</a> · <a href="/privacy">Privacy</a> ·{" "}
+          <nav className="lp-footer-links" aria-label="Footer">
+            <a href="mailto:hello@uptrendscaling.com">
+              hello@uptrendscaling.com
+            </a>
+            <a href="/login">Log in</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
             <a
               href="https://www.facebook.com/profile.php?id=61594598074617"
               target="_blank"
               rel="noopener noreferrer"
             >
               Facebook
-            </a>{" "}
-            ·{" "}
+            </a>
             <a
               href="https://www.instagram.com/uptrendscaling/"
               target="_blank"
@@ -857,66 +683,166 @@ function Index() {
             >
               Instagram
             </a>
-          </span>
+          </nav>
+          <p className="lp-copyright">
+            © 2026 UpTrend Scaling, LLC. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
   );
 }
 
-function Step({
-  number,
+// A static picture of the real client dashboard, with example numbers. It is
+// marked "Example" on screen and hidden from screen readers' data reading
+// (one label describes it instead).
+function DashboardPreview() {
+  const max = Math.max(...PREVIEW_BARS);
+  return (
+    <div
+      className="lp-preview"
+      role="img"
+      aria-label="Example of the UpTrend Scaling dashboard, showing Google rating, reviews this month, requests sent, a rising weekly reviews chart and recent activity"
+    >
+      <div className="lp-preview-bar" aria-hidden="true">
+        <span className="lp-preview-brand">
+          <BrandMark small /> UpTrend
+        </span>
+        <span className="lp-preview-tabs">
+          <b>Overview</b>
+          <span>Customers</span>
+          <span>Requests</span>
+          <span>QR codes</span>
+          <span>Reports</span>
+        </span>
+        <span className="lp-preview-example">Example</span>
+      </div>
+      <div className="lp-preview-body" aria-hidden="true">
+        <div className="lp-preview-greet">
+          <strong>Good morning, Mike.</strong>
+          <span>
+            <b>3 new Google reviews</b> since yesterday. Everything else is
+            running on its own.
+          </span>
+        </div>
+        <div className="lp-preview-stats">
+          <div className="lp-pstat lp-pstat-hero">
+            <small>Google rating</small>
+            <strong>
+              4.9 <Stars small />
+            </strong>
+            <em>▲ 0.3 in 90 days</em>
+          </div>
+          <div className="lp-pstat">
+            <small>Reviews this month</small>
+            <strong>35</strong>
+            <em>41 last month</em>
+          </div>
+          <div className="lp-pstat">
+            <small>Requests sent</small>
+            <strong>43</strong>
+            <em>88% automatic</em>
+          </div>
+          <div className="lp-pstat lp-pstat-hide-sm">
+            <small>Review rate</small>
+            <strong>
+              36<span>%</span>
+            </strong>
+            <em>of customers asked</em>
+          </div>
+        </div>
+        <div className="lp-preview-main">
+          <div className="lp-preview-chart">
+            <div className="lp-preview-chart-head">
+              <strong>Reviews earned per week</strong>
+              <span>last 12 weeks</span>
+            </div>
+            <div className="lp-preview-bars">
+              {PREVIEW_BARS.map((value, index) => (
+                <i
+                  key={index}
+                  style={{ height: `${Math.round((value / max) * 100)}%` }}
+                />
+              ))}
+            </div>
+          </div>
+          <div className="lp-preview-feed">
+            <strong>Live activity</strong>
+            {[
+              {
+                icon: <StarIcon />,
+                title: "New 5-star Google review",
+                sub: "Maria G. “Fixed our water heater same day.”",
+                hot: true,
+              },
+              {
+                icon: <ChatIcon />,
+                title: "Review request texted",
+                sub: "James R. paid an invoice in Square",
+              },
+              {
+                icon: <RefreshIcon />,
+                title: "Reminder sent",
+                sub: "Dana K. after 2 days",
+              },
+            ].map((row) => (
+              <div
+                key={row.title}
+                className={`lp-feed-row${row.hot ? " is-hot" : ""}`}
+              >
+                <span className="lp-feed-icon">{row.icon}</span>
+                <span>
+                  <b>{row.title}</b>
+                  <small>{row.sub}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({
+  value,
+  unit,
   label,
-  title,
   children,
-  delay,
 }: {
-  number: string;
+  value: string;
+  unit: string;
   label: string;
-  title: string;
   children: string;
-  delay: string;
 }) {
   return (
-    <article className={`step-card ${delay}`} data-reveal>
-      <div className="step-top">
-        <span>{number}</span>
-        <small>{label}</small>
-      </div>
-      <h3>{title}</h3>
+    <article className="lp-stat">
+      <small>{label}</small>
+      <strong>
+        {value}
+        <span>{unit}</span>
+      </strong>
       <p>{children}</p>
-      <div className="step-progress" />
     </article>
   );
 }
 
-function FeatureList({ items }: { items: string[] }) {
-  return (
-    <ul className="feature-list">
-      {items.map((item) => (
-        <li key={item}>
-          <CheckIcon />
-          {item}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function WhyCard({
-  number,
+function StepCard({
+  step,
   title,
+  icon,
   children,
 }: {
-  number: string;
+  step: string;
   title: string;
+  icon: ReactNode;
   children: string;
 }) {
   return (
-    <article className="why-card" data-reveal>
-      <span>{number}</span>
-      <div className="why-arrow">
-        <ArrowIcon />
+    <article className="lp-panel lp-step">
+      <div className="lp-step-top">
+        <span className="lp-icon-tile">{icon}</span>
+        <span className="lp-step-num">Step {step}</span>
       </div>
       <h3>{title}</h3>
       <p>{children}</p>
@@ -924,12 +850,40 @@ function WhyCard({
   );
 }
 
-function Stat({ value, children }: { value: string; children: string }) {
+function MiniBars({ values }: { values: number[] }) {
+  const max = Math.max(...values);
   return (
-    <article className="stat-item" data-reveal>
-      <strong>{value}</strong>
-      <p>{children}</p>
-    </article>
+    <div className="lp-minibars" aria-hidden="true">
+      {values.map((value, index) => (
+        <i
+          key={index}
+          style={{ height: `${Math.round((value / max) * 100)}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function Stars({ small = false }: { small?: boolean }) {
+  return (
+    <span className={`lp-stars${small ? " is-small" : ""}`} aria-hidden="true">
+      {[0, 1, 2, 3, 4].map((index) => (
+        <StarIcon key={index} />
+      ))}
+    </span>
+  );
+}
+
+function BrandMark({ small = false }: { small?: boolean }) {
+  return (
+    <span
+      className={`lp-brand-mark${small ? " is-small" : ""}`}
+      aria-hidden="true"
+    >
+      <svg viewBox="0 0 28 28">
+        <path d="M4 20 11 13l4 4 9-10M17 7h7v7" />
+      </svg>
+    </span>
   );
 }
 
@@ -958,22 +912,13 @@ function DecorativeQR() {
   ];
   return (
     <svg
-      className="qr-code"
-      viewBox="0 0 24 24"
+      className="lp-qr-code"
+      viewBox="0 0 23 23"
       role="img"
-      aria-label="Decorative QR code mockup"
+      aria-label="Example QR code"
     >
-      <rect width="24" height="24" rx="1" />
       {squares.map(([x, y, w, h], index) => (
-        <rect
-          className="qr-block"
-          key={index}
-          x={x}
-          y={y}
-          width={w}
-          height={h}
-          rx=".35"
-        />
+        <rect key={index} x={x} y={y} width={w} height={h} rx=".4" />
       ))}
     </svg>
   );
@@ -981,38 +926,82 @@ function DecorativeQR() {
 
 function ArrowIcon() {
   return (
-    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
       <path d="M4 10h12m-5-5 5 5-5 5" />
-    </svg>
-  );
-}
-function ArrowUpIcon() {
-  return (
-    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="m4 13 5-5 3 3 4-5m-4 0h4v4" />
-    </svg>
-  );
-}
-function MailIcon() {
-  return (
-    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="2.5" y="4" width="15" height="12" rx="1" />
-      <path d="m3 5 7 6 7-6" />
-    </svg>
-  );
-}
-function ShieldIcon() {
-  return (
-    <svg className="icon" viewBox="0 0 20 20" aria-hidden="true">
-      <path d="M10 2.5 16 5v4.5c0 3.8-2.5 6.4-6 8-3.5-1.6-6-4.2-6-8V5l6-2.5Z" />
-      <path d="m7 10 2 2 4-4" />
     </svg>
   );
 }
 function CheckIcon() {
   return (
-    <svg className="check-icon" viewBox="0 0 20 20" aria-hidden="true">
+    <svg className="lp-icon lp-check" viewBox="0 0 20 20" aria-hidden="true">
       <path d="m4 10 4 4 8-9" />
+    </svg>
+  );
+}
+function PlusIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 4v12M4 10h12" />
+    </svg>
+  );
+}
+function MailIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="2.5" y="4" width="15" height="12" rx="2" />
+      <path d="m3 5.5 7 5.5 7-5.5" />
+    </svg>
+  );
+}
+function ShieldIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M10 2.5 16 5v4.5c0 3.8-2.5 6.4-6 8-3.5-1.6-6-4.2-6-8V5l6-2.5Z" />
+      <path d="m7 10 2 2 4-4" />
+    </svg>
+  );
+}
+function StarIcon() {
+  return (
+    <svg className="lp-icon lp-star" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m12 2.4 2.84 5.75 6.35.92-4.6 4.48 1.09 6.32L12 16.88l-5.68 2.99 1.09-6.32-4.6-4.48 6.35-.92L12 2.4Z" />
+    </svg>
+  );
+}
+function ChatIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M3.5 5.5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H9l-3.5 3v-3h0a2 2 0 0 1-2-2v-6Z" />
+    </svg>
+  );
+}
+function InvoiceIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M5 2.5h10v15l-2.5-1.5-2.5 1.5-2.5-1.5L5 17.5v-15Z" />
+      <path d="M8 7h4M8 10h4" />
+    </svg>
+  );
+}
+function RefreshIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M16 10a6 6 0 1 1-1.8-4.3M16 3.5v3.5h-3.5" />
+    </svg>
+  );
+}
+function BoltIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <path d="M11 2.5 4.5 11H10l-1 6.5 6.5-8.5H10l1-6.5Z" />
+    </svg>
+  );
+}
+function CalendarIcon() {
+  return (
+    <svg className="lp-icon" viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="3" y="4.5" width="14" height="12" rx="2" />
+      <path d="M3 8.5h14M7 2.5v4M13 2.5v4" />
     </svg>
   );
 }
