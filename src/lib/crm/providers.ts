@@ -24,9 +24,11 @@ export const PROVIDER_LABELS: Record<CrmProvider, string> = {
   google: "Google Business Profile",
 };
 
-// Where an owner adds our app inside Zapier. Empty until the Zapier app's
-// invite (or public listing) link exists; Settings hides the button until then.
-export const ZAPIER_APP_URL = "";
+// Where an owner adds our app inside Zapier: the private invite link for now.
+// Swap in the public listing link once Zapier approves the app. Settings hides
+// the button when this is empty.
+export const ZAPIER_APP_URL =
+  "https://zapier.com/developer/public-invite/247421/096dab63921d064efb32740c9dd851f3/";
 
 // Label for any provider string, including ones written by older code.
 export function providerLabel(provider: string): string {
