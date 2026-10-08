@@ -45,6 +45,11 @@ const FAQ_ITEMS = [
       "Within minutes of a job being marked complete, while the experience is still fresh for the customer. Texts only go out between 10am and 7pm your local time, so a job closed out late at night gets its text the next morning.",
   },
   {
+    question: "Does it work with the software I already use?",
+    answer:
+      "Yes. QuickBooks, Square and Jobber connect directly, so a review request goes out on its own the moment an invoice is paid. Use something else, like Housecall Pro or Workiz? Connect it through Zapier, which works with thousands of business apps. You can also add customers by hand in a few seconds.",
+  },
+  {
     question: "What happens if a customer doesn't respond?",
     answer:
       "UpTrend Scaling sends one polite reminder after 48 hours if there's been no response. There's no repeated nagging beyond that.",
@@ -288,8 +293,10 @@ function Index() {
             <span className="lp-label">Works with</span>
             <div className="lp-chips">
               {[
+                "QuickBooks",
                 "Square",
                 "Jobber",
+                "Zapier",
                 "Google Business Profile",
                 "Text messages",
                 "Email",
@@ -346,8 +353,8 @@ function Index() {
             </div>
             <div className="lp-steps">
               <StepCard step="1" title="The job is done" icon={<InvoiceIcon />}>
-                An invoice gets paid in Square or Jobber, or you add the
-                customer in a few seconds. That's the only trigger.
+                An invoice gets paid in QuickBooks, Square or Jobber, or you
+                add the customer in a few seconds. That's the only trigger.
               </StepCard>
               <StepCard
                 step="2"
@@ -415,10 +422,11 @@ function Index() {
 
               <article className="lp-panel lp-bento-auto">
                 <div className="lp-panel-copy">
-                  <h3>Automatic with Square and Jobber</h3>
+                  <h3>Automatic with QuickBooks, Square and Jobber</h3>
                   <p>
                     Connect once. When an invoice is paid, the review request
-                    goes out by itself.
+                    goes out by itself. Use something else? Connect it through
+                    Zapier.
                   </p>
                 </div>
                 <ol className="lp-flow" aria-label="What happens automatically">
@@ -514,8 +522,9 @@ function Index() {
                 </span>
                 <h3>Minutes to set up</h3>
                 <p>
-                  Add your Google review link, connect Square or Jobber if you
-                  use them, and the first requests go out the same day.
+                  Add your Google review link, connect QuickBooks, Square or
+                  Jobber if you use them, and the first requests go out the
+                  same day.
                 </p>
               </article>
               <article className="lp-panel">
@@ -577,7 +586,8 @@ function Index() {
                 {[
                   "Automatic text and email review requests",
                   "One polite reminder after 48 hours",
-                  "Square and Jobber auto-send on paid invoices",
+                  "QuickBooks, Square and Jobber auto-send on paid invoices",
+                  "Thousands of other apps through Zapier",
                   "Print-ready QR codes",
                   "Dashboard with your rating, requests and reviews",
                   "Weekly summary email",
