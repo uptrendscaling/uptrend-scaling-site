@@ -43,6 +43,8 @@ export function AddCustomerPanel({ onAdded }: { onAdded: () => void }) {
         const parts: string[] = [];
         if (result.smsSent === true) parts.push("text sent");
         if (result.smsSent === false) parts.push("text failed");
+        if (result.smsHeld)
+          parts.push("text will go out after 10am (quiet hours)");
         if (result.emailSent === true) parts.push("email sent");
         if (result.emailSent === false) parts.push("email failed");
         setMessage(

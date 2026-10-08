@@ -11,7 +11,17 @@ import {
   getRequestHeader,
   setResponseStatus,
 } from "@tanstack/react-start/server";
-import { and, desc, eq, gt, gte, inArray, isNull, lt } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  gt,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  lt,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -492,6 +502,69 @@ export const updateGoogleReviewUrl = createServerFn({ method: "POST" })
 // the send/log logic and copy templates only live in one place.
 type ReviewRequestKind = "initial" | "manual" | "reminder";
 
+// ---- Quiet hours for texts --------------------------------------------------
+//
+// Review texts only go out between 10am and 7pm in the business's own time
+// zone (Settings, default America/Phoenix). That keeps every text well inside
+// the federal 8am to 9pm calling window and the stricter state ones, and
+// nobody gets a review request at 11pm because the plumber closed out a job
+// late. A text that comes due outside those hours is held on the customer row
+// (heldSmsKind/heldSmsAt) and sent by the next scheduled run that lands in
+// daytime for that business (see sendHeldTexts, run twice a day). Emails are
+// not affected and still go out right away.
+export const TEXT_WINDOW_START_HOUR = 10; // 10:00am, inclusive
+export const TEXT_WINDOW_END_HOUR = 19; // 7:00pm, exclusive
+
+// A held text older than this is dropped instead of sent: a review request
+// days after the job reads as spam, and the email already went out.
+const HELD_TEXT_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+const FALLBACK_TIME_ZONE = "America/Phoenix";
+
+function usableTimeZone(value: string | null | undefined): string {
+  const candidate = value?.trim() || FALLBACK_TIME_ZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: candidate });
+    return candidate;
+  } catch {
+    return FALLBACK_TIME_ZONE;
+  }
+}
+
+// The hour (0 to 23) on the wall clock in `timeZone` at `now`.
+export function localHourIn(
+  timeZone: string | null | undefined,
+  now: Date = new Date(),
+): number {
+  const hour = new Intl.DateTimeFormat("en-US", {
+    timeZone: usableTimeZone(timeZone),
+    hour: "numeric",
+    hourCycle: "h23",
+  })
+    .formatToParts(now)
+    .find((part) => part.type === "hour")?.value;
+  return Number(hour ?? 0) % 24;
+}
+
+export function isWithinTextingHours(
+  timeZone: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  const hour = localHourIn(timeZone, now);
+  return hour >= TEXT_WINDOW_START_HOUR && hour < TEXT_WINDOW_END_HOUR;
+}
+
+function smsBodyFor(
+  kind: ReviewRequestKind,
+  business: Pick<Business, "businessName">,
+  customer: Pick<Customer, "name" | "reviewToken">,
+): string {
+  const link = reviewLinkFor(customer.reviewToken);
+  return kind === "reminder"
+    ? reminderSmsBody(business.businessName, customer.name, link)
+    : initialSmsBody(business.businessName, customer.name, link);
+}
+
 // True when the business has filled in its Google review link. Without it a
 // customer's tracked link (/r/:token) can only fall back to our own homepage,
 // so nothing automatic may go out until the owner has set it.
@@ -524,6 +597,9 @@ export type SendOutcome = {
   emailSent: boolean | null;
   smsError: string | null;
   emailError: string | null;
+  // true = the text was not sent now because it's outside 10am to 7pm where
+  // the business is; it is waiting and goes out with the next daytime run.
+  smsHeld: boolean;
 };
 
 // A failed insert into the message log must never throw: by then the message
@@ -548,10 +624,7 @@ async function sendReviewRequestAndLog(
   options: SendRequestOptions = {},
 ): Promise<SendOutcome> {
   const link = reviewLinkFor(customer.reviewToken);
-  const smsBody =
-    kind === "reminder"
-      ? reminderSmsBody(business.businessName, customer.name, link)
-      : initialSmsBody(business.businessName, customer.name, link);
+  const smsBody = smsBodyFor(kind, business, customer);
   const emailSubject =
     kind === "reminder"
       ? reminderEmailSubject(business.businessName)
@@ -571,6 +644,7 @@ async function sendReviewRequestAndLog(
   let emailSent: boolean | null = null;
   let smsError: string | null = null;
   let emailError: string | null = null;
+  let smsHeld = false;
 
   // Retry of an earlier, interrupted attempt: find which channels it already
   // got to, so each channel is attempted at most once per paid invoice.
@@ -608,6 +682,13 @@ async function sendReviewRequestAndLog(
     if (done) {
       smsSent = done.sent;
       smsError = done.error;
+    } else if (!isWithinTextingHours(business.timezone)) {
+      // Quiet hours: park the text for the next daytime run instead.
+      smsHeld = await holdText(db, customer.id, kind);
+      if (!smsHeld) {
+        smsSent = false;
+        smsError = "Could not schedule the text for daytime hours.";
+      }
     } else {
       const result = await sendSms(phone, smsBody);
       smsSent = result.ok;
@@ -621,6 +702,9 @@ async function sendReviewRequestAndLog(
         providerMessageId: result.ok ? result.providerMessageId : null,
         errorMessage: result.ok ? null : result.error,
       });
+      // This text just went out, so any older one still waiting out quiet
+      // hours for the same person would be a duplicate. Drop it.
+      if (result.ok) await clearHeldText(db, customer.id);
     }
   }
 
@@ -654,7 +738,43 @@ async function sendReviewRequestAndLog(
     }
   }
 
-  return { smsSent, emailSent, smsError, emailError };
+  return { smsSent, emailSent, smsError, emailError, smsHeld };
+}
+
+// Parks a text until daytime. Never throws: returns false if the row could not
+// be updated, so the caller can report the text as not sent.
+async function holdText(
+  db: ReturnType<typeof getDb>,
+  customerId: string,
+  kind: ReviewRequestKind,
+): Promise<boolean> {
+  try {
+    const rows = await db
+      .update(customers)
+      .set({ heldSmsKind: kind, heldSmsAt: new Date() })
+      .where(eq(customers.id, customerId))
+      .returning({ id: customers.id });
+    return rows.length > 0;
+  } catch (error) {
+    console.error("[reviews] failed to hold a text for quiet hours", error);
+    return false;
+  }
+}
+
+async function clearHeldText(
+  db: ReturnType<typeof getDb>,
+  customerId: string,
+): Promise<void> {
+  try {
+    await db
+      .update(customers)
+      .set({ heldSmsKind: null, heldSmsAt: null })
+      .where(
+        and(eq(customers.id, customerId), isNotNull(customers.heldSmsKind)),
+      );
+  } catch (error) {
+    console.error("[reviews] failed to clear a held text", error);
+  }
 }
 
 export type CreateCustomerAndSendInput = {
@@ -814,7 +934,12 @@ const addCustomerSchema = z
   });
 
 export type AddCustomerResult =
-  | { ok: true; smsSent: boolean | null; emailSent: boolean | null }
+  | {
+      ok: true;
+      smsSent: boolean | null;
+      emailSent: boolean | null;
+      smsHeld: boolean;
+    }
   | { ok: false; message: string };
 
 // Creates a customer AND immediately fires off their review request on
@@ -862,7 +987,12 @@ export const addCustomer = createServerFn({ method: "POST" })
         externalId: null,
       });
       if (!result.ok) return { ok: false, message: result.message };
-      return { ok: true, smsSent: result.smsSent, emailSent: result.emailSent };
+      return {
+        ok: true,
+        smsSent: result.smsSent,
+        emailSent: result.emailSent,
+        smsHeld: result.smsHeld,
+      };
     } catch (error) {
       console.error("[reviews] failed to add customer", error);
       return { ok: false, message: "Something went wrong. Please try again." };
@@ -872,7 +1002,12 @@ export const addCustomer = createServerFn({ method: "POST" })
 const resendInputSchema = z.object({ customerId: z.string().trim().min(1) });
 
 export type ResendResult =
-  | { ok: true; smsSent: boolean | null; emailSent: boolean | null }
+  | {
+      ok: true;
+      smsSent: boolean | null;
+      emailSent: boolean | null;
+      smsHeld: boolean;
+    }
   | { ok: false; message: string };
 
 // Manually re-fires the same review request a customer already got -- for
@@ -917,14 +1052,14 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
         return { ok: false, message: NO_REVIEW_LINK_MESSAGE };
       }
 
-      const { smsSent, emailSent } = await sendReviewRequestAndLog(
+      const { smsSent, emailSent, smsHeld } = await sendReviewRequestAndLog(
         db,
         business,
         customer,
         "manual",
       );
 
-      if (smsSent === null && emailSent === null) {
+      if (smsSent === null && emailSent === null && !smsHeld) {
         const hasContact = Boolean(customer.phone || customer.email);
         return {
           ok: false,
@@ -934,7 +1069,7 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
         };
       }
 
-      return { ok: true, smsSent, emailSent };
+      return { ok: true, smsSent, emailSent, smsHeld };
     } catch (error) {
       console.error("[reviews] failed to resend review request", error);
       return { ok: false, message: "Something went wrong. Please try again." };
@@ -1312,7 +1447,8 @@ export const resolveReviewRedirect = createServerFn({ method: "GET" })
 // ---- Automated 48-hour reminder (driven by Vercel Cron) -------------------
 
 export type ReminderRunResult =
-  { ok: true; sent: number } | { ok: false; reason: "not_configured" };
+  | { ok: true; sent: number; heldTextsSent: number }
+  | { ok: false; reason: "not_configured" };
 
 // Finds every customer who hasn't clicked their review link, hasn't already
 // gotten a reminder, and was created more than 48 hours ago (but less than 7
@@ -1387,7 +1523,12 @@ export async function sendDueReminders(): Promise<ReminderRunResult> {
           customer,
           "reminder",
         );
-        delivered = outcome.smsSent === true || outcome.emailSent === true;
+        // A text waiting out quiet hours counts: it is already scheduled,
+        // and taking the mark back would queue a second reminder tomorrow.
+        delivered =
+          outcome.smsSent === true ||
+          outcome.emailSent === true ||
+          outcome.smsHeld;
       } finally {
         if (!delivered) {
           await db
@@ -1403,7 +1544,101 @@ export async function sendDueReminders(): Promise<ReminderRunResult> {
     }
   }
 
-  return { ok: true, sent };
+  return { ok: true, sent, heldTextsSent: 0 };
+}
+
+// Sends every text that was held for quiet hours, for businesses where it is
+// now 10am to 7pm. Runs at the start of each scheduled run (twice a day, see
+// vercel.json), before new reminders. Returns how many texts went out.
+//
+// Each held text is claimed (cleared) before it is sent, so a run that fires
+// twice can't text anyone twice. Texts are dropped rather than sent when the
+// client has canceled, the customer already clicked or was marked reviewed,
+// the review link was removed, or the text is more than 48 hours old.
+export async function sendHeldTexts(now: Date = new Date()): Promise<number> {
+  if (!isDbConfigured() || !isTelnyxConfigured()) return 0;
+
+  const db = getDb();
+  const waiting = await db
+    .select()
+    .from(customers)
+    .where(isNotNull(customers.heldSmsAt));
+
+  const businessCache = new Map<string, Business | null>();
+  let sent = 0;
+
+  for (const customer of waiting) {
+    try {
+      const kind = customer.heldSmsKind;
+      const heldAt = customer.heldSmsAt;
+      if (!heldAt) continue;
+
+      let business = businessCache.get(customer.businessId);
+      if (business === undefined) {
+        const [row] = await db
+          .select()
+          .from(businesses)
+          .where(eq(businesses.id, customer.businessId))
+          .limit(1);
+        business = row ?? null;
+        businessCache.set(customer.businessId, business);
+      }
+
+      // Only this exact hold is claimed or dropped: if a newer one replaced
+      // it since we read the row, that newer one is left alone.
+      const thisHold = and(
+        eq(customers.id, customer.id),
+        eq(customers.heldSmsAt, heldAt),
+      );
+
+      const phone = normalizeUsPhone(customer.phone);
+      if (!kind || !phone || !business) {
+        await db
+          .update(customers)
+          .set({ heldSmsKind: null, heldSmsAt: null })
+          .where(thisHold);
+        continue;
+      }
+      const stale =
+        business.accessRevoked ||
+        !hasReviewLink(business) ||
+        customer.linkClickedAt !== null ||
+        customer.markedReviewedAt !== null ||
+        now.getTime() - heldAt.getTime() > HELD_TEXT_MAX_AGE_MS;
+      if (stale) {
+        await db
+          .update(customers)
+          .set({ heldSmsKind: null, heldSmsAt: null })
+          .where(thisHold);
+        continue;
+      }
+      if (!isWithinTextingHours(business.timezone, now)) continue;
+
+      const [claimed] = await db
+        .update(customers)
+        .set({ heldSmsKind: null, heldSmsAt: null })
+        .where(thisHold)
+        .returning({ id: customers.id });
+      if (!claimed) continue;
+
+      const result = await sendSms(phone, smsBodyFor(kind, business, customer));
+      await logMessage(db, {
+        businessId: business.id,
+        customerId: customer.id,
+        channel: "sms",
+        kind,
+        status: result.ok ? "sent" : "failed",
+        providerMessageId: result.ok ? result.providerMessageId : null,
+        errorMessage: result.ok ? null : result.error,
+      });
+      if (result.ok) sent += 1;
+    } catch (error) {
+      // One customer's problem must not stop everyone else's text.
+      console.error("[reviews] held text failed for a customer", error);
+    }
+  }
+
+  return sent;
 }
 
 // Verifies the request came from our own Vercel Cron job (Vercel signs
@@ -1430,8 +1665,16 @@ export const runReminderCron = createServerFn({ method: "GET" }).handler(
       return { ok: false, reason: "unauthorized" };
     }
 
+    // Texts held overnight go first, then today's reminders (whose own texts
+    // are held in turn if it isn't daytime yet for that business).
+    let heldTextsSent = 0;
+    try {
+      heldTextsSent = await sendHeldTexts();
+    } catch (error) {
+      console.error("[reviews] sending held texts failed", error);
+    }
     const result = await sendDueReminders();
     setResponseStatus(200);
-    return result;
+    return result.ok ? { ...result, heldTextsSent } : result;
   },
 );

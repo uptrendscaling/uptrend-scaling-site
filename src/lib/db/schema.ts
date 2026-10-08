@@ -78,6 +78,14 @@ export const customers = pgTable(
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     linkClickedAt: timestamp("link_clicked_at", { withTimezone: true }),
     markedReviewedAt: timestamp("marked_reviewed_at", { withTimezone: true }),
+    // Quiet hours: a text that would have gone out late at night or early in
+    // the morning (outside 10am to 7pm where the business is) is parked here
+    // instead, and the next scheduled run sends it once it's daytime there.
+    // Null when nothing is waiting.
+    heldSmsKind: text("held_sms_kind", {
+      enum: ["initial", "reminder", "manual"],
+    }),
+    heldSmsAt: timestamp("held_sms_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -90,6 +98,11 @@ export const customers = pgTable(
     uniqueIndex("customers_business_source_external_unique")
       .on(table.businessId, table.source, table.externalId)
       .where(sql`${table.externalId} is not null`),
+    // Finds texts waiting out quiet hours. Partial, so only rows with a text
+    // actually waiting are in it.
+    index("customers_held_sms_at_idx")
+      .on(table.heldSmsAt)
+      .where(sql`${table.heldSmsAt} is not null`),
   ],
 );
 
