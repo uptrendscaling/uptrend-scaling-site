@@ -275,7 +275,7 @@ export type WeeklySummaryStats = {
   skippedInvoices: { jobber: number; square: number; allNoContact: boolean };
   reviewLinkMissing: boolean;
   connected: { jobber: boolean; square: boolean; google: boolean };
-  needsReconnect: Array<"jobber" | "square" | "google">;
+  needsReconnect: Array<"jobber" | "square" | "zapier" | "google">;
   hasQrCode: boolean;
   google: GoogleStats | null;
 };
@@ -668,7 +668,12 @@ function leadSentence(s: WeeklySummaryStats): string {
   return "No new review requests went out this week, but there was some activity from earlier requests.";
 }
 
-const PROVIDER_NAMES = { jobber: "Jobber", square: "Square", google: "Google" };
+const PROVIDER_NAMES = {
+  jobber: "Jobber",
+  square: "Square",
+  zapier: "Zapier",
+  google: "Google",
+};
 
 function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? "";

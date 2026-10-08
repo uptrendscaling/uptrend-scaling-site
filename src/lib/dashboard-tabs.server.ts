@@ -41,6 +41,12 @@ import type {
 } from "../components/dashboard/tabs-types";
 import { getSessionBusinessId, isAuthConfigured } from "./auth.server";
 import {
+  WEBHOOK_PROVIDERS,
+  isInvoiceProvider,
+  providerLabel,
+  type CrmWebhookProvider,
+} from "./crm/providers";
+import {
   monthComparisonPill,
   safeTimeZone,
   startOfMonthInstant,
@@ -162,7 +168,7 @@ export function describeSendProblem(
 
 type WebhookProblemRow = {
   id: string;
-  provider: "jobber" | "square" | "stripe";
+  provider: CrmWebhookProvider | "stripe";
   errorMessage: string | null;
   receivedAt: Date;
 };
@@ -186,7 +192,8 @@ function customerFromMessage(body: string): string | null {
 // a headline, a remark and what to do about it. Wording matches what
 // crm/connections.server.ts writes.
 export function describeWebhookProblem(row: WebhookProblemRow): AttentionItem {
-  const provider = row.provider === "jobber" ? "Jobber" : "Square";
+  const provider = providerLabel(row.provider);
+  const invoice = isInvoiceProvider(row.provider);
   const raw = (row.errorMessage ?? "").trim();
   const match = /^(Skipped|Failed):\s*([\s\S]*)$/.exec(raw);
   const kind = match?.[1] === "Failed" ? "failed" : "skipped";
@@ -206,9 +213,13 @@ export function describeWebhookProblem(row: WebhookProblemRow): AttentionItem {
     const sentence = body.charAt(0).toUpperCase() + body.slice(1);
     return {
       ...base,
-      headline: "We hit a problem while handling this paid invoice.",
+      headline: invoice
+        ? "We hit a problem while handling this paid invoice."
+        : `We hit a problem while handling a request from ${provider}.`,
       detail: sentence || null,
-      fix: `${provider} usually tries again on its own. If this stays here, add the customer yourself on the Customers tab.`,
+      fix: invoice
+        ? `${provider} usually tries again on its own. If this stays here, add the customer yourself on the Customers tab.`
+        : `Check the run history in ${provider}, or add the customer yourself on the Customers tab.`,
       action: "customers",
     };
   }
@@ -258,7 +269,9 @@ export function describeWebhookProblem(row: WebhookProblemRow): AttentionItem {
   const sentence = body.charAt(0).toUpperCase() + body.slice(1);
   return {
     ...base,
-    headline: "We skipped this paid invoice.",
+    headline: invoice
+      ? "We skipped this paid invoice."
+      : `We skipped a request from ${provider}.`,
     detail: sentence || null,
     fix: addThemYourself,
     action: "customers",
@@ -357,7 +370,7 @@ export async function loadRequestsLog(
   const since = new Date(now.getTime() - ATTENTION_WINDOW_DAYS * DAY_MS);
   const attentionWhere = and(
     eq(crmWebhookEvents.businessId, businessId),
-    inArray(crmWebhookEvents.provider, ["jobber", "square"]),
+    inArray(crmWebhookEvents.provider, [...WEBHOOK_PROVIDERS]),
     webhookProblemCondition(),
     gte(crmWebhookEvents.receivedAt, since),
   );

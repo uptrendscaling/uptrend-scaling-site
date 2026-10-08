@@ -43,6 +43,7 @@ import {
   type Customer,
   type Message,
 } from "./db/schema";
+import type { CustomerSource } from "./crm/providers";
 import { CANONICAL_SITE_URL } from "./site";
 import {
   initialEmailHtml,
@@ -781,7 +782,7 @@ export type CreateCustomerAndSendInput = {
   name: string;
   phone: string | null;
   email: string | null;
-  source: "manual" | "jobber" | "square";
+  source: CustomerSource;
   // The provider's own id for this person. Null for manual entries.
   externalId: string | null;
 };
