@@ -718,6 +718,30 @@ function Index() {
           <p className="lp-copyright">
             © 2026 UpTrend Scaling, LLC. All rights reserved.
           </p>
+          {/* Directory badge: AffyList lists our affiliate program for free
+              as long as this badge stays on the homepage. */}
+          <a
+            className="lp-footer-badge"
+            href="https://affylist.com/"
+            title="Listed on AffyList"
+          >
+            <img
+              className="lp-badge-light"
+              src="https://affylist.com/badge/affylist-v1-light.svg"
+              alt="Listed on AffyList"
+              width="200"
+              height="54"
+              loading="lazy"
+            />
+            <img
+              className="lp-badge-dark"
+              src="https://affylist.com/badge/affylist-v1-dark.svg"
+              alt="Listed on AffyList"
+              width="200"
+              height="54"
+              loading="lazy"
+            />
+          </a>
         </div>
       </footer>
     </div>

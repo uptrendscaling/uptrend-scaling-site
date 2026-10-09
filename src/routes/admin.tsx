@@ -57,7 +57,13 @@ import {
 // The three screens of the admin area, shown as tabs in the top bar (same
 // idea as the client dashboard). All of the data loads once with the page, so
 // switching tabs is instant.
-const ADMIN_TABS = ["overview", "clients", "outreach", "affiliates"] as const;
+const ADMIN_TABS = [
+  "overview",
+  "clients",
+  "outreach",
+  "affiliates",
+  "partner-outreach",
+] as const;
 type AdminTab = (typeof ADMIN_TABS)[number];
 
 const ADMIN_NAV: ReadonlyArray<{ id: AdminTab; label: string }> = [
@@ -65,6 +71,7 @@ const ADMIN_NAV: ReadonlyArray<{ id: AdminTab; label: string }> = [
   { id: "clients", label: "Clients" },
   { id: "outreach", label: "Outreach" },
   { id: "affiliates", label: "Affiliates" },
+  { id: "partner-outreach", label: "Affiliate outreach" },
 ];
 
 const searchSchema = z.object({
@@ -902,7 +909,28 @@ function prospectStatusPill(p: ProspectSummary) {
   return <DashPill tone="muted">Not yet</DashPill>;
 }
 
-function RecruitingPanel({
+type ProspectFilter = "all" | "waiting" | "invited" | "replied" | "closed";
+
+function prospectStage(p: ProspectSummary): Exclude<ProspectFilter, "all"> {
+  if (p.applied || p.respondedAt) return "replied";
+  if (p.unsubscribedAt || p.notSent) return "closed";
+  if (p.contactedAt) return "invited";
+  return "waiting";
+}
+
+const PROSPECT_KIND_LABEL: Record<ProspectSummary["kind"], string> = {
+  agency: "Agency",
+  coach: "Coach",
+  community: "Group",
+  creator: "Creator",
+};
+
+// The affiliate outreach list: everyone we've found to invite to the partner
+// program, whether they've been emailed yet, and what happened. Like the cold
+// outreach map, but a list, since most of these people aren't tied to one
+// location. Every email can only be in the list once, so nobody gets invited
+// twice when more people are added later.
+function AffiliateOutreachTab({
   prospects,
   onChanged,
 }: {
@@ -910,17 +938,28 @@ function RecruitingPanel({
   onChanged: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
-  const contacted = prospects.filter((p) => p.contactedAt);
+  const [filter, setFilter] = useState<ProspectFilter>("all");
+  const [kind, setKind] = useState<"all" | ProspectSummary["kind"]>("all");
+  const [query, setQuery] = useState("");
+
   const counts = {
     found: prospects.length,
-    invited: contacted.length,
-    followedUp: prospects.filter((p) => p.followUpSentAt).length,
-    replied: prospects.filter((p) => p.respondedAt || p.applied).length,
-    unsubscribed: prospects.filter((p) => p.unsubscribedAt).length,
-    waiting: prospects.filter(
-      (p) => !p.contactedAt && !p.respondedAt && !p.unsubscribedAt && !p.applied && !p.notSent,
-    ).length,
+    invited: prospects.filter((p) => p.contactedAt).length,
+    replied: prospects.filter((p) => prospectStage(p) === "replied").length,
+    waiting: prospects.filter((p) => prospectStage(p) === "waiting").length,
   };
+
+  const q = query.trim().toLowerCase();
+  const shown = prospects.filter(
+    (p) =>
+      (filter === "all" || prospectStage(p) === filter) &&
+      (kind === "all" || p.kind === kind) &&
+      (!q ||
+        [p.company, p.fullName ?? "", p.email, p.audience]
+          .join(" ")
+          .toLowerCase()
+          .includes(q)),
+  );
 
   async function markReplied(id: string) {
     setBusyId(id);
@@ -933,71 +972,111 @@ function RecruitingPanel({
   }
 
   return (
-    <DashPanel
-      title="Recruiting"
-      hint={`${counts.found} found, ${counts.invited} invited, ${counts.followedUp} followed up, ${counts.replied} replied or applied, ${counts.unsubscribed} unsubscribed, ${counts.waiting} still to invite`}
-    >
-      <p className="dash-cell-muted" style={{ margin: "0 0 12px" }}>
-        Every morning the site invites up to 15 agencies, coaches, groups and creators to the partner program, and follows up once 5 days later. Replies go to hello@. When someone replies, click "They replied" so they don't get the follow-up. Anyone who applies or unsubscribes is skipped automatically.
-      </p>
-      {contacted.length === 0 ? (
-        <DashEmpty compact title="No invites sent yet.">
-          The first invites go out with the next morning run.
-        </DashEmpty>
-      ) : (
-        <DashTable>
-          <thead>
-            <tr>
-              <th>Who</th>
-              <th>Serves</th>
-              <th>Status</th>
-              <th>Invited</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            {contacted.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <div className="dash-cell-strong">{p.company}</div>
-                  <div className="dash-cell-muted">
-                    {p.fullName ? `${p.fullName}, ` : ""}
-                    {p.email}
-                  </div>
-                </td>
-                <td className="dash-cell-muted" style={{ maxWidth: 260, whiteSpace: "normal" }}>
-                  {p.audience}
-                </td>
-                <td>{prospectStatusPill(p)}</td>
-                <td className="dash-cell-muted">{formatDate(p.contactedAt)}</td>
-                <td>
-                  {!p.respondedAt && !p.applied && !p.unsubscribedAt ? (
-                    <DashButton
-                      size="sm"
-                      variant="ghost"
-                      disabled={busyId === p.id}
-                      onClick={() => void markReplied(p.id)}
-                    >
-                      They replied
-                    </DashButton>
-                  ) : null}
-                </td>
+    <div className="dash-stack">
+      <DashPageHead
+        title="Affiliate outreach"
+        description="Everyone we've found to invite to the partner program. Every morning the site emails up to 15 of them and follows up once 5 days later. Replies go to hello@. When someone replies, click They replied so they don't get the follow-up. Anyone who applies or unsubscribes is skipped automatically, and an email address can only be on this list once, so nobody is ever invited twice."
+      />
+
+      <section className="dash-stats dash-stats-4" aria-label="Affiliate outreach numbers">
+        <AdminStat label="On the list" value={formatCount(counts.found)} hint="Agencies, coaches, groups, creators" />
+        <AdminStat label="Invited" value={formatCount(counts.invited)} hint="Emailed so far" />
+        <AdminStat label="Replied or applied" value={formatCount(counts.replied)} hint="Warm partners" />
+        <AdminStat label="Still to invite" value={formatCount(counts.waiting)} hint="15 go out each morning" />
+      </section>
+
+      <DashPanel title="The list" hint={`${shown.length} shown`}>
+        <div className="aff-list-tools">
+          <DashSegmented
+            label="Status"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "waiting", label: "Not invited yet" },
+              { value: "invited", label: "Invited" },
+              { value: "replied", label: "Replied" },
+              { value: "closed", label: "Unsubscribed" },
+            ]}
+          />
+          <DashSelect
+            aria-label="Type"
+            value={kind}
+            onChange={(e) => setKind(e.target.value as typeof kind)}
+          >
+            <option value="all">All types</option>
+            <option value="agency">Agencies</option>
+            <option value="coach">Coaches</option>
+            <option value="community">Groups</option>
+            <option value="creator">Creators</option>
+          </DashSelect>
+          <input
+            className="dash-input"
+            type="search"
+            placeholder="Search name, email or niche"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        {shown.length === 0 ? (
+          <DashEmpty compact title="Nobody matches." />
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Who</th>
+                <th>Type</th>
+                <th>Serves</th>
+                <th>Status</th>
+                <th>Invited</th>
+                <th>Followed up</th>
+                <th />
               </tr>
-            ))}
-          </tbody>
-        </DashTable>
-      )}
-    </DashPanel>
+            </thead>
+            <tbody>
+              {shown.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <div className="dash-cell-strong">{p.company}</div>
+                    <div className="dash-cell-muted">
+                      {p.fullName ? `${p.fullName}, ` : ""}
+                      {p.email}
+                    </div>
+                  </td>
+                  <td className="dash-cell-muted">{PROSPECT_KIND_LABEL[p.kind]}</td>
+                  <td className="dash-cell-muted" style={{ maxWidth: 240, whiteSpace: "normal" }}>
+                    {p.audience}
+                  </td>
+                  <td>{prospectStatusPill(p)}</td>
+                  <td className="dash-cell-muted">{p.contactedAt ? formatDate(p.contactedAt) : "Not yet"}</td>
+                  <td className="dash-cell-muted">{p.followUpSentAt ? formatDate(p.followUpSentAt) : "—"}</td>
+                  <td>
+                    {p.contactedAt && !p.respondedAt && !p.applied && !p.unsubscribedAt ? (
+                      <DashButton
+                        size="sm"
+                        variant="ghost"
+                        disabled={busyId === p.id}
+                        onClick={() => void markReplied(p.id)}
+                      >
+                        They replied
+                      </DashButton>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+    </div>
   );
 }
 
 function AffiliatesTab({
   affiliates,
-  prospects,
   onChanged,
 }: {
   affiliates: AffiliateSummary[];
-  prospects: ProspectSummary[];
   onChanged: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -1235,8 +1314,6 @@ function AffiliatesTab({
           </DashTable>
         )}
       </DashPanel>
-
-      <RecruitingPanel prospects={prospects} onChanged={onChanged} />
     </div>
   );
 }
@@ -1411,7 +1488,9 @@ function AdminDashboard() {
               loadingSeries={loadingSeries}
             />
           ) : tab === "affiliates" ? (
-            <AffiliatesTab affiliates={affiliateList} prospects={prospectList} onChanged={refreshAffiliates} />
+            <AffiliatesTab affiliates={affiliateList} onChanged={refreshAffiliates} />
+          ) : tab === "partner-outreach" ? (
+            <AffiliateOutreachTab prospects={prospectList} onChanged={refreshAffiliates} />
           ) : tab === "outreach" ? (
             <OutreachTab
               leads={leads}
