@@ -30,6 +30,12 @@ import {
 import { DashSpark } from "../components/dashboard/stat-card";
 import { ProgressChart } from "../components/progress-chart";
 import {
+  getAffiliatesOverview,
+  recordAffiliatePayout,
+  setAffiliateStatus,
+  type AffiliateSummary,
+} from "../lib/affiliates.server";
+import {
   getLeadsOverview,
   markLeadResponded,
   type LeadSummary,
@@ -46,13 +52,14 @@ import {
 // The three screens of the admin area, shown as tabs in the top bar (same
 // idea as the client dashboard). All of the data loads once with the page, so
 // switching tabs is instant.
-const ADMIN_TABS = ["overview", "clients", "outreach"] as const;
+const ADMIN_TABS = ["overview", "clients", "outreach", "affiliates"] as const;
 type AdminTab = (typeof ADMIN_TABS)[number];
 
 const ADMIN_NAV: ReadonlyArray<{ id: AdminTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "clients", label: "Clients" },
   { id: "outreach", label: "Outreach" },
+  { id: "affiliates", label: "Affiliates" },
 ];
 
 const searchSchema = z.object({
@@ -90,7 +97,9 @@ export const Route = createFileRoute("/admin")({
     const combinedSeries = await getAdminProgressSeries({ data: {} });
     const leadsOverview = await getLeadsOverview();
     const analytics = await getAdminAnalyticsOverview();
+    const affiliateOverview = await getAffiliatesOverview();
     return {
+      affiliates: affiliateOverview.ok ? affiliateOverview.affiliates : [],
       business,
       businesses: overview.businesses,
       combinedSeries: combinedSeries.ok ? combinedSeries.series : [],
@@ -862,6 +871,266 @@ function OutreachTab({
   );
 }
 
+function formatDollars(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+  });
+}
+
+function affiliateStatusPill(status: AffiliateSummary["status"]) {
+  if (status === "approved") return <DashPill tone="ok">Approved</DashPill>;
+  if (status === "pending") return <DashPill tone="warn">Waiting for you</DashPill>;
+  if (status === "paused") return <DashPill tone="muted">Paused</DashPill>;
+  return <DashPill tone="muted">Rejected</DashPill>;
+}
+
+function AffiliatesTab({
+  affiliates,
+  onChanged,
+}: {
+  affiliates: AffiliateSummary[];
+  onChanged: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [payoutFor, setPayoutFor] = useState<string | null>(null);
+  const [payoutAmount, setPayoutAmount] = useState("");
+  const [payoutNote, setPayoutNote] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const pending = affiliates.filter((a) => a.status === "pending");
+  const others = affiliates.filter((a) => a.status !== "pending");
+  const totals = affiliates.reduce(
+    (acc, a) => ({
+      partners: acc.partners + (a.status === "approved" ? 1 : 0),
+      referrals: acc.referrals + a.referrals.length,
+      earned: acc.earned + a.earnedCents,
+      owed: acc.owed + a.owedCents,
+    }),
+    { partners: 0, referrals: 0, earned: 0, owed: 0 },
+  );
+
+  async function changeStatus(id: string, status: "approved" | "paused" | "rejected") {
+    setBusyId(id);
+    setMessage(null);
+    try {
+      const result = await setAffiliateStatus({ data: { affiliateId: id, status } });
+      if (!result.ok) {
+        setMessage(result.message);
+      } else if (status === "approved") {
+        setMessage(`Approved. Their link was emailed to them${result.code ? ` (code: ${result.code})` : ""}.`);
+      }
+      await onChanged();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function savePayout(id: string) {
+    const amount = Number(payoutAmount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setMessage("Enter the dollar amount you sent.");
+      return;
+    }
+    setBusyId(id);
+    try {
+      const result = await recordAffiliatePayout({
+        data: { affiliateId: id, amountDollars: amount, note: payoutNote },
+      });
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+      setPayoutFor(null);
+      setPayoutAmount("");
+      setPayoutNote("");
+      setMessage("Payout recorded.");
+      await onChanged();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function copyLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(link);
+      window.setTimeout(() => setCopied(null), 1500);
+    } catch {
+      setCopied(null);
+    }
+  }
+
+  return (
+    <div className="dash-stack">
+      <DashPageHead
+        title="Affiliates"
+        description="Partners who send you customers. They earn 25% of what each referred business pays for its first 12 monthly payments, payable after the 2nd payment. Pay them by PayPal, then record it here."
+      />
+
+      <section className="dash-stats dash-stats-4" aria-label="Affiliate numbers">
+        <AdminStat label="Partners" value={formatCount(totals.partners)} hint="Approved affiliates" />
+        <AdminStat label="Referrals" value={formatCount(totals.referrals)} hint="Businesses they sent" />
+        <AdminStat label="Earned" value={formatDollars(totals.earned)} hint="Commission so far" />
+        <AdminStat label="Owed now" value={formatDollars(totals.owed)} hint="Payable, not yet paid" />
+      </section>
+
+      {message ? <p className="dash-cell-muted" role="status">{message}</p> : null}
+
+      <DashPanel title="New applications" hint={pending.length ? `${pending.length} waiting` : "none waiting"}>
+        {pending.length === 0 ? (
+          <DashEmpty compact title="No applications waiting.">
+            New applications from uptrendscaling.com/affiliates show up here, and you get an email for each one.
+          </DashEmpty>
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Applicant</th>
+                <th>How they'll promote</th>
+                <th>Applied</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <div className="dash-cell-strong">{a.name}</div>
+                    <div className="dash-cell-muted">{a.email}</div>
+                    {a.website ? <div className="dash-cell-muted">{a.website}</div> : null}
+                  </td>
+                  <td className="dash-cell-muted" style={{ maxWidth: 360, whiteSpace: "normal" }}>
+                    {a.promotePlan}
+                  </td>
+                  <td className="dash-cell-muted">{formatDate(a.createdAt)}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                      <DashButton
+                        size="sm"
+                        variant="primary"
+                        disabled={busyId === a.id}
+                        onClick={() => void changeStatus(a.id, "approved")}
+                      >
+                        Approve
+                      </DashButton>
+                      <DashButton
+                        size="sm"
+                        variant="ghost"
+                        disabled={busyId === a.id}
+                        onClick={() => void changeStatus(a.id, "rejected")}
+                      >
+                        Decline
+                      </DashButton>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+
+      <DashPanel title="Partners" hint="earnings come straight from paid invoices in Stripe">
+        {others.length === 0 ? (
+          <DashEmpty compact title="No partners yet." />
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Partner</th>
+                <th>Status</th>
+                <th>Referrals</th>
+                <th>Earned</th>
+                <th>Paid out</th>
+                <th>Owed now</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {others.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <div className="dash-cell-strong">{a.name}</div>
+                    <div className="dash-cell-muted">PayPal: {a.paypalEmail ?? "not given"}</div>
+                    {a.link ? (
+                      <button
+                        type="button"
+                        className="dash-cell-muted"
+                        style={{ background: "none", border: 0, padding: 0, cursor: "pointer", textDecoration: "underline" }}
+                        onClick={() => void copyLink(a.link as string)}
+                      >
+                        {copied === a.link ? "Copied!" : a.link}
+                      </button>
+                    ) : null}
+                    {a.referrals.length ? (
+                      <div className="dash-cell-muted" style={{ marginTop: 6 }}>
+                        {a.referrals
+                          .map((r) => `${r.businessName} (${r.paidPayments} paid${r.accessRevoked ? ", canceled" : ""})`)
+                          .join(", ")}
+                      </div>
+                    ) : null}
+                  </td>
+                  <td>{affiliateStatusPill(a.status)}</td>
+                  <td>{formatCount(a.referrals.length)}</td>
+                  <td>{formatDollars(a.earnedCents)}</td>
+                  <td>{formatDollars(a.paidOutCents)}</td>
+                  <td className="dash-cell-strong">{formatDollars(a.owedCents)}</td>
+                  <td>
+                    {payoutFor === a.id ? (
+                      <div style={{ display: "grid", gap: 6, minWidth: 180 }}>
+                        <input
+                          className="dash-input"
+                          inputMode="decimal"
+                          placeholder="Amount sent, e.g. 52.50"
+                          value={payoutAmount}
+                          onChange={(e) => setPayoutAmount(e.target.value)}
+                        />
+                        <input
+                          className="dash-input"
+                          placeholder="Note (optional)"
+                          value={payoutNote}
+                          onChange={(e) => setPayoutNote(e.target.value)}
+                        />
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <DashButton size="sm" variant="primary" disabled={busyId === a.id} onClick={() => void savePayout(a.id)}>
+                            Save
+                          </DashButton>
+                          <DashButton size="sm" variant="ghost" onClick={() => setPayoutFor(null)}>
+                            Cancel
+                          </DashButton>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                        {a.status === "approved" ? (
+                          <>
+                            <DashButton size="sm" variant="ghost" onClick={() => setPayoutFor(a.id)}>
+                              Record payout
+                            </DashButton>
+                            <DashButton size="sm" variant="quiet" disabled={busyId === a.id} onClick={() => void changeStatus(a.id, "paused")}>
+                              Pause
+                            </DashButton>
+                          </>
+                        ) : (
+                          <DashButton size="sm" variant="ghost" disabled={busyId === a.id} onClick={() => void changeStatus(a.id, "approved")}>
+                            Approve
+                          </DashButton>
+                        )}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+    </div>
+  );
+}
+
 // ---- The page ----------------------------------------------------------------
 
 function AdminDashboard() {
@@ -882,6 +1151,14 @@ function AdminDashboard() {
   const [analytics, setAnalytics] = useState<AnalyticsOverview>(
     initial.analytics,
   );
+  const [affiliateList, setAffiliateList] = useState<AffiliateSummary[]>(
+    initial.affiliates,
+  );
+
+  async function refreshAffiliates() {
+    const result = await getAffiliatesOverview();
+    if (result.ok) setAffiliateList(result.affiliates);
+  }
 
   useEffect(() => {
     const refresh = () => {
@@ -1016,6 +1293,8 @@ function AdminDashboard() {
               selectedSeries={selectedSeries}
               loadingSeries={loadingSeries}
             />
+          ) : tab === "affiliates" ? (
+            <AffiliatesTab affiliates={affiliateList} onChanged={refreshAffiliates} />
           ) : tab === "outreach" ? (
             <OutreachTab
               leads={leads}

@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 
 import {
   MONTHLY_PRICE_CENTS,
+  PLAN_TIERS,
   SETUP_FEE_CENTS,
   TRIAL_DAYS,
   formatUsd,
@@ -29,7 +30,7 @@ const FAQ_ITEMS = [
   },
   {
     question: "How much does UpTrend Scaling cost?",
-    answer: `UpTrend Scaling is ${formatUsd(MONTHLY_PRICE_CENTS)} per month per location, plus a one-time ${formatUsd(SETUP_FEE_CENTS)} setup fee. It's month-to-month with no long-term contract, and you can cancel anytime.`,
+    answer: `There are three plans, all priced per location per month: ${PLAN_TIERS.map((t) => `${t.name} ${formatUsd(t.priceCents)} (up to ${t.monthlyRequests.toLocaleString("en-US")} review requests a month)`).join(", ")}. Every plan includes every feature, plus a one-time ${formatUsd(SETUP_FEE_CENTS)} setup fee. It's month-to-month with no long-term contract, and you can cancel anytime.`,
   },
   {
     question: "Is there a free trial?",
@@ -558,7 +559,7 @@ function Index() {
           <div className="lp-container">
             <div className="lp-heading lp-heading-center">
               <p className="lp-label">Pricing</p>
-              <h2>One plan. Everything included.</h2>
+              <h2>Simple plans. Everything included.</h2>
             </div>
             <div className="lp-pricing">
               <div className="lp-price-side">
@@ -566,9 +567,23 @@ function Index() {
                   {TRIAL_DAYS}-day free trial
                 </span>
                 <div className="lp-price">
+                  <span>From</span>
                   <strong>{formatUsd(MONTHLY_PRICE_CENTS)}</strong>
                   <span>/month per location</span>
                 </div>
+                <ul className="lp-tiers" aria-label="Plans">
+                  {PLAN_TIERS.map((tier) => (
+                    <li key={tier.id}>
+                      <a href={`${START_TRIAL}&tier=${tier.id}`}>
+                        <span className="lp-tier-name">{tier.name}</span>
+                        <span className="lp-tier-limit">
+                          Up to {tier.monthlyRequests.toLocaleString("en-US")} review requests/mo
+                        </span>
+                        <strong>{formatUsd(tier.priceCents)}</strong>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
                 <p className="lp-price-setup">
                   + {formatUsd(SETUP_FEE_CENTS)} one-time setup fee
                 </p>
@@ -587,7 +602,7 @@ function Index() {
               <ul className="lp-price-list">
                 {[
                   "Automatic text and email review requests",
-                  "One polite reminder after 48 hours",
+                  "One polite reminder after 48 hours (included, never counted)",
                   "QuickBooks, Square and Jobber auto-send on paid invoices",
                   "Thousands of other apps through Zapier",
                   "Print-ready QR codes",
@@ -682,6 +697,7 @@ function Index() {
               hello@uptrendscaling.com
             </a>
             <a href="/login">Log in</a>
+            <a href="/affiliates">Affiliates</a>
             <a href="/terms">Terms</a>
             <a href="/privacy">Privacy</a>
             <a

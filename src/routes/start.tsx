@@ -1,20 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 
+import { readRefCookie } from "../lib/affiliate-config";
+import { lookupReferral } from "../lib/affiliates.server";
 import { createCheckoutSession } from "../lib/checkout.server";
 import { fireStartedSignupEvent } from "../lib/meta-pixel";
 import {
-  MONTHLY_PRICE_CENTS,
+  PLAN_TIERS,
+  PLAN_TIER_IDS,
   SETUP_FEE_CENTS,
   TRIAL_DAYS,
   formatUsd,
   monthlyTotalCents,
+  tierById,
+  type PlanTierId,
 } from "../lib/pricing";
 import { ThemeToggle } from "../components/theme-toggle";
 
 const searchSchema = z.object({
   plan: z.enum(["trial", "membership"]).catch("trial"),
+  tier: z.enum(PLAN_TIER_IDS).optional().catch(undefined),
 });
 
 export const Route = createFileRoute("/start")({
@@ -35,8 +41,10 @@ export const Route = createFileRoute("/start")({
 type Plan = "trial" | "membership";
 
 function StartPage() {
-  const { plan: initialPlan } = Route.useSearch();
+  const { plan: initialPlan, tier: initialTier } = Route.useSearch();
   const [plan, setPlan] = useState<Plan>(initialPlan);
+  const [tierId, setTierId] = useState<PlanTierId>(initialTier ?? "starter");
+  const tier = tierById(tierId);
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
@@ -47,9 +55,27 @@ function StartPage() {
   const [notice, setNotice] = useState<string | null>(null);
   // Counts one "started signup" per visit, even if someone has to resubmit.
   const startedSignupFiredRef = useRef(false);
+  // Affiliate referral remembered from a ?ref= link. Only shown (and the setup
+  // fee only waived) once the server confirms the code is an approved partner.
+  const [refCode, setRefCode] = useState<string | null>(null);
+  const [referrerName, setReferrerName] = useState<string | null>(null);
 
-  const monthlyTotal = monthlyTotalCents(locations);
-  const dueToday = plan === "trial" ? 0 : monthlyTotal + SETUP_FEE_CENTS;
+  useEffect(() => {
+    const code = readRefCookie();
+    if (!code) return;
+    setRefCode(code);
+    lookupReferral({ data: { code } })
+      .then((result) => {
+        if (result.ok) setReferrerName(result.name);
+      })
+      .catch(() => {
+        // No banner if the lookup fails; checkout re-checks the code anyway.
+      });
+  }, []);
+  const setupFeeCents = referrerName ? 0 : SETUP_FEE_CENTS;
+
+  const monthlyTotal = monthlyTotalCents(locations, tierId);
+  const dueToday = plan === "trial" ? 0 : monthlyTotal + setupFeeCents;
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -71,12 +97,14 @@ function StartPage() {
       const result = await createCheckoutSession({
         data: {
           plan,
+          tier: tierId,
           businessName,
           contactName,
           email,
           phone,
           locations,
           origin: window.location.origin,
+          ref: refCode ?? undefined,
         },
       });
 
@@ -134,6 +162,12 @@ function StartPage() {
                 </span>
               </div>
             )}
+            {referrerName ? (
+              <div className="promo-banner" role="note">
+                <strong>Referred by {referrerName}</strong>
+                <span>Your $20 setup fee is waived.</span>
+              </div>
+            ) : null}
             <p className="eyebrow">
               <span /> {plan === "trial" ? `${TRIAL_DAYS}-day free trial` : "Start your membership"}
             </p>
@@ -147,11 +181,13 @@ function StartPage() {
             <ul className="feature-list start-fine-print">
               <li>
                 <CheckIcon />
-                {formatUsd(MONTHLY_PRICE_CENTS)}/month per location
+                {tier.name} plan: {formatUsd(tier.priceCents)}/month per location
               </li>
               <li>
                 <CheckIcon />
-                {formatUsd(SETUP_FEE_CENTS)} one-time setup fee
+                {referrerName
+                  ? "No setup fee (referral)"
+                  : `${formatUsd(SETUP_FEE_CENTS)} one-time setup fee`}
               </li>
               <li>
                 <CheckIcon />
@@ -185,6 +221,31 @@ function StartPage() {
           </div>
 
           <form className="start-form" onSubmit={handleSubmit}>
+            <fieldset className="tier-picker">
+              <legend>Choose your plan</legend>
+              {PLAN_TIERS.map((option) => (
+                <label
+                  key={option.id}
+                  className={option.id === tierId ? "tier-option is-selected" : "tier-option"}
+                >
+                  <input
+                    type="radio"
+                    name="tier"
+                    value={option.id}
+                    checked={option.id === tierId}
+                    onChange={() => setTierId(option.id)}
+                  />
+                  <span className="tier-name">{option.name}</span>
+                  <span className="tier-price">
+                    {formatUsd(option.priceCents)}
+                    <small>/mo per location</small>
+                  </span>
+                  <span className="tier-limit">
+                    Up to {option.monthlyRequests.toLocaleString("en-US")} review requests a month
+                  </span>
+                </label>
+              ))}
+            </fieldset>
             <label>
               <span>Business name</span>
               <input
@@ -243,14 +304,14 @@ function StartPage() {
             <div className="start-summary">
               <div>
                 <span>
-                  {locations} location{locations > 1 ? "s" : ""} × {formatUsd(MONTHLY_PRICE_CENTS)}
+                  {tier.name}: {locations} location{locations > 1 ? "s" : ""} × {formatUsd(tier.priceCents)}
                   /mo
                 </span>
                 <strong>{formatUsd(monthlyTotal)}/mo</strong>
               </div>
               <div>
                 <span>One-time setup fee</span>
-                <strong>{formatUsd(SETUP_FEE_CENTS)}</strong>
+                <strong>{setupFeeCents === 0 ? "Waived" : formatUsd(SETUP_FEE_CENTS)}</strong>
               </div>
               <div className="start-summary-total">
                 <span>Due today</span>
