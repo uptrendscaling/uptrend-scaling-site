@@ -8,7 +8,10 @@ import {
 import { PROVIDER_LABELS, ZAPIER_APP_URL } from "../../lib/crm/providers";
 import { createZapierKey, getZapierKey } from "../../lib/crm/zapier.server";
 import type { GoogleLocationOption } from "../../lib/dashboard-types";
-import { setWeeklySummaryEnabled } from "../../lib/dashboard.server";
+import {
+  setRepeatGuardEnabled,
+  setWeeklySummaryEnabled,
+} from "../../lib/dashboard.server";
 import {
   chooseGoogleLocation,
   refreshGoogleNow,
@@ -700,11 +703,14 @@ function ConnectionsPanel({
   return (
     <DashPanel title="Connections">
       <DashText>
-        Connect {shell.quickbooksOffered ? "QuickBooks, Square or Jobber" : "Jobber or Square"}{" "}
-        and we&rsquo;ll automatically send a review
-        request the moment an invoice is paid. Use Zapier for other apps. No
-        manual entry needed. By connecting, you confirm your customers have
-        already agreed to be contacted about their service.
+        Connect{" "}
+        {shell.quickbooksOffered
+          ? "QuickBooks, Square or Jobber"
+          : "Jobber or Square"}{" "}
+        and we&rsquo;ll automatically send a review request the moment an
+        invoice is paid. Use Zapier for other apps. No manual entry needed. By
+        connecting, you confirm your customers have already agreed to be
+        contacted about their service.
       </DashText>
       {crmError ? (
         <DashAlert tone="error">
@@ -791,6 +797,56 @@ function WeeklySummaryPanel({
         disabled={busy}
         label="Email me a summary every Monday"
         description="A short recap of last week: new reviews, requests sent and your rating."
+      />
+      {error ? (
+        <p className="dash-form-message dash-form-message-error">{error}</p>
+      ) : null}
+    </DashPanel>
+  );
+}
+
+// ------------------------------------------------------ repeat customers
+
+function RepeatGuardPanel({
+  initialEnabled,
+  onChanged,
+}: {
+  initialEnabled: boolean;
+  onChanged: () => void;
+}) {
+  const [enabled, setEnabled] = useState(initialEnabled);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleChange(next: boolean) {
+    setEnabled(next);
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await setRepeatGuardEnabled({ data: { enabled: next } });
+      if (result.ok) {
+        onChanged();
+      } else {
+        setEnabled(!next);
+        setError(result.message);
+      }
+    } catch (err) {
+      console.error(err);
+      setEnabled(!next);
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <DashPanel title="Repeat customers">
+      <DashSwitch
+        checked={enabled}
+        onChange={(next) => void handleChange(next)}
+        disabled={busy}
+        label="Ask each customer at most once every 90 days"
+        description="Regulars (weekly lawn care, monthly pool service and so on) won't get a review request after every visit. Turn this off to ask after every paid job."
       />
       {error ? (
         <p className="dash-form-message dash-form-message-error">{error}</p>
@@ -947,6 +1003,10 @@ export function SettingsView({
         crmError={crmError}
         locations={locations}
         locationsError={locationsError}
+        onChanged={refresh}
+      />
+      <RepeatGuardPanel
+        initialEnabled={shell.repeatGuardEnabled}
         onChanged={refresh}
       />
       <WeeklySummaryPanel

@@ -5,6 +5,7 @@ import {
   saveMyPayPal,
   type MyReferralResult,
 } from "../../lib/affiliates.server";
+import { COMPARISON_PAGES, comparisonLink } from "../../lib/compare-links";
 import { DashButton, DashInput, DashPanel } from "./primitives";
 
 type Loaded = Extract<MyReferralResult, { ok: true }>;
@@ -126,6 +127,25 @@ export function ReferralPanel() {
           </DashButton>
         </form>
         {note ? <p className="ref-note">{note}</p> : null}
+        <p className="ref-note ref-compare">
+          Comparison pages with your link built in:{" "}
+          {COMPARISON_PAGES.map((page, i) => (
+            <span key={page.slug}>
+              <a
+                href={comparisonLink(
+                  page.slug,
+                  new URL(data.link).searchParams.get("ref"),
+                )}
+                target="_blank"
+                rel="noreferrer"
+              >
+                vs {page.name}
+              </a>
+              {i < COMPARISON_PAGES.length - 1 ? ", " : ""}
+            </span>
+          ))}
+          . Right-click to copy a link and share it.
+        </p>
         <p className="ref-note">
           Mention that you earn a reward when you share your link. Ready-made
           emails and posts are in the{" "}

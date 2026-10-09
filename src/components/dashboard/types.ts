@@ -31,13 +31,7 @@ export const NAV_TABS: ReadonlyArray<{ id: DashboardTab; label: string }> = [
 
 export type ChipTone = "ok" | "warn" | "off";
 export type ChipKey =
-  | "quickbooks"
-  | "square"
-  | "jobber"
-  | "zapier"
-  | "google"
-  | "sms"
-  | "email";
+  "quickbooks" | "square" | "jobber" | "zapier" | "google" | "sms" | "email";
 
 // One small status chip under the top bar, e.g. "Square synced 2m ago".
 export type IntegrationChip = {
@@ -84,6 +78,8 @@ export type DashboardShell = {
   generatedAt: string;
   timezone: string;
   weeklySummaryEnabled: boolean;
+  // Ask the same customer at most once every 90 days (Settings switch).
+  repeatGuardEnabled: boolean;
   chips: IntegrationChip[];
   todos: SetupTodo[];
   // True when nothing is broken: access active, review link set, no
