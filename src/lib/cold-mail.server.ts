@@ -17,8 +17,10 @@
 //   over about 4 weeks (warmupCapFor). A mailbox never goes over its cap.
 // - Sending is spread across the day: the cron runs several times a day and
 //   each run only sends its share of what's left.
-// - Plain text only, no images, no tracking, at most one link.
-// - Follow-ups go out from the same mailbox, as a reply in the same thread.
+// - The same designed templates as before (Colby's call), sent with their
+//   plain-text copy, and with no open or click tracking.
+// - Follow-ups go out from the same mailbox that sent the first email,
+//   linked to it as a reply.
 // - Replies and bounces are read from each mailbox (IMAP) every run: anyone who
 //   replies is never emailed again and Colby gets an alert at hello@; dead
 //   addresses are blocked.
@@ -26,7 +28,7 @@
 // Turned on by setting these in Vercel (nothing happens until they're set):
 //   COLD_SENDER_1_EMAIL / COLD_SENDER_1_PASSWORD   (Zoho app password)
 //   COLD_SENDER_2_EMAIL / COLD_SENDER_2_PASSWORD
-// Optional: COLD_SENDER_NAME (default "Colby Dunham"), COLD_SMTP_HOST
+// Optional: COLD_SENDER_NAME (default "Colby at UpTrend Scaling", same as before), COLD_SMTP_HOST
 // (default smtppro.zoho.com), COLD_IMAP_HOST (default imappro.zoho.com),
 // COLD_DAILY_MAX (default 25, the per-mailbox cap after warm-up).
 //
@@ -49,17 +51,20 @@ import {
 import {
   AFFILIATE_FOLLOW_UP_AFTER_DAYS,
   prospectEligible,
+  renderFollowUpEmail,
+  renderInviteEmail,
 } from "./affiliate-outreach.server";
 import { getDb, isDbConfigured } from "./db/client";
 import { affiliateProspects, coldSends, leads } from "./db/schema";
 import {
   isResendConfigured,
   leadFirstName,
+  leadFollowUpEmail,
   leadUnsubscribeUrl,
   sendEmail,
   UPTREND_SUPPORT_EMAIL,
 } from "./messaging.server";
-import { CANONICAL_SITE_URL } from "./site";
+import { renderOutreachEmail } from "./outreach-email";
 
 type Kind =
   "lead_first" | "lead_followup" | "affiliate_first" | "affiliate_followup";
@@ -106,7 +111,7 @@ export function isColdMailConfigured(): boolean {
 }
 
 function senderName(): string {
-  return process.env["COLD_SENDER_NAME"]?.trim() || "Colby Dunham";
+  return process.env["COLD_SENDER_NAME"]?.trim() || "Colby at UpTrend Scaling";
 }
 
 function dailyMax(): number {
@@ -121,143 +126,36 @@ export function warmupCapFor(day: number): number {
   return Math.min(cap, dailyMax());
 }
 
-// ---- Email copy (plain text) --------------------------------------------------
+// ---- Email content ------------------------------------------------------------
+// Colby's call: the cold emails keep the designed templates already in use
+// (lib/outreach-email.ts for leads, the partner templates in
+// lib/affiliate-outreach.server.ts), each sent with its plain-text copy.
+// Only how they're sent changes, not what they say or how they look.
 
-// A business name short enough for a subject line: legal endings dropped
-// ("LLC", "Inc"), and a long name cut at a word boundary without leaving a
-// dangling "of", "and" or "&".
-export function shortBusinessName(name: string, max = 34): string {
-  let clean = name
-    .trim()
-    .replace(/\s+/g, " ")
-    .replace(
-      /[,.]?\s+(llc|l\.l\.c\.|inc\.?|incorporated|co\.|corp\.?|ltd\.?|pllc)$/i,
-      "",
-    )
-    .trim();
-  if (clean.length > max) {
-    clean = clean.slice(0, max).replace(/\s+\S*$/, "");
-  }
-  const dangling = /\s+(of|the|and|&|at|in|for|by|to|a|an|-|\|)$/i;
-  while (dangling.test(clean)) clean = clean.replace(dangling, "");
-  return clean.replace(/[,\-|&]+$/, "").trim() || name.trim();
-}
+type Content = { subject: string; html: string; text: string };
 
-function firstWords(name: string): string {
-  return shortBusinessName(name);
-}
-
-function signature(): string {
-  return [senderName(), "UpTrend Scaling", "uptrendscaling.com"].join("\n");
-}
-
-const OPT_OUT = `If this isn't for you, just reply "no thanks" and I won't reach out again.`;
-
-export function leadFirstEmail(lead: {
+function leadFirstContent(lead: {
+  id: string;
   businessName: string;
   ownerName: string | null;
-}): { subject: string; text: string } {
-  const hi = leadFirstName(lead.ownerName) ?? "there";
-  const business = firstWords(lead.businessName);
-  return {
-    subject: `Google reviews for ${business}`,
-    text: [
-      `Hi ${hi},`,
-      "",
-      "I run UpTrend Scaling, a small company that helps local service businesses get more Google reviews without having to ask.",
-      "",
-      "Right after a customer pays, we text them a one-tap link to leave a review, and send one friendly reminder if they forget. It works with Square and Jobber, so there's nothing extra to do after a job.",
-      "",
-      `Would it be worth a quick look for ${business}? There's a free 7-day trial and I'll help you set it up.`,
-      "",
-      signature(),
-      "",
-      OPT_OUT,
-    ].join("\n"),
-  };
+}): Content {
+  const { subject, html, text } = renderOutreachEmail({
+    kind: "first",
+    greetingName: leadFirstName(lead.ownerName) ?? "there",
+    businessName: lead.businessName.trim() || "your business",
+    unsubscribeUrl: leadUnsubscribeUrl(lead.id),
+  });
+  return { subject, html, text };
 }
 
-export function leadFollowUpEmail(lead: {
+function leadFollowUpContent(lead: {
+  id: string;
   businessName: string;
   ownerName: string | null;
-}): { subject: string; text: string } {
-  const hi = leadFirstName(lead.ownerName) ?? "there";
-  const business = firstWords(lead.businessName);
-  return {
-    subject: "Following up on my note",
-    text: [
-      `Hi ${hi},`,
-      "",
-      `Just bumping this in case it got buried. If more Google reviews for ${business} isn't a priority right now, no worries at all.`,
-      "",
-      `If it is, reply "yes" and I'll send over a quick 2-minute walkthrough.`,
-      "",
-      senderName(),
-      "",
-      OPT_OUT,
-    ].join("\n"),
-  };
-}
-
-type ProspectCopyInput = {
-  kind: "agency" | "coach" | "community" | "creator";
-  firstName: string;
-  company: string;
-  audience: string;
-};
-
-function whoTheyServe(kind: ProspectCopyInput["kind"]): string {
-  if (kind === "agency") return "your clients";
-  if (kind === "community") return "your members";
-  if (kind === "creator") return "your audience";
-  return "the owners you work with";
-}
-
-export function affiliateInviteEmail(p: ProspectCopyInput): {
-  subject: string;
-  text: string;
-} {
-  const company = firstWords(p.company);
-  return {
-    subject: `Partner idea for ${company}`,
-    text: [
-      `Hi ${p.firstName},`,
-      "",
-      `I came across ${company} while looking for people who help ${p.audience} grow.`,
-      "",
-      "I run UpTrend Scaling. When a local business gets paid for a job, we automatically text that customer a one-tap Google review link, plus one reminder if they forget.",
-      "",
-      `We just opened a partner program and I think it could be a good fit for ${whoTheyServe(p.kind)}. You'd earn 25% of every payment from each business you send us, for as long as they stay, plus a $20 bonus on their 2nd payment. Free to join.`,
-      "",
-      `Details are here if you're curious: ${CANONICAL_SITE_URL}/affiliates`,
-      "",
-      "Or just reply and I'll answer any questions.",
-      "",
-      signature(),
-      "",
-      OPT_OUT,
-    ].join("\n"),
-  };
-}
-
-export function affiliateFollowUpEmail(p: ProspectCopyInput): {
-  subject: string;
-  text: string;
-} {
-  return {
-    subject: "Following up: our partner program",
-    text: [
-      `Hi ${p.firstName},`,
-      "",
-      `Quick follow up on the partner program. Most of ${whoTheyServe(p.kind)} could use more Google reviews, and this gets them without anyone having to ask. You earn 25% of every payment for as long as they stay.`,
-      "",
-      `Want me to send a short walkthrough? Just reply "yes".`,
-      "",
-      senderName(),
-      "",
-      OPT_OUT,
-    ].join("\n"),
-  };
+  contactedAt: Date | null;
+}): Content {
+  const { subject, html, text } = leadFollowUpEmail(lead);
+  return { subject, html, text };
 }
 
 // ---- Sending ----------------------------------------------------------------
@@ -335,6 +233,7 @@ async function sendOne(
   input: {
     to: string;
     subject: string;
+    html: string;
     text: string;
     unsubscribeUrl: string;
     inReplyTo?: string | null;
@@ -344,7 +243,8 @@ async function sendOne(
     const info = await transportFor(sender).sendMail({
       from: { name: senderName(), address: sender.email },
       to: input.to,
-      subject: input.inReplyTo ? `Re: ${input.subject}` : input.subject,
+      subject: input.subject,
+      html: input.html,
       text: input.text,
       headers: {
         "List-Unsubscribe": `<mailto:${sender.email}?subject=unsubscribe>, <${input.unsubscribeUrl}>`,
@@ -388,6 +288,10 @@ async function firstSendFor(
   return row ?? null;
 }
 
+function pick(e: { subject: string; html: string; text: string }): Content {
+  return { subject: e.subject, html: e.html, text: e.text };
+}
+
 // ---- Queues -----------------------------------------------------------------
 
 type Job = {
@@ -395,10 +299,9 @@ type Job = {
   refId: string;
   to: string;
   subject: string;
+  html: string;
   text: string;
   unsubscribeUrl: string;
-  // Follow-ups only: the first email's subject, for "Re: ..." threading.
-  firstSubject?: string;
 };
 
 async function leadFollowUpJobs(limit: number): Promise<Job[]> {
@@ -409,6 +312,7 @@ async function leadFollowUpJobs(limit: number): Promise<Job[]> {
       id: leads.id,
       email: leads.email,
       businessName: leads.businessName,
+      contactedAt: leads.contactedAt,
       ownerName: sql<string | null>`"leads"."owner_name"`,
     })
     .from(leads)
@@ -428,8 +332,7 @@ async function leadFollowUpJobs(limit: number): Promise<Job[]> {
     kind: "lead_followup" as const,
     refId: lead.id,
     to: lead.email,
-    ...leadFollowUpEmail(lead),
-    firstSubject: leadFirstEmail(lead).subject,
+    ...leadFollowUpContent(lead),
     unsubscribeUrl: leadUnsubscribeUrl(lead.id),
   }));
 }
@@ -461,7 +364,7 @@ async function leadFirstJobs(limit: number): Promise<Job[]> {
     kind: "lead_first" as const,
     refId: lead.id,
     to: lead.email,
-    ...leadFirstEmail(lead),
+    ...leadFirstContent(lead),
     unsubscribeUrl: leadUnsubscribeUrl(lead.id),
   }));
 }
@@ -486,8 +389,7 @@ async function affiliateFollowUpJobs(limit: number): Promise<Job[]> {
     kind: "affiliate_followup" as const,
     refId: p.id,
     to: p.email,
-    ...affiliateFollowUpEmail(p),
-    firstSubject: affiliateInviteEmail(p).subject,
+    ...pick(renderFollowUpEmail(p)),
     unsubscribeUrl: leadUnsubscribeUrl(p.id),
   }));
 }
@@ -508,7 +410,7 @@ async function affiliateFirstJobs(limit: number): Promise<Job[]> {
     kind: "affiliate_first" as const,
     refId: p.id,
     to: p.email,
-    ...affiliateInviteEmail(p),
+    ...pick(renderInviteEmail(p)),
     unsubscribeUrl: leadUnsubscribeUrl(p.id),
   }));
 }
@@ -849,7 +751,8 @@ export async function runColdMailSlot(
         );
         const outcome = await sendOne(state, {
           to: job.to,
-          subject: threaded ? (job.firstSubject ?? job.subject) : job.subject,
+          subject: job.subject,
+          html: job.html,
           text: job.text,
           unsubscribeUrl: job.unsubscribeUrl,
           inReplyTo: threaded ? (first?.messageId ?? null) : null,
