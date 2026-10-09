@@ -31,6 +31,12 @@ export const businesses = pgTable("businesses", {
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
   plan: text("plan", { enum: ["trial", "membership"] }),
+  // Which membership level they pay for (see PLAN_TIERS in ../pricing.ts).
+  // Sets the monthly review request limit. Everyone before the plans existed
+  // is on Starter.
+  tier: text("tier", { enum: ["starter", "growth", "pro"] })
+    .notNull()
+    .default("starter"),
   // The business's own "leave a review" link (e.g. their Google Business
   // Profile short link). Customers get redirected here through our own
   // tracked /r/:token route. Null until they fill it in during setup.
@@ -52,6 +58,10 @@ export const businesses = pgTable("businesses", {
   // Set when the last weekly summary went out, so a cron retry or double
   // fire never sends the same week's email twice.
   lastSummarySentAt: timestamp("last_summary_sent_at", { withTimezone: true }),
+  // The affiliate code this business signed up through (see affiliates
+  // below), copied from the Stripe checkout when they finish signup. Null for
+  // everyone who came in without a referral link.
+  referredBy: text("referred_by"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -453,6 +463,55 @@ export const analyticsEvents = pgTable(
 
 export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+// Affiliate partners: people who send us customers through their own link
+// (uptrendscaling.com/?ref=CODE) and earn 25% of what each referred customer
+// pays for their first 12 monthly payments. Anyone can apply on /affiliates;
+// Colby approves them on /admin, which gives them their code.
+export const affiliates = pgTable(
+  "affiliates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    email: text("email").notNull(),
+    phone: text("phone"),
+    paypalEmail: text("paypal_email"),
+    website: text("website"),
+    // How they plan to promote us, in their own words, from the application.
+    promotePlan: text("promote_plan"),
+    status: text("status", {
+      enum: ["pending", "approved", "paused", "rejected"],
+    })
+      .notNull()
+      .default("pending"),
+    // Lowercase letters/numbers, set when approved. This is the ?ref= value.
+    code: text("code").unique(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("affiliates_email_idx").on(table.email)],
+);
+
+// Money actually sent to an affiliate (by PayPal, outside the app), recorded
+// on /admin so "still owed" stays accurate.
+export const affiliatePayouts = pgTable(
+  "affiliate_payouts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    affiliateId: uuid("affiliate_id")
+      .notNull()
+      .references(() => affiliates.id, { onDelete: "cascade" }),
+    amountCents: integer("amount_cents").notNull(),
+    note: text("note"),
+    paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("affiliate_payouts_affiliate_id_idx").on(table.affiliateId)],
+);
+
+export type Affiliate = typeof affiliates.$inferSelect;
+export type AffiliatePayout = typeof affiliatePayouts.$inferSelect;
 
 export type Business = typeof businesses.$inferSelect;
 export type NewBusiness = typeof businesses.$inferInsert;
