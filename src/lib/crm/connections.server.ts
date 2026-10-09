@@ -709,6 +709,11 @@ export async function deliverPaidInvoiceRequest(args: {
           `Skipped: no Google review link set. Customer: ${whoEnd}`,
         );
       }
+      if (result.reason === "limit_reached") {
+        return await skip(
+          `Skipped: this month's review requests on your plan are used up. Customer: ${whoEnd}`,
+        );
+      }
       await failWebhookEvent(claim.eventId, result.message);
       return { kind: "failed", message: result.message };
     }
