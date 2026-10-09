@@ -22,6 +22,10 @@ import {
 } from "drizzle-orm";
 import { z } from "zod";
 
+import {
+  runAffiliateRecruiting,
+  type AffiliateRecruitingResult,
+} from "./affiliate-outreach.server";
 import { getDb, isDbConfigured } from "./db/client";
 import { leads, type Lead } from "./db/schema";
 import {
@@ -301,13 +305,21 @@ export const unsubscribeLead = createServerFn({ method: "POST" })
     if (!isDbConfigured()) return { ok: false, message: "Not configured yet." };
     try {
       const db = getDb();
+      // The same link and page serve cold leads and affiliate prospects
+      // (both ids are unguessable uuids), so both lists are updated.
       if (data.leadId) {
         await db.execute(
           sql`update leads set unsubscribed_at = coalesce(unsubscribed_at, now()) where id = ${data.leadId}::uuid`,
         );
+        await db.execute(
+          sql`update affiliate_prospects set unsubscribed_at = coalesce(unsubscribed_at, now()) where id = ${data.leadId}::uuid`,
+        );
       } else if (data.email) {
         await db.execute(
           sql`update leads set unsubscribed_at = coalesce(unsubscribed_at, now()) where lower(email) = ${data.email}`,
+        );
+        await db.execute(
+          sql`update affiliate_prospects set unsubscribed_at = coalesce(unsubscribed_at, now()) where email = ${data.email}`,
         );
       }
       return { ok: true };
@@ -329,7 +341,8 @@ function isCronRequestAuthorized(): boolean {
 }
 
 export type LeadFollowUpCronResult =
-  LeadFollowUpRunResult | { ok: false; reason: "unauthorized" };
+  | (LeadFollowUpRunResult & { affiliate?: AffiliateRecruitingResult })
+  | { ok: false; reason: "unauthorized" };
 
 export const runLeadFollowUpCron = createServerFn({ method: "GET" }).handler(
   async (): Promise<LeadFollowUpCronResult> => {
@@ -339,7 +352,13 @@ export const runLeadFollowUpCron = createServerFn({ method: "GET" }).handler(
     }
 
     const result = await sendDueLeadFollowUps();
+    // Affiliate invites, follow-ups and partner check-ins share Resend's
+    // free-plan limit of 100 emails a day with everything else, so they only
+    // get what's left after the lead follow-ups, keeping about 10 spare for
+    // the site's own emails (welcome emails, review requests, alerts).
+    const usedByLeads = result.ok ? result.sent + result.failed : 0;
+    const affiliate = await runAffiliateRecruiting(Math.max(0, 90 - usedByLeads));
     setResponseStatus(200);
-    return result;
+    return { ...result, affiliate };
   },
 );

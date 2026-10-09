@@ -1,7 +1,7 @@
 // Affiliate program: people who send us customers through their own link
-// (uptrendscaling.com/?ref=CODE) earn 25% of what each referred customer pays
-// for that customer's first 12 monthly payments. Referred customers skip the
-// $20 setup fee.
+// (uptrendscaling.com/?ref=CODE) earn 25% of every payment each referred
+// customer makes, for as long as that customer stays. Referred customers skip
+// the $20 setup fee.
 //
 // How a referral is tracked, end to end:
 // 1. Any page opened with ?ref=CODE saves the code in a cookie for 60 days
@@ -22,7 +22,6 @@ import { and, desc, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 
 import {
-  AFFILIATE_COMMISSION_MONTHS,
   AFFILIATE_COMMISSION_RATE,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
 } from "./affiliate-config";
@@ -245,7 +244,7 @@ function applicantConfirmationHtml(name: string): string {
       },
       {
         html: para(
-          "Once you're approved you'll get your own link. You earn 25% of what each business you refer pays for their first 12 months, and the businesses you send skip our $20 setup fee.",
+          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, and the businesses you send skip our $20 setup fee.",
         ),
       },
       {
@@ -287,7 +286,7 @@ function approvalEmailHtml(name: string, code: string): string {
             {
               label: "You earn",
               value:
-                "25% of what each referred business pays, for their first 12 monthly payments",
+                "25% of every payment each referred business makes, for as long as they stay a customer",
             },
             {
               label: "They get",
@@ -312,9 +311,14 @@ function approvalEmailHtml(name: string, code: string): string {
         ),
       },
       {
+        html: para(
+          "To make sharing easy, we put together a partner kit: ready-to-send emails, social posts, the key talking points and answers to common questions. Just swap in your link.",
+        ),
+      },
+      {
         html: button(
-          "Read the full program terms",
-          `${CANONICAL_SITE_URL}/affiliates#terms`,
+          "Open your partner kit",
+          `${CANONICAL_SITE_URL}/affiliates/kit?ref=${code}`,
         ),
         align: "center",
         top: 12,
@@ -322,7 +326,7 @@ function approvalEmailHtml(name: string, code: string): string {
       },
       {
         html: para(
-          `Questions or want marketing materials? Reply anytime or email ${UPTREND_SUPPORT_EMAIL}.`,
+          `Program terms are at ${CANONICAL_SITE_URL}/affiliates#terms. Questions? Reply anytime or email ${UPTREND_SUPPORT_EMAIL}.`,
         ),
       },
     ],
@@ -342,7 +346,7 @@ export type AffiliateReferral = {
   signedUpAt: Date;
   accessRevoked: boolean;
   paidPayments: number;
-  // Totals in cents over the first 12 paid monthly payments.
+  // Totals in cents over every paid monthly payment so far.
   commissionEarnedCents: number;
   commissionPayableCents: number;
 };
@@ -373,9 +377,9 @@ export type AffiliatesOverviewResult =
 
 type StripeLike = import("stripe").default;
 
-// What a referred business has paid us that earns commission: their first 12
-// paid invoices, minus any setup fee on them and minus anything refunded with
-// a credit note. Returns per-payment amounts in cents.
+// What a referred business has paid us that earns commission: every paid
+// invoice, minus any setup fee on it and minus anything refunded with a credit
+// note. Returns per-payment amounts in cents.
 async function commissionablePayments(
   stripe: StripeLike,
   stripeCustomerId: string,
@@ -387,12 +391,11 @@ async function commissionablePayments(
     limit: 100,
   })) {
     invoices.push(invoice);
-    if (invoices.length >= 60) break;
+    if (invoices.length >= 1000) break;
   }
   const paid = invoices
     .filter((inv) => (inv.amount_paid ?? 0) > 0)
-    .sort((a, b) => (a.created ?? 0) - (b.created ?? 0))
-    .slice(0, AFFILIATE_COMMISSION_MONTHS);
+    .sort((a, b) => (a.created ?? 0) - (b.created ?? 0));
 
   return paid.map((inv) => {
     const setupFee = (inv.lines?.data ?? [])

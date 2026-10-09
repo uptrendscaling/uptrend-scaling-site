@@ -2,8 +2,9 @@
 // referral link. Kept out of affiliates.server.ts so browser code (the root
 // layout and the signup page) can use them without pulling in server code.
 
+// Paid on every payment a referred customer makes, for as long as they stay
+// a customer (no end date).
 export const AFFILIATE_COMMISSION_RATE = 0.25;
-export const AFFILIATE_COMMISSION_MONTHS = 12;
 // Commission only becomes payable once the customer has made this many
 // monthly payments, so a trial that cancels or refunds right away pays nothing.
 export const AFFILIATE_PAYABLE_AFTER_PAYMENTS = 2;
