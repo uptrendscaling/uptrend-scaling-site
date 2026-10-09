@@ -6934,3 +6934,19 @@ h1 strong {
     justify-self: start;
   }
 }
+
+/* Admin: affiliate outreach list filters */
+.aff-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.aff-list-tools .dash-select {
+  width: auto;
+}
+.aff-list-tools input[type="search"] {
+  flex: 1 1 220px;
+  min-width: 0;
+}
