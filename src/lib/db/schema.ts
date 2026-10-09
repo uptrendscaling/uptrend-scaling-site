@@ -551,6 +551,12 @@ export const affiliateProspects = pgTable(
     respondedAt: timestamp("responded_at", { withTimezone: true }),
     unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
     notes: text("notes"),
+    // Instagram outreach: their handle (no @) and when we sent the DM. Logged
+    // so the list shows who was reached by Instagram, separate from email.
+    instagramHandle: text("instagram_handle"),
+    instagramDmSentAt: timestamp("instagram_dm_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
