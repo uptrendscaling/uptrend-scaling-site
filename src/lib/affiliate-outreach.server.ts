@@ -601,6 +601,8 @@ export type ProspectSummary = {
   followUpSentAt: Date | null;
   respondedAt: Date | null;
   unsubscribedAt: Date | null;
+  instagramHandle: string | null;
+  instagramDmSentAt: Date | null;
   applied: boolean;
   notSent: boolean;
 };
@@ -643,6 +645,8 @@ export const getAffiliateProspects = createServerFn({ method: "GET" }).handler(
           followUpSentAt: p.followUpSentAt,
           respondedAt: p.respondedAt,
           unsubscribedAt: p.unsubscribedAt,
+          instagramHandle: p.instagramHandle,
+          instagramDmSentAt: p.instagramDmSentAt,
           applied: Boolean(applied),
           notSent: (p.notes ?? "").startsWith(NOT_SENT_NOTE_PREFIX),
         })),
