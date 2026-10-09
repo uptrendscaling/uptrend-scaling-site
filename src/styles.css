@@ -6607,3 +6607,204 @@ h1 strong {
 :root[data-theme="dark"] .theme-toggle .tt-moon {
   display: none;
 }
+
+/* ==========================================================================
+   Plans (signup page picker + homepage list) and the affiliate page.
+   Colors come only from the theme variables, so light and dark both work.
+   ========================================================================== */
+.start-form textarea {
+  padding: 13px 14px;
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--foreground);
+  font: 500 14px/1.5 var(--font-sans);
+  resize: vertical;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.start-form textarea:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+.tier-picker {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.tier-picker legend {
+  margin-bottom: 8px;
+  color: var(--muted-foreground);
+  font: 700 11px/1 var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.start-form .tier-option {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-soft);
+  cursor: pointer;
+  font: 500 13px/1.35 var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.start-form .tier-option.is-selected {
+  border-color: var(--ring);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+.tier-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.tier-option:focus-within {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.tier-name {
+  color: var(--foreground);
+  font-weight: 800;
+  font-size: 15px;
+}
+.tier-price {
+  color: var(--foreground);
+  font-weight: 800;
+  font-size: 15px;
+  text-align: right;
+}
+.tier-price small {
+  color: var(--muted-foreground);
+  font-weight: 500;
+  font-size: 11px;
+}
+.tier-limit {
+  grid-column: 1 / -1;
+  color: var(--muted-foreground);
+}
+.lp-tiers {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  justify-self: stretch;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-tiers a {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  align-items: center;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: var(--foreground);
+  text-decoration: none;
+}
+.lp-tiers a:hover {
+  border-color: var(--ring);
+}
+.lp-tier-name {
+  font-weight: 700;
+}
+.lp-tier-limit {
+  grid-column: 1;
+  grid-row: 2;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.lp-tiers strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-size: 20px;
+}
+.aff-example {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 26px 0;
+}
+.aff-example > div {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.aff-example span {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+.aff-example strong {
+  color: var(--foreground);
+  font-size: 26px;
+  letter-spacing: -0.02em;
+}
+.aff-steps {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 28px;
+  padding-left: 20px;
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+.aff-steps strong {
+  color: var(--foreground);
+}
+.aff-terms h2 {
+  margin: 0 0 12px;
+  color: var(--foreground);
+  font-size: 20px;
+}
+.aff-terms ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.start-form .aff-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font: 500 13px/1.5 var(--font-sans);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.aff-check input {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+.aff-check a {
+  color: var(--foreground);
+}
+.aff-done {
+  align-content: start;
+}
+.aff-done h2 {
+  margin: 0;
+  color: var(--foreground);
+}
+.aff-done p {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+@media (max-width: 560px) {
+  .aff-example {
+    grid-template-columns: 1fr;
+  }
+}
