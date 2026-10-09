@@ -327,23 +327,29 @@ export const Route = createFileRoute("/compare/$competitor")({
   head: ({ params }) => {
     const c = COMPETITORS[params.competitor.toLowerCase()];
     if (!c) return { meta: [{ title: "Compare | UpTrend Scaling" }] };
+    // Browser tab / Google result title keeps the "pricing and features"
+    // words. The share title has no colon, because iMessage cuts everything
+    // before a colon off some link previews.
     const title = `UpTrend Scaling vs ${c.name}: pricing and features compared`;
+    const shareTitle = `UpTrend Scaling vs ${c.name}`;
     const description = `Comparing UpTrend Scaling and ${c.name} for Google review requests: price, contract, setup and features. UpTrend starts at $70 a month, month to month.`;
+    const image = `${CANONICAL_SITE_URL}/og-compare-${c.slug}.png`;
     return {
       meta: [
         { title },
         { name: "description", content: description },
-        { property: "og:title", content: title },
+        { property: "og:title", content: shareTitle },
         { property: "og:description", content: description },
         {
           property: "og:url",
           content: `${CANONICAL_SITE_URL}/compare/${c.slug}`,
         },
-        { property: "og:image", content: `${CANONICAL_SITE_URL}/og-image.png` },
-        {
-          name: "twitter:image",
-          content: `${CANONICAL_SITE_URL}/og-image.png`,
-        },
+        { property: "og:image", content: image },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { property: "og:image:alt", content: shareTitle },
+        { name: "twitter:title", content: shareTitle },
+        { name: "twitter:image", content: image },
       ],
       links: [
         { rel: "canonical", href: `${CANONICAL_SITE_URL}/compare/${c.slug}` },
