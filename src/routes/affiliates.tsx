@@ -3,7 +3,6 @@ import { useState, type FormEvent } from "react";
 
 import { ThemeToggle } from "../components/theme-toggle";
 import {
-  AFFILIATE_COMMISSION_MONTHS,
   AFFILIATE_COOKIE_DAYS,
   AFFILIATE_MIN_PAYOUT_DOLLARS,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
@@ -18,7 +17,7 @@ export const Route = createFileRoute("/affiliates")({
       {
         name: "description",
         content:
-          "Earn 25% of every payment for 12 months when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
+          "Earn 25% of every payment, for as long as they stay, when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
       },
       { property: "og:title", content: "UpTrend Scaling affiliate program" },
       { property: "og:url", content: `${CANONICAL_SITE_URL}/affiliates` },
@@ -102,14 +101,13 @@ function AffiliatesPage() {
               <span /> Affiliate program
             </p>
             <h1 className="start-heading">
-              Earn 25% for a full year on every business you send us.
+              Earn 25% of every payment, for as long as they stay.
             </h1>
             <p className="start-lead">
               Know contractors, cleaners, roofers or other local service
               businesses? Share your link. When they sign up, you earn 25% of
-              every payment they make for their first{" "}
-              {AFFILIATE_COMMISSION_MONTHS} months, and they skip our $20 setup
-              fee.
+              every payment they make, for as long as they stay a customer, and
+              they skip our $20 setup fee.
             </p>
 
             <div className="aff-example" aria-label="Earnings example">
@@ -118,7 +116,7 @@ function AffiliatesPage() {
                 <strong>$175/month</strong>
               </div>
               <div>
-                <span>Over their first year</span>
+                <span>Every year they stay</span>
                 <strong>$2,100</strong>
               </div>
             </div>
@@ -133,6 +131,11 @@ function AffiliatesPage() {
                 to you for {AFFILIATE_COOKIE_DAYS} days.
               </li>
               <li>
+                <strong>Share it your way.</strong> Our{" "}
+                <a href="/affiliates/kit">partner kit</a> has ready-to-send
+                emails, posts and talking points.
+              </li>
+              <li>
                 <strong>Get paid monthly.</strong> By PayPal, once you've earned
                 ${AFFILIATE_MIN_PAYOUT_DOLLARS}.
               </li>
@@ -143,8 +146,8 @@ function AffiliatesPage() {
               <ul>
                 <li>
                   You earn 25% of what each referred business pays us (after any
-                  discounts and refunds) for their first{" "}
-                  {AFFILIATE_COMMISSION_MONTHS} monthly payments.
+                  discounts and refunds) on every monthly payment, for as long
+                  as they stay a customer. There is no end date.
                 </li>
                 <li>
                   Commission on a business becomes payable after their{" "}

@@ -30,6 +30,11 @@ import {
 import { DashSpark } from "../components/dashboard/stat-card";
 import { ProgressChart } from "../components/progress-chart";
 import {
+  getAffiliateProspects,
+  markProspectReplied,
+  type ProspectSummary,
+} from "../lib/affiliate-outreach.server";
+import {
   getAffiliatesOverview,
   recordAffiliatePayout,
   setAffiliateStatus,
@@ -98,8 +103,10 @@ export const Route = createFileRoute("/admin")({
     const leadsOverview = await getLeadsOverview();
     const analytics = await getAdminAnalyticsOverview();
     const affiliateOverview = await getAffiliatesOverview();
+    const prospectsOverview = await getAffiliateProspects();
     return {
       affiliates: affiliateOverview.ok ? affiliateOverview.affiliates : [],
+      prospects: prospectsOverview.ok ? prospectsOverview.prospects : [],
       business,
       businesses: overview.businesses,
       combinedSeries: combinedSeries.ok ? combinedSeries.series : [],
@@ -885,11 +892,112 @@ function affiliateStatusPill(status: AffiliateSummary["status"]) {
   return <DashPill tone="muted">Rejected</DashPill>;
 }
 
+function prospectStatusPill(p: ProspectSummary) {
+  if (p.applied) return <DashPill tone="ok">Applied</DashPill>;
+  if (p.respondedAt) return <DashPill tone="ok">Replied</DashPill>;
+  if (p.unsubscribedAt) return <DashPill tone="muted">Unsubscribed</DashPill>;
+  if (p.notSent) return <DashPill tone="muted">Bad address</DashPill>;
+  if (p.followUpSentAt) return <DashPill tone="warn">Followed up</DashPill>;
+  if (p.contactedAt) return <DashPill tone="warn">Invited</DashPill>;
+  return <DashPill tone="muted">Not yet</DashPill>;
+}
+
+function RecruitingPanel({
+  prospects,
+  onChanged,
+}: {
+  prospects: ProspectSummary[];
+  onChanged: () => Promise<void>;
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const contacted = prospects.filter((p) => p.contactedAt);
+  const counts = {
+    found: prospects.length,
+    invited: contacted.length,
+    followedUp: prospects.filter((p) => p.followUpSentAt).length,
+    replied: prospects.filter((p) => p.respondedAt || p.applied).length,
+    unsubscribed: prospects.filter((p) => p.unsubscribedAt).length,
+    waiting: prospects.filter(
+      (p) => !p.contactedAt && !p.respondedAt && !p.unsubscribedAt && !p.applied && !p.notSent,
+    ).length,
+  };
+
+  async function markReplied(id: string) {
+    setBusyId(id);
+    try {
+      await markProspectReplied({ data: { prospectId: id } });
+      await onChanged();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <DashPanel
+      title="Recruiting"
+      hint={`${counts.found} found, ${counts.invited} invited, ${counts.followedUp} followed up, ${counts.replied} replied or applied, ${counts.unsubscribed} unsubscribed, ${counts.waiting} still to invite`}
+    >
+      <p className="dash-cell-muted" style={{ margin: "0 0 12px" }}>
+        Every morning the site invites up to 15 agencies, coaches, groups and creators to the partner program, and follows up once 5 days later. Replies go to hello@. When someone replies, click "They replied" so they don't get the follow-up. Anyone who applies or unsubscribes is skipped automatically.
+      </p>
+      {contacted.length === 0 ? (
+        <DashEmpty compact title="No invites sent yet.">
+          The first invites go out with the next morning run.
+        </DashEmpty>
+      ) : (
+        <DashTable>
+          <thead>
+            <tr>
+              <th>Who</th>
+              <th>Serves</th>
+              <th>Status</th>
+              <th>Invited</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {contacted.map((p) => (
+              <tr key={p.id}>
+                <td>
+                  <div className="dash-cell-strong">{p.company}</div>
+                  <div className="dash-cell-muted">
+                    {p.fullName ? `${p.fullName}, ` : ""}
+                    {p.email}
+                  </div>
+                </td>
+                <td className="dash-cell-muted" style={{ maxWidth: 260, whiteSpace: "normal" }}>
+                  {p.audience}
+                </td>
+                <td>{prospectStatusPill(p)}</td>
+                <td className="dash-cell-muted">{formatDate(p.contactedAt)}</td>
+                <td>
+                  {!p.respondedAt && !p.applied && !p.unsubscribedAt ? (
+                    <DashButton
+                      size="sm"
+                      variant="ghost"
+                      disabled={busyId === p.id}
+                      onClick={() => void markReplied(p.id)}
+                    >
+                      They replied
+                    </DashButton>
+                  ) : null}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </DashTable>
+      )}
+    </DashPanel>
+  );
+}
+
 function AffiliatesTab({
   affiliates,
+  prospects,
   onChanged,
 }: {
   affiliates: AffiliateSummary[];
+  prospects: ProspectSummary[];
   onChanged: () => Promise<void>;
 }) {
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -966,7 +1074,7 @@ function AffiliatesTab({
     <div className="dash-stack">
       <DashPageHead
         title="Affiliates"
-        description="Partners who send you customers. They earn 25% of what each referred business pays for its first 12 monthly payments, payable after the 2nd payment. Pay them by PayPal, then record it here."
+        description="Partners who send you customers. They earn 25% of every payment each referred business makes, for as long as it stays a customer, payable after the 2nd payment. Pay them by PayPal, then record it here."
       />
 
       <section className="dash-stats dash-stats-4" aria-label="Affiliate numbers">
@@ -1127,6 +1235,8 @@ function AffiliatesTab({
           </DashTable>
         )}
       </DashPanel>
+
+      <RecruitingPanel prospects={prospects} onChanged={onChanged} />
     </div>
   );
 }
@@ -1154,10 +1264,17 @@ function AdminDashboard() {
   const [affiliateList, setAffiliateList] = useState<AffiliateSummary[]>(
     initial.affiliates,
   );
+  const [prospectList, setProspectList] = useState<ProspectSummary[]>(
+    initial.prospects,
+  );
 
   async function refreshAffiliates() {
-    const result = await getAffiliatesOverview();
+    const [result, prospectsResult] = await Promise.all([
+      getAffiliatesOverview(),
+      getAffiliateProspects(),
+    ]);
     if (result.ok) setAffiliateList(result.affiliates);
+    if (prospectsResult.ok) setProspectList(prospectsResult.prospects);
   }
 
   useEffect(() => {
@@ -1294,7 +1411,7 @@ function AdminDashboard() {
               loadingSeries={loadingSeries}
             />
           ) : tab === "affiliates" ? (
-            <AffiliatesTab affiliates={affiliateList} onChanged={refreshAffiliates} />
+            <AffiliatesTab affiliates={affiliateList} prospects={prospectList} onChanged={refreshAffiliates} />
           ) : tab === "outreach" ? (
             <OutreachTab
               leads={leads}
