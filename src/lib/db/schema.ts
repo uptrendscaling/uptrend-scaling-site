@@ -67,6 +67,11 @@ export const businesses = pgTable("businesses", {
   // actually texted or emailed from them (see sendReviewRequestAndLog) and
   // no billing is attached.
   isDemo: boolean("is_demo").notNull().default(false),
+  // Repeat-customer guard: when on (the default), a customer who was already
+  // asked for a review in the last 90 days isn't asked again on their next
+  // paid invoice. Saves texting costs and keeps regulars from being pestered.
+  // Owners can switch it off in Settings.
+  repeatGuardEnabled: boolean("repeat_guard_enabled").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -411,7 +416,10 @@ export const qrScans = pgTable(
     region: text("region"),
   },
   (table) => [
-    index("qr_scans_business_scanned_idx").on(table.businessId, table.scannedAt),
+    index("qr_scans_business_scanned_idx").on(
+      table.businessId,
+      table.scannedAt,
+    ),
     index("qr_scans_qr_code_id_idx").on(table.qrCodeId),
   ],
 );
@@ -547,7 +555,9 @@ export const affiliateProspects = pgTable(
       .notNull()
       .defaultNow(),
   },
-  (table) => [index("affiliate_prospects_contacted_at_idx").on(table.contactedAt)],
+  (table) => [
+    index("affiliate_prospects_contacted_at_idx").on(table.contactedAt),
+  ],
 );
 
 export type AffiliateProspect = typeof affiliateProspects.$inferSelect;
@@ -565,7 +575,9 @@ export const affiliatePayouts = pgTable(
     note: text("note"),
     paidAt: timestamp("paid_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("affiliate_payouts_affiliate_id_idx").on(table.affiliateId)],
+  (table) => [
+    index("affiliate_payouts_affiliate_id_idx").on(table.affiliateId),
+  ],
 );
 
 export type Affiliate = typeof affiliates.$inferSelect;
