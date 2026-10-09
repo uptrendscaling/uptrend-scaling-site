@@ -62,6 +62,11 @@ export const businesses = pgTable("businesses", {
   // below), copied from the Stripe checkout when they finish signup. Null for
   // everyone who came in without a referral link.
   referredBy: text("referred_by"),
+  // Demo accounts for affiliate partners: a working dashboard with sample
+  // customers so partners can show UpTrend to people, but nothing is ever
+  // actually texted or emailed from them (see sendReviewRequestAndLog) and
+  // no billing is attached.
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -487,6 +492,15 @@ export const affiliates = pgTable(
     // Lowercase letters/numbers, set when approved. This is the ?ref= value.
     code: text("code").unique(),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    // "application" = applied on /affiliates; "customer" = a paying UpTrend
+    // customer, who gets a referral link automatically on the same terms.
+    source: text("source", { enum: ["application", "customer"] })
+      .notNull()
+      .default("application"),
+    // For customer referrers: their own business account.
+    businessId: uuid("business_id").references(() => businesses.id, {
+      onDelete: "set null",
+    }),
     // Onboarding check-in emails sent by the daily job (3 and 10 days after
     // approval), so each goes out once.
     checkin1SentAt: timestamp("checkin1_sent_at", { withTimezone: true }),
