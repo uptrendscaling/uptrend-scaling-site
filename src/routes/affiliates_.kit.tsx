@@ -126,7 +126,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "How and when do I get paid?",
-    a: "You earn 25% of every payment each business you refer makes, for as long as they stay a customer. Commission on a business becomes payable after their 2nd monthly payment, and we pay monthly by PayPal once you've earned $25.",
+    a: "You earn 25% of every payment each business you refer makes, for as long as they stay a customer, plus a $20 bonus when each one makes its 2nd payment. Commission on a business becomes payable after their 2nd monthly payment, and we pay monthly by PayPal once you've earned $25.",
   },
 ];
 

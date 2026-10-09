@@ -37,6 +37,7 @@ import {
 import {
   getAffiliatesOverview,
   recordAffiliatePayout,
+  sendPartnerDemo,
   setAffiliateStatus,
   type AffiliateSummary,
 } from "../lib/affiliates.server";
@@ -1114,6 +1115,22 @@ function AffiliatesTab({
     }
   }
 
+  async function sendDemo(id: string, name: string) {
+    setBusyId(id);
+    setMessage(null);
+    try {
+      const result = await sendPartnerDemo({ data: { affiliateId: id } });
+      setMessage(
+        result.ok
+          ? `Demo account ready. ${name} was emailed a link to set their password.`
+          : result.message,
+      );
+      await onChanged();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   async function savePayout(id: string) {
     const amount = Number(payoutAmount);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -1153,7 +1170,7 @@ function AffiliatesTab({
     <div className="dash-stack">
       <DashPageHead
         title="Affiliates"
-        description="Partners who send you customers. They earn 25% of every payment each referred business makes, for as long as it stays a customer, payable after the 2nd payment. Pay them by PayPal, then record it here."
+        description="Partners who send you customers. They earn 25% of every payment each referred business makes, for as long as it stays a customer, plus $20 once it makes its 2nd payment (included in Earned). Commission is payable after the 2nd payment. Paying customers get a referral link automatically and show up here marked Customer. Pay them by PayPal, then record it here."
       />
 
       <section className="dash-stats dash-stats-4" aria-label="Affiliate numbers">
@@ -1259,7 +1276,14 @@ function AffiliatesTab({
                       </div>
                     ) : null}
                   </td>
-                  <td>{affiliateStatusPill(a.status)}</td>
+                  <td>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {affiliateStatusPill(a.status)}
+                      {a.source === "customer" ? (
+                        <DashPill tone="muted">Customer</DashPill>
+                      ) : null}
+                    </div>
+                  </td>
                   <td>{formatCount(a.referrals.length)}</td>
                   <td>{formatDollars(a.earnedCents)}</td>
                   <td>{formatDollars(a.paidOutCents)}</td>
@@ -1296,6 +1320,16 @@ function AffiliatesTab({
                             <DashButton size="sm" variant="ghost" onClick={() => setPayoutFor(a.id)}>
                               Record payout
                             </DashButton>
+                            {a.source === "application" ? (
+                              <DashButton
+                                size="sm"
+                                variant="quiet"
+                                disabled={busyId === a.id}
+                                onClick={() => void sendDemo(a.id, a.name)}
+                              >
+                                {a.hasDemo ? "Resend demo login" : "Create demo"}
+                              </DashButton>
+                            ) : null}
                             <DashButton size="sm" variant="quiet" disabled={busyId === a.id} onClick={() => void changeStatus(a.id, "paused")}>
                               Pause
                             </DashButton>

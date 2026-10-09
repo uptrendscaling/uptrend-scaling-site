@@ -698,6 +698,9 @@ function Index() {
             </a>
             <a href="/login">Log in</a>
             <a href="/affiliates">Affiliates</a>
+            <a href="/compare/nicejob">vs NiceJob</a>
+            <a href="/compare/podium">vs Podium</a>
+            <a href="/compare/birdeye">vs Birdeye</a>
             <a href="/terms">Terms</a>
             <a href="/privacy">Privacy</a>
             <a

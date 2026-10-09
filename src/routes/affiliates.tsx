@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 
 import { ThemeToggle } from "../components/theme-toggle";
 import {
+  AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS,
   AFFILIATE_COOKIE_DAYS,
   AFFILIATE_MIN_PAYOUT_DOLLARS,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
@@ -19,7 +20,7 @@ export const Route = createFileRoute("/affiliates")({
       {
         name: "description",
         content:
-          "Earn 25% of every payment, for as long as they stay, when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
+          "Earn 25% of every payment for as long as they stay, plus a $20 bonus, when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
       },
       { property: "og:title", content: "UpTrend Scaling affiliate program" },
       {
@@ -124,8 +125,13 @@ function AffiliatesPage() {
             <p className="start-lead">
               Know contractors, cleaners, roofers or other local service
               businesses? Share your link. When they sign up, you earn 25% of
-              every payment they make, for as long as they stay a customer, and
-              they skip our $20 setup fee.
+              every payment they make, for as long as they stay a customer, plus
+              a $20 bonus when they make their 2nd payment. They skip our $20
+              setup fee.
+            </p>
+            <p className="aff-note">
+              Already an UpTrend customer? You have a referral link already.
+              It's on the Overview page of your dashboard.
             </p>
 
             <div className="aff-example" aria-label="Earnings example">
@@ -134,8 +140,8 @@ function AffiliatesPage() {
                 <strong>$175/month</strong>
               </div>
               <div>
-                <span>Every year they stay</span>
-                <strong>$2,100</strong>
+                <span>First year, with $200 in bonuses</span>
+                <strong>$2,300</strong>
               </div>
             </div>
 
@@ -145,8 +151,10 @@ function AffiliatesPage() {
                 hand, usually within a couple of business days.
               </li>
               <li>
-                <strong>Get your link.</strong> Anyone who clicks it is credited
-                to you for {AFFILIATE_COOKIE_DAYS} days.
+                <strong>Get your link and a demo account.</strong> Anyone who
+                clicks your link is credited to you for{" "}
+                {AFFILIATE_COOKIE_DAYS} days, and your demo dashboard lets you
+                show people exactly how UpTrend works.
               </li>
               <li>
                 <strong>Share it your way.</strong> Our{" "}
@@ -166,6 +174,11 @@ function AffiliatesPage() {
                   You earn 25% of what each referred business pays us (after any
                   discounts and refunds) on every monthly payment, for as long
                   as they stay a customer. There is no end date.
+                </li>
+                <li>
+                  You also earn a one-time $
+                  {AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS} bonus for each
+                  referred business once it makes its 2nd monthly payment.
                 </li>
                 <li>
                   Commission on a business becomes payable after their{" "}

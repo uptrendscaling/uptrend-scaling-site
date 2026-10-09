@@ -11,7 +11,9 @@ import { AccessPausedPanel } from "../components/dashboard/access-paused";
 import { CustomersTab } from "../components/dashboard/customers-tab";
 import { DashChips } from "../components/dashboard/integration-chips";
 import { OverviewTab } from "../components/dashboard/overview-tab";
+import { DashAlert } from "../components/dashboard/primitives";
 import { QrTab } from "../components/dashboard/qr-tab";
+import { ReferralPanel } from "../components/dashboard/referral-panel";
 import { ReportsTab } from "../components/dashboard/reports-tab";
 import { RequestsTab } from "../components/dashboard/requests-tab";
 import { SettingsView } from "../components/dashboard/settings-view";
@@ -118,7 +120,10 @@ function Dashboard() {
     content = <AccessPausedPanel />;
   } else if (tab === "overview" && overview) {
     content = (
-      <OverviewTab shell={shell} overview={overview} refresh={refresh} />
+      <>
+        <OverviewTab shell={shell} overview={overview} refresh={refresh} />
+        {business.isDemo ? null : <ReferralPanel />}
+      </>
     );
   } else if (tab === "customers") {
     content = <CustomersTab customers={customers ?? []} onChanged={refresh} />;
@@ -157,7 +162,16 @@ function Dashboard() {
         <DashChips chips={shell.chips} generatedAt={shell.generatedAt} />
       )}
       <main className={isLoading ? "dash-main is-loading" : "dash-main"}>
-        <div className="dash-container">{content}</div>
+        <div className="dash-container">
+          {business.isDemo ? (
+            <DashAlert tone="info" className="dash-demo-banner">
+              <strong>Demo account.</strong> Everything here works like a real
+              account, with sample customers and reviews. Nothing is ever
+              actually texted or emailed from a demo, so try anything.
+            </DashAlert>
+          ) : null}
+          {content}
+        </div>
       </main>
     </div>
   );
