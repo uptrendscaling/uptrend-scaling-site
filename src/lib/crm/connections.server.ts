@@ -228,11 +228,14 @@ export const disconnectConnection = createServerFn({ method: "POST" })
     // Intuit asks apps to revoke the tokens when the owner disconnects.
     // Loaded on demand: quickbooks.server imports this module.
     if (data.provider === "quickbooks") {
-      const [row] = await db.select().from(crmConnections).where(match).limit(1);
+      const [row] = await db
+        .select()
+        .from(crmConnections)
+        .where(match)
+        .limit(1);
       if (row) {
-        const { revokeQuickBooksConnection } = await import(
-          "./quickbooks.server"
-        );
+        const { revokeQuickBooksConnection } =
+          await import("./quickbooks.server");
         await revokeQuickBooksConnection(row);
       }
     }
@@ -530,7 +533,9 @@ export function getBackgroundScheduler(
   const vercelContext = (
     globalThis as unknown as Record<
       symbol,
-      | { get?: () => { waitUntil?: (p: Promise<unknown>) => void } | undefined }
+      | {
+          get?: () => { waitUntil?: (p: Promise<unknown>) => void } | undefined;
+        }
       | undefined
     >
   )[Symbol.for("@vercel/request-context")]?.get?.();
@@ -646,7 +651,9 @@ export async function deliverPaidInvoiceRequest(args: {
       );
     }
     if (!hasReviewLink(business)) {
-      return await skip(`Skipped: no Google review link set. Customer: ${whoEnd}`);
+      return await skip(
+        `Skipped: no Google review link set. Customer: ${whoEnd}`,
+      );
     }
     // A paid invoice with no name anywhere is skipped with a reason rather
     // than texted "Hi , thanks for choosing...".
@@ -674,7 +681,8 @@ export async function deliverPaidInvoiceRequest(args: {
     if (!phone && !email) {
       // The owner's dashboard shows only the first ~90 characters of this, so
       // the reason and the customer's name come first and the ids after.
-      const what = notes.length > 0 ? "no usable phone or email" : "no phone or email";
+      const what =
+        notes.length > 0 ? "no usable phone or email" : "no phone or email";
       const why =
         notes.length > 0
           ? ` ${notes.join("; ").replace(/^./, (c) => c.toUpperCase())}.`
@@ -707,6 +715,11 @@ export async function deliverPaidInvoiceRequest(args: {
       if (result.reason === "no_review_link") {
         return await skip(
           `Skipped: no Google review link set. Customer: ${whoEnd}`,
+        );
+      }
+      if (result.reason === "recently_asked") {
+        return await skip(
+          `Skipped: this customer was already asked for a review in the last 90 days. Customer: ${whoEnd}`,
         );
       }
       if (result.reason === "limit_reached") {
