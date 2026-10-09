@@ -465,9 +465,9 @@ export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
 export type NewAnalyticsEvent = typeof analyticsEvents.$inferInsert;
 
 // Affiliate partners: people who send us customers through their own link
-// (uptrendscaling.com/?ref=CODE) and earn 25% of what each referred customer
-// pays for their first 12 monthly payments. Anyone can apply on /affiliates;
-// Colby approves them on /admin, which gives them their code.
+// (uptrendscaling.com/?ref=CODE) and earn 25% of every payment each referred
+// customer makes, for as long as that customer stays. Anyone can apply on
+// /affiliates; Colby approves them on /admin, which gives them their code.
 export const affiliates = pgTable(
   "affiliates",
   {
@@ -487,12 +487,56 @@ export const affiliates = pgTable(
     // Lowercase letters/numbers, set when approved. This is the ?ref= value.
     code: text("code").unique(),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
+    // Onboarding check-in emails sent by the daily job (3 and 10 days after
+    // approval), so each goes out once.
+    checkin1SentAt: timestamp("checkin1_sent_at", { withTimezone: true }),
+    checkin2SentAt: timestamp("checkin2_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [index("affiliates_email_idx").on(table.email)],
 );
+
+// People we invite to become affiliates (agencies, coaches, creators and
+// groups that serve our kind of customer). Found by research, each with an
+// email they publish themselves. The daily job (/cron/lead-followups) sends a
+// few invites a day plus one follow-up, and stops for anyone who replies,
+// applies or unsubscribes. Shown on the Affiliates tab in /admin.
+export const affiliateProspects = pgTable(
+  "affiliate_prospects",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // agency | coach | community | creator: picks the wording of the invite.
+    kind: text("kind", { enum: ["agency", "coach", "community", "creator"] })
+      .notNull()
+      .default("agency"),
+    // Greeting name ("there" when we don't know a person's name).
+    firstName: text("first_name").notNull().default("there"),
+    fullName: text("full_name"),
+    // Their business, channel or show.
+    company: text("company").notNull(),
+    email: text("email").notNull().unique(),
+    // Who they serve, as a plain phrase: "lawn care business owners".
+    audience: text("audience").notNull(),
+    segment: text("segment"),
+    // Where their email is published.
+    sourceUrl: text("source_url"),
+    // Lower goes first.
+    priority: integer("priority").notNull().default(100),
+    contactedAt: timestamp("contacted_at", { withTimezone: true }),
+    followUpSentAt: timestamp("follow_up_sent_at", { withTimezone: true }),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    unsubscribedAt: timestamp("unsubscribed_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("affiliate_prospects_contacted_at_idx").on(table.contactedAt)],
+);
+
+export type AffiliateProspect = typeof affiliateProspects.$inferSelect;
 
 // Money actually sent to an affiliate (by PayPal, outside the app), recorded
 // on /admin so "still owed" stays accurate.
