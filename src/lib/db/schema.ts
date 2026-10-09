@@ -590,3 +590,34 @@ export type NewCustomer = typeof customers.$inferInsert;
 export type Message = typeof messages.$inferSelect;
 export type NewMessage = typeof messages.$inferInsert;
 export type Session = typeof sessions.$inferSelect;
+
+// One row per cold email sent from the Zoho cold-email mailboxes
+// (see lib/cold-mail.server.ts). Keeps each mailbox inside its daily
+// warm-up limit, and records which mailbox emailed whom.
+export const coldSends = pgTable(
+  "cold_sends",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The mailbox that sent it, e.g. colby@getuptrendscaling.com.
+    sender: text("sender").notNull(),
+    recipient: text("recipient").notNull(),
+    kind: text("kind", {
+      enum: [
+        "lead_first",
+        "lead_followup",
+        "affiliate_first",
+        "affiliate_followup",
+      ],
+    }).notNull(),
+    // The lead or affiliate prospect it went to.
+    refId: uuid("ref_id"),
+    messageId: text("message_id"),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("cold_sends_sender_sent_at_idx").on(table.sender, table.sentAt),
+    index("cold_sends_recipient_idx").on(table.recipient),
+  ],
+);
+
+export type ColdSend = typeof coldSends.$inferSelect;
