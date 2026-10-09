@@ -24,8 +24,14 @@ import { z } from "zod";
 
 import {
   runAffiliateRecruiting,
+  sendCheckins,
   type AffiliateRecruitingResult,
 } from "./affiliate-outreach.server";
+import {
+  isColdMailConfigured,
+  runColdMailSlot,
+  type ColdMailRunResult,
+} from "./cold-mail.server";
 import { getDb, isDbConfigured } from "./db/client";
 import { leads, type Lead } from "./db/schema";
 import {
@@ -257,7 +263,12 @@ export async function sendDueLeadFollowUps(): Promise<LeadFollowUpRunResult> {
           failed += 1;
           await db
             .update(leads)
-            .set({ notes: `${FOLLOW_UP_FAILED_NOTE_PREFIX} ${single.error}`.slice(0, 500) })
+            .set({
+              notes: `${FOLLOW_UP_FAILED_NOTE_PREFIX} ${single.error}`.slice(
+                0,
+                500,
+              ),
+            })
             .where(eq(leads.id, lead.id));
         } else {
           // Rate limit or outage mid-chunk: stop here and leave the rest
@@ -271,7 +282,11 @@ export async function sendDueLeadFollowUps(): Promise<LeadFollowUpRunResult> {
 
     // Anything else (bad API key, persistent rate limit, outage): do not
     // mark anyone as followed up, stop, and let the next run try again.
-    console.error("[leads] follow-up batch failed", result.status, result.error);
+    console.error(
+      "[leads] follow-up batch failed",
+      result.status,
+      result.error,
+    );
     return { ok: true, sent, failed: failed + chunk.length };
   }
 
@@ -342,7 +357,14 @@ function isCronRequestAuthorized(): boolean {
 
 export type LeadFollowUpCronResult =
   | (LeadFollowUpRunResult & { affiliate?: AffiliateRecruitingResult })
+  | { ok: true; coldMail: ColdMailRunResult; checkins: number }
+  | { ok: true; skipped: "not_this_slot" }
   | { ok: false; reason: "unauthorized" };
+
+// The first of the day's runs (14:00 UTC, 7 AM Phoenix). The old Resend path
+// only runs in this one; the extra runs exist to spread the Zoho cold email
+// across the day.
+const FIRST_SLOT_HOUR_UTC = 14;
 
 export const runLeadFollowUpCron = createServerFn({ method: "GET" }).handler(
   async (): Promise<LeadFollowUpCronResult> => {
@@ -351,13 +373,36 @@ export const runLeadFollowUpCron = createServerFn({ method: "GET" }).handler(
       return { ok: false, reason: "unauthorized" };
     }
 
+    // Cold email from the Zoho mailboxes, once they're set up in Vercel.
+    // Replaces the Resend lead follow-ups and affiliate invites entirely.
+    if (isColdMailConfigured()) {
+      const coldMail = await runColdMailSlot();
+      // Partner check-ins go to people who signed up, so they stay on Resend.
+      let checkins = 0;
+      if (new Date().getUTCHours() === FIRST_SLOT_HOUR_UTC) {
+        checkins = await sendCheckins().catch((error) => {
+          console.error("[leads] partner check-ins failed", error);
+          return 0;
+        });
+      }
+      setResponseStatus(200);
+      return { ok: true, coldMail, checkins };
+    }
+
+    // Old path (Resend), once a day only.
+    if (new Date().getUTCHours() !== FIRST_SLOT_HOUR_UTC) {
+      setResponseStatus(200);
+      return { ok: true, skipped: "not_this_slot" };
+    }
     const result = await sendDueLeadFollowUps();
     // Affiliate invites, follow-ups and partner check-ins share Resend's
     // free-plan limit of 100 emails a day with everything else, so they only
     // get what's left after the lead follow-ups, keeping about 10 spare for
     // the site's own emails (welcome emails, review requests, alerts).
     const usedByLeads = result.ok ? result.sent + result.failed : 0;
-    const affiliate = await runAffiliateRecruiting(Math.max(0, 90 - usedByLeads));
+    const affiliate = await runAffiliateRecruiting(
+      Math.max(0, 90 - usedByLeads),
+    );
     setResponseStatus(200);
     return { ...result, affiliate };
   },

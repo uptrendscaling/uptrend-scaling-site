@@ -363,7 +363,7 @@ export type AffiliateRecruitingResult = {
 
 // Prospects we must never email: already replied, unsubscribed, applied to
 // the program, or opted out of the cold-lead emails under the same address.
-const eligible = and(
+export const prospectEligible = and(
   isNull(affiliateProspects.respondedAt),
   isNull(affiliateProspects.unsubscribedAt),
   sql`coalesce(${affiliateProspects.notes}, '') not like ${NOT_SENT_NOTE_PREFIX + "%"}`,
@@ -421,7 +421,7 @@ async function sendProspectEmails(
   return { sent, failed };
 }
 
-async function sendCheckins(): Promise<number> {
+export async function sendCheckins(): Promise<number> {
   const db = getDb();
   let count = 0;
 
@@ -525,7 +525,7 @@ export async function runAffiliateRecruiting(
             .from(affiliateProspects)
             .where(
               and(
-                eligible,
+                prospectEligible,
                 isNotNull(affiliateProspects.contactedAt),
                 isNull(affiliateProspects.followUpSentAt),
                 sql`(${affiliateProspects.contactedAt} at time zone 'America/Phoenix')::date <= (now() at time zone 'America/Phoenix')::date - ${AFFILIATE_FOLLOW_UP_AFTER_DAYS}::int`,
@@ -552,7 +552,9 @@ export async function runAffiliateRecruiting(
         ? await db
             .select()
             .from(affiliateProspects)
-            .where(and(eligible, isNull(affiliateProspects.contactedAt)))
+            .where(
+              and(prospectEligible, isNull(affiliateProspects.contactedAt)),
+            )
             .orderBy(
               asc(affiliateProspects.priority),
               asc(affiliateProspects.createdAt),
