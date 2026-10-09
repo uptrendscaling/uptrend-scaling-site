@@ -20,6 +20,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as AffiliatesKitRouteImport } from './routes/affiliates_.kit'
 import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
@@ -96,6 +97,11 @@ const TermsRoute = TermsRouteImport.update({
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AffiliatesKitRoute = AffiliatesKitRouteImport.update({
+  id: '/affiliates_/kit',
+  path: '/affiliates/kit',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CronGoogleSyncRoute = CronGoogleSyncRouteImport.update({
@@ -223,6 +229,7 @@ export interface FileRoutesByFullPath {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/affiliates/kit': typeof AffiliatesKitRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/affiliates/kit': typeof AffiliatesKitRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/affiliates_/kit': typeof AffiliatesKitRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -331,6 +340,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/affiliates/kit'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -366,6 +376,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/affiliates/kit'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -401,6 +412,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/affiliates_/kit'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -437,6 +449,7 @@ export interface RootRouteChildren {
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  AffiliatesKitRoute: typeof AffiliatesKitRoute
   CronGoogleSyncRoute: typeof CronGoogleSyncRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
@@ -538,6 +551,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/affiliates_/kit': {
+      id: '/affiliates_/kit'
+      path: '/affiliates/kit'
+      fullPath: '/affiliates/kit'
+      preLoaderRoute: typeof AffiliatesKitRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cron/google-sync': {
@@ -709,6 +729,7 @@ const rootRouteChildren: RootRouteChildren = {
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  AffiliatesKitRoute: AffiliatesKitRoute,
   CronGoogleSyncRoute: CronGoogleSyncRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
