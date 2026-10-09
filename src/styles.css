@@ -6950,3 +6950,227 @@ h1 strong {
   flex: 1 1 220px;
   min-width: 0;
 }
+
+/* Note under the affiliate page intro (customers already have a link) */
+.aff-note {
+  margin: -6px 0 0;
+  padding: 10px 14px;
+  border-left: 2px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+/* Customer dashboard: "Refer a business" panel */
+.ref-panel {
+  display: grid;
+  gap: 14px;
+}
+.ref-lead {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--dash-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.ref-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.ref-link code {
+  flex: 1 1 260px;
+  min-width: 0;
+  padding: 9px 12px;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+  background: var(--dash-surface-2, transparent);
+  color: var(--dash-text);
+  font-size: 13.5px;
+}
+.ref-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.ref-stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--dash-line);
+  border-radius: 8px;
+}
+.ref-stats span {
+  color: var(--dash-faint);
+  font-size: 12px;
+}
+.ref-stats strong {
+  color: var(--dash-text);
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+.ref-paypal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ref-paypal .dash-input {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.ref-note {
+  margin: 0;
+  color: var(--dash-faint);
+  font-size: 13px;
+}
+.ref-note a {
+  color: var(--dash-text);
+}
+.dash-demo-banner {
+  margin-bottom: 16px;
+}
+@media (max-width: 560px) {
+  .ref-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Comparison pages (/compare/...) */
+.cmp-page {
+  display: grid;
+  gap: 22px;
+  max-width: 920px;
+  margin-inline: auto;
+}
+.cmp-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+.cmp-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.cmp-table th,
+.cmp-table td {
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.45;
+}
+.cmp-table tbody tr:last-child th,
+.cmp-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.cmp-table thead th {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cmp-table tbody th {
+  width: 30%;
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.cmp-table td {
+  color: var(--muted-foreground);
+}
+.cmp-table .cmp-us,
+.cmp-table .cmp-us-head {
+  background: var(--surface-soft);
+  color: var(--foreground);
+  font-weight: 600;
+}
+.cmp-mark {
+  display: inline-block;
+  width: 18px;
+  color: var(--muted-foreground);
+}
+.cmp-mark-good {
+  color: oklch(0.62 0.15 150);
+  font-weight: 700;
+}
+.cmp-section {
+  display: grid;
+  gap: 12px;
+}
+.cmp-section h2,
+.cmp-cta h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: 22px;
+  text-wrap: balance;
+}
+.cmp-reasons {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.cmp-reasons > div {
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+}
+.cmp-reasons h3 {
+  margin: 0 0 6px;
+  color: var(--foreground);
+  font-size: 16px;
+}
+.cmp-reasons p,
+.cmp-muted {
+  margin: 0;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+.cmp-cta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+.cmp-cta p {
+  margin: 6px 0 0;
+  color: var(--muted-foreground);
+}
+.cmp-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0;
+}
+.cmp-links a,
+.cmp-sources a {
+  color: var(--foreground);
+}
+.cmp-sources {
+  margin: 8px 0 0;
+  color: var(--muted-foreground);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+@media (max-width: 640px) {
+  .cmp-reasons {
+    grid-template-columns: 1fr;
+  }
+  .cmp-table {
+    min-width: 0;
+    font-size: 13px;
+  }
+  .cmp-table th,
+  .cmp-table td {
+    padding: 10px 8px;
+  }
+  .cmp-table tbody th {
+    width: 28%;
+  }
+  .cmp-mark {
+    display: none;
+  }
+}

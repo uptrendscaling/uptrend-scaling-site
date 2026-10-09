@@ -21,6 +21,7 @@ import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as AffiliatesKitRouteImport } from './routes/affiliates_.kit'
+import { Route as CompareCompetitorRouteImport } from './routes/compare.$competitor'
 import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
@@ -102,6 +103,11 @@ const UnsubscribeRoute = UnsubscribeRouteImport.update({
 const AffiliatesKitRoute = AffiliatesKitRouteImport.update({
   id: '/affiliates_/kit',
   path: '/affiliates/kit',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CompareCompetitorRoute = CompareCompetitorRouteImport.update({
+  id: '/compare/$competitor',
+  path: '/compare/$competitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CronGoogleSyncRoute = CronGoogleSyncRouteImport.update({
@@ -230,6 +236,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
+  '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
+  '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -303,6 +311,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/affiliates_/kit': typeof AffiliatesKitRoute
+  '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/unsubscribe'
     | '/affiliates/kit'
+    | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -377,6 +387,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/unsubscribe'
     | '/affiliates/kit'
+    | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/unsubscribe'
     | '/affiliates_/kit'
+    | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
@@ -450,6 +462,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   AffiliatesKitRoute: typeof AffiliatesKitRoute
+  CompareCompetitorRoute: typeof CompareCompetitorRoute
   CronGoogleSyncRoute: typeof CronGoogleSyncRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
@@ -558,6 +571,13 @@ declare module '@tanstack/react-router' {
       path: '/affiliates/kit'
       fullPath: '/affiliates/kit'
       preLoaderRoute: typeof AffiliatesKitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/compare/$competitor': {
+      id: '/compare/$competitor'
+      path: '/compare/$competitor'
+      fullPath: '/compare/$competitor'
+      preLoaderRoute: typeof CompareCompetitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cron/google-sync': {
@@ -730,6 +750,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   AffiliatesKitRoute: AffiliatesKitRoute,
+  CompareCompetitorRoute: CompareCompetitorRoute,
   CronGoogleSyncRoute: CronGoogleSyncRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
