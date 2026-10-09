@@ -6910,3 +6910,27 @@ h1 strong {
     grid-template-columns: 1fr;
   }
 }
+
+/* AffyList badge in the homepage footer (light or dark to match the theme) */
+.lp-footer-badge {
+  display: inline-flex;
+  justify-self: end;
+}
+.lp-footer-badge img {
+  width: 150px;
+  height: auto;
+}
+.lp-badge-dark {
+  display: none;
+}
+:root[data-theme="dark"] .lp-badge-light {
+  display: none;
+}
+:root[data-theme="dark"] .lp-badge-dark {
+  display: block;
+}
+@media (max-width: 720px) {
+  .lp-footer-badge {
+    justify-self: start;
+  }
+}
