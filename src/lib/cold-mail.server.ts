@@ -356,9 +356,12 @@ async function leadFirstJobs(limit: number): Promise<Job[]> {
         sql`lower(${leads.email}) not like 'info@%'`,
         sql`${leads.industry} ~* ${LEAD_INDUSTRY_PATTERN}`,
         sql`coalesce(${leads.notes}, '') not like 'Not sent:%'`,
+        // Colby's rule: never schools or other education businesses.
+        sql`${leads.businessName} !~* 'school|preschool|montessori|academy|learning cent|day ?care|child ?care|tutor'`,
       ),
     )
-    .orderBy(asc(leads.createdAt))
+    // Leads with a known owner name first (the greeting uses it).
+    .orderBy(sql`("leads"."owner_name" is not null) desc`, asc(leads.createdAt))
     .limit(limit);
   return rows.map((lead) => ({
     kind: "lead_first" as const,
