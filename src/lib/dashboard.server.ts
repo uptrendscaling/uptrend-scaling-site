@@ -329,7 +329,9 @@ function crmChip(
 
 // Zapier has no "listening" state of its own: the owner's Zaps call us. So it
 // reads "on" once a key exists, and "last request 5m ago" once one came in.
-function zapierChip(connection: ConnectionSummary | undefined): IntegrationChip {
+function zapierChip(
+  connection: ConnectionSummary | undefined,
+): IntegrationChip {
   if (!connection) {
     return chip("zapier", "Zapier", "not connected", "off", {
       opensSettings: true,
@@ -581,6 +583,7 @@ export async function loadDashboardShell(
       generatedAt: now.toISOString(),
       timezone,
       weeklySummaryEnabled: business.weeklySummaryEnabled,
+      repeatGuardEnabled: business.repeatGuardEnabled,
       chips: [],
       todos: [],
       live: false,
@@ -613,6 +616,7 @@ export async function loadDashboardShell(
     generatedAt: now.toISOString(),
     timezone,
     weeklySummaryEnabled: business.weeklySummaryEnabled,
+    repeatGuardEnabled: business.repeatGuardEnabled,
     chips: computeChips({
       connections: connectionRows,
       google,
@@ -948,7 +952,6 @@ async function loadFeedRows(db: Db, businessId: string) {
     problems: problemRows as FeedProblemRow[],
   };
 }
-
 
 // One Overview feed row for a paid invoice we could not act on. Only rows
 // that pass isWebhookProblem should be handed in: "Skipped:" (no request was
@@ -1625,6 +1628,33 @@ export const setWeeklySummaryEnabled = createServerFn({ method: "POST" })
         return { ok: true, enabled: data.enabled };
       } catch (error) {
         console.error("[dashboard] failed to update weekly summary", error);
+        return {
+          ok: false,
+          message: "Something went wrong. Please try again.",
+        };
+      }
+    },
+  );
+
+// "Ask repeat customers once every 90 days" switch in Settings.
+export const setRepeatGuardEnabled = createServerFn({ method: "POST" })
+  .validator((input: unknown) => weeklySummarySchema.parse(input))
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      { ok: true; enabled: boolean } | { ok: false; message: string }
+    > => {
+      const businessId = await sessionBusinessId();
+      if (!businessId) return { ok: false, message: "Not signed in." };
+      try {
+        await getDb()
+          .update(businesses)
+          .set({ repeatGuardEnabled: data.enabled })
+          .where(eq(businesses.id, businessId));
+        return { ok: true, enabled: data.enabled };
+      } catch (error) {
+        console.error("[dashboard] failed to update repeat guard", error);
         return {
           ok: false,
           message: "Something went wrong. Please try again.",

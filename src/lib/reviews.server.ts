@@ -22,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  or,
   sql,
 } from "drizzle-orm";
 import { z } from "zod";
@@ -274,9 +275,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
           .where(eq(businesses.id, businessId))
           .limit(1);
         if (row) {
-          const { ensureCustomerAffiliate, affiliateLinkFor } = await import(
-            "./affiliates.server"
-          );
+          const { ensureCustomerAffiliate, affiliateLinkFor } =
+            await import("./affiliates.server");
           const affiliate = await ensureCustomerAffiliate(row);
           if (affiliate?.code) referralLink = affiliateLinkFor(affiliate.code);
         }
@@ -288,7 +288,11 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         const result = await sendEmail(
           email,
           welcomeEmailSubject(),
-          welcomeEmailHtml(welcomeBusinessName, welcomeContactName, referralLink),
+          welcomeEmailHtml(
+            welcomeBusinessName,
+            welcomeContactName,
+            referralLink,
+          ),
           UPTREND_SUPPORT_EMAIL,
           TRUSTPILOT_AFS_BCC_EMAIL,
         );
@@ -851,6 +855,54 @@ async function clearHeldText(
 // follow-up reminder, all count as that single request. Counted per calendar
 // month in the business's own timezone. Admin accounts are never limited.
 
+// Repeat-customer guard (businesses.repeatGuardEnabled): how long after a
+// review request the same person isn't asked again.
+export const REPEAT_GUARD_DAYS = 90;
+
+function recentlyAskedMessage(name: string, askedAt: Date): string {
+  const when = askedAt.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+  return `${name} was already asked for a review on ${when}. To keep repeat customers from getting too many requests, each person is asked at most once every ${REPEAT_GUARD_DAYS} days. To ask again anyway, use Resend on their row, or turn this off in Settings.`;
+}
+
+// When this person (same CRM record, phone number or email) last got a
+// review request from this business inside the guard window, or null.
+async function lastAskedWithinGuard(
+  db: ReturnType<typeof getDb>,
+  businessId: string,
+  match: {
+    customerId?: string | undefined;
+    phone: string | null;
+    email: string | null;
+  },
+): Promise<Date | null> {
+  const people = [
+    ...(match.customerId ? [eq(customers.id, match.customerId)] : []),
+    ...(match.phone ? [eq(customers.phone, match.phone)] : []),
+    ...(match.email ? [eq(customers.email, match.email)] : []),
+  ];
+  if (people.length === 0) return null;
+  const cutoff = new Date(Date.now() - REPEAT_GUARD_DAYS * 24 * 60 * 60 * 1000);
+  const [row] = await db
+    .select({ sentAt: messages.sentAt })
+    .from(messages)
+    .innerJoin(customers, eq(messages.customerId, customers.id))
+    .where(
+      and(
+        eq(customers.businessId, businessId),
+        or(...people),
+        inArray(messages.kind, ["initial", "manual"]),
+        eq(messages.status, "sent"),
+        gte(messages.sentAt, cutoff),
+      ),
+    )
+    .orderBy(desc(messages.sentAt))
+    .limit(1);
+  return row?.sentAt ?? null;
+}
+
 export const LIMIT_REACHED_MESSAGE =
   "You've used all of this month's review requests on your plan. Upgrade your plan or wait for next month to send more.";
 
@@ -905,9 +957,11 @@ export type CreateCustomerAndSendResult =
       ok: false;
       // "no_review_link": nothing was created or sent because the business
       // has no Google review link yet. "limit_reached": this month's review
-      // requests on their plan are used up. "error": the customer row could
-      // not be created or found.
-      reason: "no_review_link" | "limit_reached" | "error";
+      // requests on their plan are used up. "recently_asked": this person
+      // was already asked within the repeat-customer window (see
+      // REPEAT_GUARD_DAYS). "error": the customer row could not be created
+      // or found.
+      reason: "no_review_link" | "limit_reached" | "recently_asked" | "error";
       message: string;
     };
 
@@ -940,7 +994,11 @@ export async function createCustomerAndSendReviewRequest(
 
   const db = getDb();
   if (await isOverRequestLimit(db, business)) {
-    return { ok: false, reason: "limit_reached", message: LIMIT_REACHED_MESSAGE };
+    return {
+      ok: false,
+      reason: "limit_reached",
+      message: LIMIT_REACHED_MESSAGE,
+    };
   }
   // Store the E.164 form so every later send (reminders, manual resend) uses
   // a number Telnyx accepts. An unusable number or address becomes null.
@@ -979,6 +1037,28 @@ export async function createCustomerAndSendReviewRequest(
         .where(eq(customers.id, customer.id))
         .returning();
       customer = updated ?? customer;
+    }
+  }
+
+  // Repeat-customer guard. Not applied to a retry of the same invoice (its
+  // own first attempt would look like a recent request).
+  if (business.repeatGuardEnabled && !options.alreadyAttemptedSince) {
+    try {
+      const askedAt = await lastAskedWithinGuard(db, business.id, {
+        customerId: customer?.id,
+        phone,
+        email,
+      });
+      if (askedAt) {
+        return {
+          ok: false,
+          reason: "recently_asked",
+          message: recentlyAskedMessage(input.name, askedAt),
+        };
+      }
+    } catch (error) {
+      // Never let the guard itself block a request.
+      console.error("[reviews] repeat-customer check failed", error);
     }
   }
 
@@ -1463,26 +1543,26 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
     const summaries: AdminBusinessSummary[] = allBusinesses
       .filter((business) => !business.isDemo)
       .map((business) => {
-      const bizCustomers = allCustomers.filter(
-        (c) => c.businessId === business.id,
-      );
-      const bizMessages = allMessages.filter(
-        (m) => m.businessId === business.id,
-      );
-      return {
-        id: business.id,
-        businessName: business.businessName,
-        contactName: business.contactName,
-        email: business.email,
-        plan: business.plan,
-        accessRevoked: business.accessRevoked,
-        createdAt: business.createdAt,
-        totalCustomers: bizCustomers.length,
-        messagesSent: bizMessages.filter((m) => m.status === "sent").length,
-        linkClicks: bizCustomers.filter((c) => c.linkClickedAt).length,
-        reviewedCount: bizCustomers.filter((c) => c.markedReviewedAt).length,
-      };
-    });
+        const bizCustomers = allCustomers.filter(
+          (c) => c.businessId === business.id,
+        );
+        const bizMessages = allMessages.filter(
+          (m) => m.businessId === business.id,
+        );
+        return {
+          id: business.id,
+          businessName: business.businessName,
+          contactName: business.contactName,
+          email: business.email,
+          plan: business.plan,
+          accessRevoked: business.accessRevoked,
+          createdAt: business.createdAt,
+          totalCustomers: bizCustomers.length,
+          messagesSent: bizMessages.filter((m) => m.status === "sent").length,
+          linkClicks: bizCustomers.filter((c) => c.linkClickedAt).length,
+          reviewedCount: bizCustomers.filter((c) => c.markedReviewedAt).length,
+        };
+      });
 
     return { ok: true, businesses: summaries };
   },
