@@ -1031,6 +1031,7 @@ function AffiliateOutreachTab({
                 <th>Status</th>
                 <th>Invited</th>
                 <th>Followed up</th>
+                <th>Instagram DM</th>
                 <th />
               </tr>
             </thead>
@@ -1051,6 +1052,21 @@ function AffiliateOutreachTab({
                   <td>{prospectStatusPill(p)}</td>
                   <td className="dash-cell-muted">{p.contactedAt ? formatDate(p.contactedAt) : "Not yet"}</td>
                   <td className="dash-cell-muted">{p.followUpSentAt ? formatDate(p.followUpSentAt) : "—"}</td>
+                  <td className="dash-cell-muted">
+                    {p.instagramDmSentAt ? (
+                      <>
+                        <DashPill tone="warn">DM sent</DashPill>
+                        <div>
+                          {p.instagramHandle ? `@${p.instagramHandle}, ` : ""}
+                          {formatDate(p.instagramDmSentAt)}
+                        </div>
+                      </>
+                    ) : p.instagramHandle ? (
+                      `@${p.instagramHandle}`
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>
                     {p.contactedAt && !p.respondedAt && !p.applied && !p.unsubscribedAt ? (
                       <DashButton
