@@ -540,6 +540,7 @@ export function welcomeEmailSubject(): string {
 export function welcomeEmailHtml(
   businessName: string,
   contactName: string,
+  referralLink: string | null = null,
 ): string {
   const loginUrl = `${CANONICAL_SITE_URL}/login`;
   // Both names come from the signup form. paraHtml takes markup, so they are
@@ -599,6 +600,23 @@ export function welcomeEmailHtml(
         ${emailParaHtml(escapeHtml("Thanks for giving us a shot!"), 12)}
         ${emailSignoff("Colby", "Founder, UpTrend Scaling | uptrendscaling.com")}`,
       },
+      ...(referralLink
+        ? [
+            {
+              top: 8,
+              bottom: 8,
+              html: emailCard(
+                "Know another business owner?",
+                `${emailParaHtml(
+                  escapeHtml(
+                    "Share your referral link. They skip the $20 setup fee, and you earn 25% of every payment they make for as long as they stay, plus $20 on their 2nd payment. Your link and earnings are on your dashboard.",
+                  ),
+                  10,
+                )}<p style="margin:0;font-size:15px;font-weight:700;word-break:break-all;color:#18181b;">${escapeHtml(referralLink)}</p>`,
+              ),
+            },
+          ]
+        : []),
       {
         top: 12,
         bottom: 28,

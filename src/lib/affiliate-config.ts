@@ -5,6 +5,9 @@
 // Paid on every payment a referred customer makes, for as long as they stay
 // a customer (no end date).
 export const AFFILIATE_COMMISSION_RATE = 0.25;
+// One-time bonus per referred business, earned when that business makes its
+// 2nd monthly payment (the same moment commission becomes payable).
+export const AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS = 20;
 // Commission only becomes payable once the customer has made this many
 // monthly payments, so a trial that cancels or refunds right away pays nothing.
 export const AFFILIATE_PAYABLE_AFTER_PAYMENTS = 2;

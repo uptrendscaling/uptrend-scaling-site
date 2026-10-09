@@ -93,6 +93,7 @@ export type PublicBusiness = {
   googleReviewUrl: string | null;
   isAdmin: boolean;
   accessRevoked: boolean;
+  isDemo: boolean;
 };
 
 function toPublicBusiness(business: Business): PublicBusiness {
@@ -107,6 +108,7 @@ function toPublicBusiness(business: Business): PublicBusiness {
     googleReviewUrl: business.googleReviewUrl,
     isAdmin: business.isAdmin,
     accessRevoked: business.accessRevoked,
+    isDemo: business.isDemo,
   };
 }
 
@@ -261,11 +263,32 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       // rest of the messaging pipeline. BCC'd to Trustpilot's AFS address so
       // this first "purchase experience" triggers a review invite about a
       // week later -- see TRUSTPILOT_AFS_BCC_EMAIL.
+      // Every customer gets a referral link of their own (same terms as
+      // affiliates), mentioned in the welcome email. Loaded lazily because
+      // affiliates.server imports this file.
+      let referralLink: string | null = null;
+      try {
+        const [row] = await db
+          .select()
+          .from(businesses)
+          .where(eq(businesses.id, businessId))
+          .limit(1);
+        if (row) {
+          const { ensureCustomerAffiliate, affiliateLinkFor } = await import(
+            "./affiliates.server"
+          );
+          const affiliate = await ensureCustomerAffiliate(row);
+          if (affiliate?.code) referralLink = affiliateLinkFor(affiliate.code);
+        }
+      } catch (error) {
+        console.error("[reviews] could not set up referral link", error);
+      }
+
       if (isResendConfigured()) {
         const result = await sendEmail(
           email,
           welcomeEmailSubject(),
-          welcomeEmailHtml(welcomeBusinessName, welcomeContactName),
+          welcomeEmailHtml(welcomeBusinessName, welcomeContactName, referralLink),
           UPTREND_SUPPORT_EMAIL,
           TRUSTPILOT_AFS_BCC_EMAIL,
         );
@@ -657,6 +680,33 @@ async function sendReviewRequestAndLog(
   // be normalized is treated as "no phone" rather than sent and rejected.
   const phone = normalizeUsPhone(customer.phone);
   const email = normalizeEmail(customer.email);
+
+  // Partner demo accounts never text or email anyone (each real send costs
+  // money). The request is logged as if it went out, so the demo dashboard
+  // behaves exactly like a real one, but nothing leaves the building.
+  if (business.isDemo) {
+    for (const channel of [
+      ...(phone ? (["sms"] as const) : []),
+      ...(email ? (["email"] as const) : []),
+    ]) {
+      await logMessage(db, {
+        businessId: business.id,
+        customerId: customer.id,
+        channel,
+        kind,
+        status: "sent",
+        providerMessageId: "demo",
+        errorMessage: null,
+      });
+    }
+    return {
+      smsSent: phone ? true : null,
+      emailSent: email ? true : null,
+      smsError: null,
+      emailError: null,
+      smsHeld: false,
+    };
+  }
 
   let smsSent: boolean | null = null;
   let emailSent: boolean | null = null;
@@ -1408,7 +1458,11 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
       db.select().from(messages),
     ]);
 
-    const summaries: AdminBusinessSummary[] = allBusinesses.map((business) => {
+    // Partner demo accounts hold sample data only; keep them out of the
+    // real client list and totals.
+    const summaries: AdminBusinessSummary[] = allBusinesses
+      .filter((business) => !business.isDemo)
+      .map((business) => {
       const bizCustomers = allCustomers.filter(
         (c) => c.businessId === business.id,
       );
@@ -1470,7 +1524,24 @@ export const getAdminProgressSeries = createServerFn({ method: "GET" })
         : db.select().from(messages),
     ]);
 
-    return { ok: true, series: buildWeeklySeries(customerRows, messageRows) };
+    // Leave partner demo accounts' sample data out of the combined chart.
+    const demoIds = data.businessId
+      ? new Set<string>()
+      : new Set(
+          (
+            await db
+              .select({ id: businesses.id })
+              .from(businesses)
+              .where(eq(businesses.isDemo, true))
+          ).map((b) => b.id),
+        );
+    return {
+      ok: true,
+      series: buildWeeklySeries(
+        customerRows.filter((c) => !demoIds.has(c.businessId)),
+        messageRows.filter((m) => !demoIds.has(m.businessId)),
+      ),
+    };
   });
 
 // ---- Public review-link redirect (/r/$token) ------------------------------

@@ -1,7 +1,9 @@
 // Affiliate program: people who send us customers through their own link
 // (uptrendscaling.com/?ref=CODE) earn 25% of every payment each referred
-// customer makes, for as long as that customer stays. Referred customers skip
-// the $20 setup fee.
+// customer makes, for as long as that customer stays, plus a one-time $20
+// bonus when that customer makes their 2nd monthly payment. Referred customers
+// skip the $20 setup fee. Every paying UpTrend customer also gets a referral
+// link of their own automatically, on the same terms (source = "customer").
 //
 // How a referral is tracked, end to end:
 // 1. Any page opened with ?ref=CODE saves the code in a cookie for 60 days
@@ -24,13 +26,17 @@ import { z } from "zod";
 import {
   AFFILIATE_COMMISSION_RATE,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
+  AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS,
 } from "./affiliate-config";
+import { getSessionBusinessId } from "./auth.server";
+import { ensureDemoAccount } from "./demo.server";
 import { getDb, isDbConfigured } from "./db/client";
 import {
   affiliatePayouts,
   affiliates,
   businesses,
   type Affiliate,
+  type Business,
 } from "./db/schema";
 import { button, card, detailRows, emailShell, para } from "./email-layout";
 import {
@@ -244,7 +250,7 @@ function applicantConfirmationHtml(name: string): string {
       },
       {
         html: para(
-          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, and the businesses you send skip our $20 setup fee.",
+          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, plus a $20 bonus when they make their 2nd payment. The businesses you send skip our $20 setup fee.",
         ),
       },
       {
@@ -260,7 +266,11 @@ function applicantConfirmationHtml(name: string): string {
   });
 }
 
-function approvalEmailHtml(name: string, code: string): string {
+function approvalEmailHtml(
+  name: string,
+  code: string,
+  demoSetupUrl: string | null,
+): string {
   const link = affiliateLinkFor(code);
   return emailShell({
     subject: "You're in: your UpTrend Scaling affiliate link",
@@ -286,7 +296,7 @@ function approvalEmailHtml(name: string, code: string): string {
             {
               label: "You earn",
               value:
-                "25% of every payment each referred business makes, for as long as they stay a customer",
+                "25% of every payment each referred business makes, for as long as they stay a customer, plus a $20 bonus on their 2nd payment",
             },
             {
               label: "They get",
@@ -315,6 +325,18 @@ function approvalEmailHtml(name: string, code: string): string {
           "To make sharing easy, we put together a partner kit: ready-to-send emails, social posts, the key talking points and answers to common questions. Just swap in your link.",
         ),
       },
+      ...(demoSetupUrl
+        ? [
+            {
+              html: card(
+                "Your demo account",
+                `<p style="margin:0 0 10px;font-size:15px;line-height:1.6;color:#18181b;">We also set up a demo dashboard you can log into and show people. It's filled with sample customers and reviews, and it never sends real texts or emails, so click around freely.</p><p style="margin:0;font-size:15px;line-height:1.6;color:#18181b;">Set your password here (link works for 7 days): <a href="${demoSetupUrl}" style="color:#18181b;font-weight:700;">Set up my demo login</a>. After that, log in at uptrendscaling.com/login with this email address.</p>`,
+              ),
+              top: 4,
+              bottom: 12,
+            },
+          ]
+        : []),
       {
         html: button(
           "Open your partner kit",
@@ -360,6 +382,8 @@ export type AffiliateSummary = {
   website: string | null;
   promotePlan: string | null;
   status: Affiliate["status"];
+  source: Affiliate["source"];
+  hasDemo: boolean;
   code: string | null;
   link: string | null;
   createdAt: Date;
@@ -376,6 +400,19 @@ export type AffiliatesOverviewResult =
   | { ok: false; message: string };
 
 type StripeLike = import("stripe").default;
+
+// 25% of everything paid, plus the one-time bonus once the business has made
+// its 2nd payment.
+function commissionCentsFor(payments: number[]): number {
+  const percent = Math.round(
+    payments.reduce((sum, cents) => sum + cents, 0) * AFFILIATE_COMMISSION_RATE,
+  );
+  const bonus =
+    payments.length >= AFFILIATE_PAYABLE_AFTER_PAYMENTS
+      ? AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS * 100
+      : 0;
+  return percent + bonus;
+}
 
 // What a referred business has paid us that earns commission: every paid
 // invoice, minus any setup fee on it and minus anything refunded with a credit
@@ -446,6 +483,14 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
         : [];
 
       const payouts = await db.select().from(affiliatePayouts);
+      const demoEmails = new Set(
+        (
+          await db
+            .select({ email: businesses.email })
+            .from(businesses)
+            .where(eq(businesses.isDemo, true))
+        ).map((b) => b.email.toLowerCase()),
+      );
 
       const secretKey = process.env["STRIPE_SECRET_KEY"];
       let stripe: StripeLike | null = null;
@@ -471,10 +516,7 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
             );
           }
         }
-        const earned = Math.round(
-          payments.reduce((sum, cents) => sum + cents, 0) *
-            AFFILIATE_COMMISSION_RATE,
-        );
+        const earned = commissionCentsFor(payments);
         const referral: AffiliateReferral = {
           businessId: biz.id,
           businessName: biz.businessName,
@@ -515,6 +557,8 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
           website: row.website,
           promotePlan: row.promotePlan,
           status: row.status,
+          source: row.source,
+          hasDemo: demoEmails.has(row.email.toLowerCase()),
           code: row.code,
           link: row.code ? affiliateLinkFor(row.code) : null,
           createdAt: row.createdAt,
@@ -633,11 +677,23 @@ export const setAffiliateStatus = createServerFn({ method: "POST" })
         })
         .where(eq(affiliates.id, row.id));
 
+      // Partners who applied get a demo account to show people. (Customers
+      // referring others already have their own real dashboard.)
+      let demoSetupUrl: string | null = null;
+      if (firstApproval && row.source === "application") {
+        try {
+          const demo = await ensureDemoAccount(row);
+          if (demo.ok) demoSetupUrl = demo.setupUrl;
+        } catch (error) {
+          console.error("[affiliates] demo account failed", error);
+        }
+      }
+
       if (firstApproval && isResendConfigured()) {
         const sent = await sendEmail(
           row.email,
           "You're in: your UpTrend Scaling affiliate link",
-          approvalEmailHtml(row.name, code),
+          approvalEmailHtml(row.name, code, demoSetupUrl),
           undefined,
           undefined,
           { idempotencyKey: `affiliate-approved-${row.id}` },
@@ -681,3 +737,256 @@ export const recordAffiliatePayout = createServerFn({ method: "POST" })
       return { ok: false, message: "Something went wrong. Please try again." };
     }
   });
+
+// ---- Demo accounts (admin) ---------------------------------------------------
+
+// "Create demo" button on the Affiliates tab: makes the partner a demo
+// account (or finds the one they have) and emails them a fresh link to set
+// their password.
+export const sendPartnerDemo = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ affiliateId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }): Promise<AffiliateActionResult> => {
+    if (!isDbConfigured()) return { ok: false, message: "Not configured yet." };
+    try {
+      await requireAdminBusiness();
+    } catch {
+      return { ok: false, message: "Not authorized." };
+    }
+    try {
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(affiliates)
+        .where(eq(affiliates.id, data.affiliateId))
+        .limit(1);
+      if (!row) return { ok: false, message: "Partner not found." };
+      const demo = await ensureDemoAccount(row);
+      if (!demo.ok) return { ok: false, message: demo.message };
+      if (!isResendConfigured()) {
+        return { ok: false, message: "Email isn't set up, so the link couldn't be sent." };
+      }
+      const sent = await sendEmail(
+        row.email,
+        "Your UpTrend Scaling demo account",
+        demoInviteEmailHtml(row.name, demo.setupUrl),
+      );
+      if (!sent.ok) return { ok: false, message: "The email didn't go out. Try again." };
+      return { ok: true, code: row.code };
+    } catch (error) {
+      console.error("[affiliates] failed to send demo", error);
+      return { ok: false, message: "Something went wrong. Please try again." };
+    }
+  });
+
+function demoInviteEmailHtml(name: string, setupUrl: string): string {
+  return emailShell({
+    subject: "Your UpTrend Scaling demo account",
+    preheader: "A sample dashboard you can show people. It never sends real messages.",
+    tagline: "PARTNER PROGRAM",
+    sections: [
+      { html: para(`Hi ${firstName(name)},`) },
+      {
+        html: para(
+          "Here's your UpTrend Scaling demo account: a real dashboard filled with sample customers and reviews that you can log into and show the businesses you refer. It never sends real texts or emails, so click around freely.",
+        ),
+      },
+      {
+        html: button("Set up my demo login", setupUrl),
+        align: "center",
+        top: 12,
+        bottom: 12,
+      },
+      {
+        html: para(
+          `The link works for 7 days. After you set a password, log in any time at ${CANONICAL_SITE_URL}/login with this email address.`,
+        ),
+      },
+    ],
+    footerLines: ["UpTrend Scaling partner program"],
+  });
+}
+
+// ---- Customer referrals ------------------------------------------------------
+
+// Every paying customer gets a referral link on the same terms as affiliates.
+// Creates their affiliate row the first time it's needed (dashboard panel or
+// welcome email). Never for demo or admin accounts. Never throws.
+export async function ensureCustomerAffiliate(
+  business: Business,
+): Promise<Affiliate | null> {
+  if (business.isDemo || business.isAdmin || !isDbConfigured()) return null;
+  try {
+    const db = getDb();
+    const [linked] = await db
+      .select()
+      .from(affiliates)
+      .where(eq(affiliates.businessId, business.id))
+      .limit(1);
+    if (linked) return linked;
+
+    // Already an affiliate under the same email (applied before signing up):
+    // reuse that row so they keep one link.
+    const [sameEmail] = await db
+      .select()
+      .from(affiliates)
+      .where(eq(affiliates.email, business.email.toLowerCase()))
+      .orderBy(desc(affiliates.createdAt))
+      .limit(1);
+    if (sameEmail && sameEmail.status === "approved" && sameEmail.code) {
+      const [updated] = await db
+        .update(affiliates)
+        .set({ businessId: business.id })
+        .where(eq(affiliates.id, sameEmail.id))
+        .returning();
+      return updated ?? sameEmail;
+    }
+
+    const code = await uniqueCodeFor(business.businessName);
+    const now = new Date();
+    const [created] = await db
+      .insert(affiliates)
+      .values({
+        name: business.contactName || business.businessName,
+        email: business.email.toLowerCase(),
+        status: "approved",
+        code,
+        approvedAt: now,
+        source: "customer",
+        businessId: business.id,
+        // Customers don't get the partner onboarding check-in emails.
+        checkin1SentAt: now,
+        checkin2SentAt: now,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (created) return created;
+    const [raced] = await db
+      .select()
+      .from(affiliates)
+      .where(eq(affiliates.businessId, business.id))
+      .limit(1);
+    return raced ?? null;
+  } catch (error) {
+    console.error("[affiliates] failed to set up customer referral link", error);
+    return null;
+  }
+}
+
+export type MyReferralResult =
+  | {
+      ok: true;
+      link: string;
+      paypalEmail: string | null;
+      referrals: number;
+      payingReferrals: number;
+      earnedCents: number;
+      paidOutCents: number;
+    }
+  | { ok: false; message: string };
+
+// The "Refer a business" panel in the customer dashboard.
+export const getMyReferral = createServerFn({ method: "GET" }).handler(
+  async (): Promise<MyReferralResult> => {
+    if (!isDbConfigured()) return { ok: false, message: "Not configured yet." };
+    const businessId = await getSessionBusinessId();
+    if (!businessId) return { ok: false, message: "Not signed in." };
+    try {
+      const db = getDb();
+      const [business] = await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .limit(1);
+      if (!business || business.isDemo || business.isAdmin || business.accessRevoked) {
+        return { ok: false, message: "Not available for this account." };
+      }
+      const affiliate = await ensureCustomerAffiliate(business);
+      if (!affiliate?.code) return { ok: false, message: "Not available yet." };
+
+      const referred = await db
+        .select({
+          stripeCustomerId: businesses.stripeCustomerId,
+        })
+        .from(businesses)
+        .where(eq(businesses.referredBy, affiliate.code));
+
+      let earnedCents = 0;
+      let payingReferrals = 0;
+      const secretKey = process.env["STRIPE_SECRET_KEY"];
+      if (secretKey && referred.length) {
+        const { default: Stripe } = await import("stripe");
+        const stripe = new Stripe(secretKey);
+        for (const biz of referred) {
+          if (!biz.stripeCustomerId) continue;
+          try {
+            const payments = await commissionablePayments(stripe, biz.stripeCustomerId);
+            if (payments.length) payingReferrals += 1;
+            earnedCents += commissionCentsFor(payments);
+          } catch (error) {
+            console.error("[affiliates] failed to read referral invoices", error);
+          }
+        }
+      }
+      const paidOutCents = (
+        await db
+          .select({ amountCents: affiliatePayouts.amountCents })
+          .from(affiliatePayouts)
+          .where(eq(affiliatePayouts.affiliateId, affiliate.id))
+      ).reduce((sum, p) => sum + p.amountCents, 0);
+
+      return {
+        ok: true,
+        link: affiliateLinkFor(affiliate.code),
+        paypalEmail: affiliate.paypalEmail,
+        referrals: referred.length,
+        payingReferrals,
+        earnedCents,
+        paidOutCents,
+      };
+    } catch (error) {
+      console.error("[affiliates] failed to load referral panel", error);
+      return { ok: false, message: "Something went wrong." };
+    }
+  },
+);
+
+export const saveMyPayPal = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        paypalEmail: z
+          .string()
+          .trim()
+          .toLowerCase()
+          .email("Enter the email on your PayPal account")
+          .max(254),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    if (!isDbConfigured()) return { ok: false, message: "Not configured yet." };
+    const businessId = await getSessionBusinessId();
+    if (!businessId) return { ok: false, message: "Not signed in." };
+    try {
+      const db = getDb();
+      const [business] = await db
+        .select()
+        .from(businesses)
+        .where(eq(businesses.id, businessId))
+        .limit(1);
+      if (!business) return { ok: false, message: "Not signed in." };
+      const affiliate = await ensureCustomerAffiliate(business);
+      if (!affiliate) return { ok: false, message: "Not available for this account." };
+      await db
+        .update(affiliates)
+        .set({ paypalEmail: data.paypalEmail })
+        .where(eq(affiliates.id, affiliate.id));
+      return { ok: true };
+    } catch (error) {
+      console.error("[affiliates] failed to save PayPal email", error);
+      return { ok: false, message: "Something went wrong. Please try again." };
+    }
+  });
+

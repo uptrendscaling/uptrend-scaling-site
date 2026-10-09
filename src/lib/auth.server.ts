@@ -69,9 +69,14 @@ export async function clearBusinessSession(): Promise<void> {
 // business's password -- exactly what a normal emailed reset link allows.
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-export function createPasswordResetToken(businessId: string): string {
+// `ttlMs` is longer for the "set your password" link in a partner's demo
+// account invite, which may sit in their inbox for a few days.
+export function createPasswordResetToken(
+  businessId: string,
+  ttlMs: number = RESET_TOKEN_TTL_MS,
+): string {
   const secret = process.env["SESSION_SECRET"] ?? "";
-  const expiresAt = Date.now() + RESET_TOKEN_TTL_MS;
+  const expiresAt = Date.now() + ttlMs;
   const payload = `${businessId}.${expiresAt}`;
   const signature = createHmac("sha256", secret).update(payload).digest("hex");
   return Buffer.from(`${payload}.${signature}`, "utf8").toString("base64url");

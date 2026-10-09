@@ -545,6 +545,7 @@ function toPublicBusiness(business: Business): DashboardShell["business"] {
     googleReviewUrl: business.googleReviewUrl,
     isAdmin: business.isAdmin,
     accessRevoked: business.accessRevoked,
+    isDemo: business.isDemo,
   };
 }
 

@@ -127,7 +127,7 @@ export function renderInviteEmail(p: ProspectEmailInput): OutreachEmail & {
   const lines = {
     intro: introLine(p),
     what: "I run UpTrend Scaling. When a business gets paid for a job, we automatically text and email that customer a one-tap Google review link, plus one reminder if they forget. It connects to Square and Jobber, so there is nothing to type in.",
-    offer: `We just opened a partner program, and I think it's a good fit for ${who}. You earn 25% of every payment from each business you send us, for as long as they stay a customer.`,
+    offer: `We just opened a partner program, and I think it's a good fit for ${who}. You earn 25% of every payment from each business you send us, for as long as they stay a customer, plus a $20 bonus when each one makes its 2nd payment.`,
     cta: "Signing up takes about two minutes and costs nothing. Or just reply with any questions.",
     ps: 'P.S. Not a fit? Reply "no thanks" and I won\'t email again.',
   };
@@ -136,7 +136,11 @@ export function renderInviteEmail(p: ProspectEmailInput): OutreachEmail & {
       label: "1 business, $100 plan",
       value: "$25 a month to you, every month they stay",
     },
-    { label: "10 businesses", value: "$250 a month" },
+    {
+      label: "Bonus",
+      value: "$20 extra when each business makes its 2nd payment",
+    },
+    { label: "10 businesses", value: "$250 a month, plus $200 in bonuses" },
     {
       label: "What they get",
       value: "No $20 setup fee, plus a 7-day free trial",
@@ -209,7 +213,7 @@ export function renderFollowUpEmail(p: ProspectEmailInput): OutreachEmail & {
   const lines = {
     intro:
       "Quick follow up on my note about the UpTrend Scaling partner program.",
-    short: `The short version: you earn 25% of every payment from each business you send us, for as long as they stay a customer, and the businesses you send skip our $20 setup fee. Most of ${whoTheyServe(p.kind)} could use more Google reviews, and this gets them without anyone having to ask.`,
+    short: `The short version: you earn 25% of every payment from each business you send us, for as long as they stay a customer, plus $20 when each one makes its 2nd payment. The businesses you send skip our $20 setup fee. Most of ${whoTheyServe(p.kind)} could use more Google reviews, and this gets them without anyone having to ask.`,
     ask: "Want me to send a short walkthrough of how it works? Just reply and I will.",
     ps: "P.S. If this isn't a fit, reply \"no thanks\" and I won't email you again.",
   };
@@ -427,6 +431,7 @@ async function sendCheckins(): Promise<number> {
     .where(
       and(
         eq(affiliates.status, "approved"),
+        eq(affiliates.source, "application"),
         isNotNull(affiliates.code),
         isNull(affiliates.checkin1SentAt),
         sql`${affiliates.approvedAt} <= now() - interval '3 days'`,
@@ -457,6 +462,7 @@ async function sendCheckins(): Promise<number> {
     .where(
       and(
         eq(affiliates.status, "approved"),
+        eq(affiliates.source, "application"),
         isNotNull(affiliates.code),
         isNotNull(affiliates.checkin1SentAt),
         isNull(affiliates.checkin2SentAt),
