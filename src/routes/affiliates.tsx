@@ -9,6 +9,7 @@ import {
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
 } from "../lib/affiliate-config";
 import { applyForAffiliate } from "../lib/affiliates.server";
+import { COMPARISON_PAGES } from "../lib/compare-links";
 import { CANONICAL_SITE_URL } from "../lib/site";
 
 const AFFILIATE_OG_IMAGE_URL = `${CANONICAL_SITE_URL}/og-affiliates.png`;
@@ -166,6 +167,23 @@ function AffiliatesPage() {
                 ${AFFILIATE_MIN_PAYOUT_DOLLARS}.
               </li>
             </ol>
+
+            <section className="aff-terms aff-compare">
+              <h2>Ready-made content to share</h2>
+              <p>
+                Comparison pages that show why local businesses choose UpTrend.
+                Easy to point to in a post, video or email. Once you're
+                approved, your partner kit gives you each one with your link
+                built in.
+              </p>
+              <ul>
+                {COMPARISON_PAGES.map((page) => (
+                  <li key={page.slug}>
+                    <a href={`/compare/${page.slug}`}>UpTrend vs {page.name}</a>
+                  </li>
+                ))}
+              </ul>
+            </section>
 
             <section id="terms" className="aff-terms">
               <h2>Program terms</h2>

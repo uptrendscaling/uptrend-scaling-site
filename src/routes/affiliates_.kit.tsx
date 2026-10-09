@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { ThemeToggle } from "../components/theme-toggle";
 import { readRefCookie } from "../lib/affiliate-config";
+import { COMPARISON_PAGES, comparisonLink } from "../lib/compare-links";
 import { CANONICAL_SITE_URL } from "../lib/site";
 
 // The partner kit: ready-to-use emails, posts and answers for affiliates.
@@ -280,6 +281,46 @@ function PartnerKit() {
                 onCopy={(i, x) => void copy(i, x)}
               />
             ))}
+          </section>
+
+          <section className="kit-section">
+            <h2>Comparison pages</h2>
+            <p className="kit-lead">
+              Side-by-side pages showing why businesses pick UpTrend over the
+              big names. Great for a "which review tool should I use?" post,
+              video or email.
+              {code ? " Your link is already built into each one." : ""}
+            </p>
+            <div className="kit-compare">
+              {COMPARISON_PAGES.map((page) => {
+                const url = comparisonLink(page.slug, code);
+                return (
+                  <div key={page.slug} className="kit-compare-row">
+                    <div>
+                      <strong>UpTrend vs {page.name}</strong>
+                      <span>{url}</span>
+                    </div>
+                    <div className="kit-compare-actions">
+                      <a
+                        className="button button-ghost kit-copy"
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open
+                      </a>
+                      <button
+                        type="button"
+                        className="button button-ghost kit-copy"
+                        onClick={() => void copy(`cmp-${page.slug}`, url)}
+                      >
+                        {copied === `cmp-${page.slug}` ? "Copied" : "Copy"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </section>
 
           <section className="kit-section">
