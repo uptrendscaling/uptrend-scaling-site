@@ -418,16 +418,15 @@ async function affiliateFirstJobs(limit: number): Promise<Job[]> {
   }));
 }
 
-// Mixes the four queues so leads get about two thirds of the day's sends and
-// affiliate outreach about a third, with follow-ups ahead of new emails.
+// Mixes the four queues so affiliates get half of the day's sends and
+// business leads get the other half (affiliates are the main growth channel).
+// If one side has nothing ready, the other side fills its share.
 function interleave(queues: Record<Kind, Job[]>, total: number): Job[] {
   const pattern: Kind[] = [
-    "lead_followup",
+    "affiliate_first",
     "lead_first",
     "affiliate_followup",
     "lead_followup",
-    "lead_first",
-    "affiliate_first",
   ];
   const picked: Job[] = [];
   const cursors: Record<Kind, number> = {
