@@ -5,6 +5,7 @@
 // so the site keeps working normally before the database is provisioned.
 
 import { randomUUID } from "node:crypto";
+import { tokenToUuid } from "./short-token";
 
 import { createServerFn } from "@tanstack/react-start";
 import {
@@ -21,6 +22,7 @@ import {
   isNotNull,
   isNull,
   lt,
+  sql,
 } from "drizzle-orm";
 import { z } from "zod";
 
@@ -44,6 +46,7 @@ import {
   type Message,
 } from "./db/schema";
 import type { CustomerSource } from "./crm/providers";
+import { monthlyRequestLimit, tierById } from "./pricing";
 import { CANONICAL_SITE_URL } from "./site";
 import {
   initialEmailHtml,
@@ -59,6 +62,7 @@ import {
   resetPasswordEmailHtml,
   resetPasswordEmailSubject,
   reviewLinkFor,
+  shortReviewLinkFor,
   sendEmail,
   sendSms,
   TRUSTPILOT_AFS_BCC_EMAIL,
@@ -177,6 +181,14 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         typeof session.customer === "string" ? session.customer : null;
       const stripeSubscriptionId =
         typeof session.subscription === "string" ? session.subscription : null;
+      const tier = tierById(
+        typeof metadata["tier"] === "string" ? metadata["tier"] : null,
+      ).id;
+      // Set when they signed up through an affiliate link (checkout.server.ts).
+      const referredBy =
+        typeof metadata["affiliate"] === "string" && metadata["affiliate"]
+          ? metadata["affiliate"]
+          : null;
 
       const db = getDb();
       const [existing] = await db
@@ -209,6 +221,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
             passwordHash,
             stripeCustomerId,
             stripeSubscriptionId,
+            referredBy: existing.referredBy ?? referredBy,
+            tier,
             plan:
               plan === "trial" || plan === "membership" ? plan : existing.plan,
           })
@@ -227,6 +241,8 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
             passwordHash,
             stripeCustomerId,
             stripeSubscriptionId,
+            referredBy,
+            tier,
             plan: plan === "trial" || plan === "membership" ? plan : null,
           })
           .returning({ id: businesses.id });
@@ -560,7 +576,8 @@ function smsBodyFor(
   business: Pick<Business, "businessName">,
   customer: Pick<Customer, "name" | "reviewToken">,
 ): string {
-  const link = reviewLinkFor(customer.reviewToken);
+  // Short link so the whole text fits in one SMS (see initialSmsBody).
+  const link = shortReviewLinkFor(customer.reviewToken);
   return kind === "reminder"
     ? reminderSmsBody(business.businessName, customer.name, link)
     : initialSmsBody(business.businessName, customer.name, link);
@@ -778,6 +795,51 @@ async function clearHeldText(
   }
 }
 
+// ---- Monthly review request limit (set by the membership level) -----------
+// A "review request" is one ask sent to one customer: the automatic first ask
+// or a manual resend. The text and email that make up one ask, and the one
+// follow-up reminder, all count as that single request. Counted per calendar
+// month in the business's own timezone. Admin accounts are never limited.
+
+export const LIMIT_REACHED_MESSAGE =
+  "You've used all of this month's review requests on your plan. Upgrade your plan or wait for next month to send more.";
+
+export async function reviewRequestUsage(
+  db: ReturnType<typeof getDb>,
+  business: Pick<Business, "id" | "timezone" | "locations" | "tier">,
+): Promise<{ used: number; limit: number }> {
+  const limit = monthlyRequestLimit(business.locations, business.tier);
+  const tz = business.timezone || "America/Phoenix";
+  const [row] = await db
+    .select({
+      used: sql<number>`count(distinct (${messages.customerId}::text || ':' || ${messages.kind} || ':' || date_trunc('hour', ${messages.sentAt})::text))::int`,
+    })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.businessId, business.id),
+        inArray(messages.kind, ["initial", "manual"]),
+        sql`${messages.sentAt} >= (date_trunc('month', now() at time zone ${tz}) at time zone ${tz})`,
+      ),
+    );
+  return { used: row?.used ?? 0, limit };
+}
+
+async function isOverRequestLimit(
+  db: ReturnType<typeof getDb>,
+  business: Business,
+): Promise<boolean> {
+  if (business.isAdmin) return false;
+  try {
+    const { used, limit } = await reviewRequestUsage(db, business);
+    return used >= limit;
+  } catch (error) {
+    // Never block a real customer's review request because the count failed.
+    console.error("[reviews] could not check the monthly request limit", error);
+    return false;
+  }
+}
+
 export type CreateCustomerAndSendInput = {
   name: string;
   phone: string | null;
@@ -792,9 +854,10 @@ export type CreateCustomerAndSendResult =
   | {
       ok: false;
       // "no_review_link": nothing was created or sent because the business
-      // has no Google review link yet. "error": the customer row could not
-      // be created or found.
-      reason: "no_review_link" | "error";
+      // has no Google review link yet. "limit_reached": this month's review
+      // requests on their plan are used up. "error": the customer row could
+      // not be created or found.
+      reason: "no_review_link" | "limit_reached" | "error";
       message: string;
     };
 
@@ -826,6 +889,9 @@ export async function createCustomerAndSendReviewRequest(
   }
 
   const db = getDb();
+  if (await isOverRequestLimit(db, business)) {
+    return { ok: false, reason: "limit_reached", message: LIMIT_REACHED_MESSAGE };
+  }
   // Store the E.164 form so every later send (reminders, manual resend) uses
   // a number Telnyx accepts. An unusable number or address becomes null.
   const phone = normalizeUsPhone(input.phone);
@@ -1051,6 +1117,9 @@ export const resendReviewRequest = createServerFn({ method: "POST" })
       // review link, the message would send people to our home page.
       if (!hasReviewLink(business)) {
         return { ok: false, message: NO_REVIEW_LINK_MESSAGE };
+      }
+      if (await isOverRequestLimit(db, business)) {
+        return { ok: false, message: LIMIT_REACHED_MESSAGE };
       }
 
       const { smsSent, emailSent, smsHeld } = await sendReviewRequestAndLog(
@@ -1418,10 +1487,13 @@ export const resolveReviewRedirect = createServerFn({ method: "GET" })
 
     try {
       const db = getDb();
+      // Texts carry a short 22-character form of the token (short-token.ts).
+      const token = tokenToUuid(data.token);
+      if (!token) return { url: fallback };
       const [customer] = await db
         .select()
         .from(customers)
-        .where(eq(customers.reviewToken, data.token))
+        .where(eq(customers.reviewToken, token))
         .limit(1);
       if (!customer) return { url: fallback };
 

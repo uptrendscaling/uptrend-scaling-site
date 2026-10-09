@@ -2,25 +2,31 @@ import { createServerFn } from "@tanstack/react-start";
 import type Stripe from "stripe";
 import { z } from "zod";
 
-import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
+import { findApprovedAffiliate } from "./affiliates.server";
+import { PLAN_TIER_IDS, SETUP_FEE_CENTS, TRIAL_DAYS, tierById } from "./pricing";
 import { resolveOrigin } from "./site";
 
 const checkoutInputSchema = z.object({
   plan: z.enum(["trial", "membership"]),
+  // Membership level (Starter / Growth / Pro). Missing means Starter.
+  tier: z.enum(PLAN_TIER_IDS).optional(),
   businessName: z.string().trim().min(1, "Business name is required").max(200),
   contactName: z.string().trim().min(1, "Your name is required").max(200),
   email: z.string().trim().email("Enter a valid email"),
   phone: z.string().trim().min(7, "Enter a valid phone number").max(30),
   locations: z.coerce.number().int().min(1).max(50),
   origin: z.string().trim().optional(),
+  // Affiliate code remembered from a ?ref= link (see affiliate-config.ts).
+  ref: z.string().trim().max(64).optional(),
 });
 
 export type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; reason: "not_configured" | "stripe_error"; message: string };
 
-// Builds the exact pricing model UpTrend Scaling has settled on ($70/mo per
-// location + a one-time $20 setup fee, billed together with the first
+// Builds the exact pricing model UpTrend Scaling has settled on (a monthly
+// plan per location, Starter $70 / Growth $100 / Pro $200 from ./pricing.ts,
+// + a one-time $20 setup fee, billed together with the first
 // recurring invoice) without requiring any Products/Prices to be
 // pre-configured in the Stripe dashboard — everything is defined inline via
 // price_data. The moment STRIPE_SECRET_KEY is set in the deploy environment,
@@ -56,16 +62,29 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const { default: Stripe } = await import("stripe");
       const stripe = new Stripe(secretKey);
 
-      const subscriptionMetadata = {
+      // A valid, approved affiliate's code: the setup fee is waived and the
+      // code rides along on the Stripe metadata so the affiliate gets credit.
+      // Someone using their own link (same email) gets neither.
+      const affiliate = await findApprovedAffiliate(data.ref);
+      const affiliateCode =
+        affiliate && affiliate.code && affiliate.email.toLowerCase() !== data.email.toLowerCase()
+          ? affiliate.code
+          : null;
+
+      const tier = tierById(data.tier);
+
+      const subscriptionMetadata: Record<string, string> = {
         businessName: data.businessName,
         contactName: data.contactName,
         phone: data.phone,
         locations: String(data.locations),
         plan: data.plan,
+        tier: tier.id,
+        ...(affiliateCode ? { affiliate: affiliateCode } : {}),
       };
 
       const setupFeeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        data.plan === "trial"
+        data.plan === "trial" || affiliateCode
           ? []
           : [
               {
@@ -95,10 +114,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
             price_data: {
               currency: "usd",
               product_data: {
-                name: "UpTrend Scaling monthly plan",
-                description: "Google review automation, billed per location",
+                name: `UpTrend Scaling ${tier.name} plan`,
+                description: `Google review automation, up to ${tier.monthlyRequests.toLocaleString("en-US")} review requests a month per location, billed per location`,
               },
-              unit_amount: MONTHLY_PRICE_CENTS,
+              unit_amount: tier.priceCents,
               recurring: { interval: "month" },
             },
             quantity: data.locations,
@@ -112,15 +131,9 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
           data.plan === "trial"
             ? { trial_period_days: TRIAL_DAYS, metadata: subscriptionMetadata }
             : { metadata: subscriptionMetadata },
-        metadata: {
-          businessName: data.businessName,
-          contactName: data.contactName,
-          phone: data.phone,
-          locations: String(data.locations),
-          plan: data.plan,
-        },
+        metadata: subscriptionMetadata,
         success_url: `${baseUrl}/start/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/start?plan=${data.plan}`,
+        cancel_url: `${baseUrl}/start?plan=${data.plan}&tier=${tier.id}`,
       });
 
       if (!session.url) {

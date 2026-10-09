@@ -4,6 +4,7 @@
 // fine with none of these env vars set, and every call site checks the
 // matching isXConfigured() before sending.
 
+import { uuidToShort } from "./short-token";
 import {
   OUTREACH_FOLLOWUP_SUBJECT,
   followUpTimingPhrase,
@@ -50,6 +51,13 @@ export function isResendConfigured(): boolean {
 
 export function reviewLinkFor(token: string): string {
   return `${CANONICAL_SITE_URL}/r/${token}`;
+}
+
+// Short form for text messages (see initialSmsBody): no "www" and a
+// 22-character code instead of the full id. uptrendscaling.com forwards to
+// www, and /r/:token accepts both forms.
+export function shortReviewLinkFor(token: string): string {
+  return `https://uptrendscaling.com/r/${uuidToShort(token)}`;
 }
 
 export type SendResult =
@@ -401,15 +409,80 @@ export async function sendEmailPlain(
 // (required for toll-free SMS compliance).
 
 // US carriers require STOP opt-out language on SMS (the first message to a
-// number especially), so both templates carry it. No dashes or special
-// punctuation in the SMS copy: it keeps the text in the plain GSM alphabet,
-// where one message holds 160 characters instead of 70.
+// number especially), so both templates carry it.
+//
+// Every text is built to fit in ONE 160-character SMS segment, which halves
+// what each text costs (a 161-character text is billed as two):
+// - the link is the short form (shortReviewLinkFor, about 50 characters);
+// - names are cut down to the plain GSM alphabet, because a single accented
+//   or emoji character switches the whole text to a 70-character limit;
+// - the customer is greeted by first name only, and a long business name is
+//   trimmed until the text fits. If it still can't fit, the greeting goes.
+export const SMS_SEGMENT_LIMIT = 160;
+
+// Keeps only characters that are safe in the GSM 7-bit alphabet without
+// costing extra (letters, digits, space and simple punctuation), after
+// turning accented letters into plain ones (e.g. "José" -> "Jose").
+function gsmSafe(value: string): string {
+  return oneLine(
+    value
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/[\u201c\u201d]/g, '"')
+      .replace(/[^A-Za-z0-9 .,'&!?:()\/#+-]/g, " "),
+  );
+}
+
+const NAME_TITLES = new Set(["dr", "dr.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "miss", "mx", "mx."]);
+
+// First name only, skipping a leading title. Null when there is no usable
+// first name or it is too long to greet with (then the text just says
+// "Thanks for choosing...").
+function firstNameOf(customerName: string): string | null {
+  const words = gsmSafe(customerName).split(" ").filter(Boolean);
+  const first = words.find((w) => !NAME_TITLES.has(w.toLowerCase())) ?? "";
+  if (first.length < 2 || first.length > 12) return null;
+  return first;
+}
+
+function fitSms(
+  build: (greetingName: string | null, business: string) => string,
+  businessName: string,
+  customerName: string,
+): string {
+  const first = firstNameOf(customerName);
+  const words = (gsmSafe(businessName) || "us").split(" ");
+  const businessOf = (n: number) =>
+    words.slice(0, n).join(" ").replace(/[\s,&+\-/:]+$/, "");
+  // 1. Drop whole words off the end of a long business name (keeps at least
+  //    the first word), 2. then drop the greeting, 3. then cut the name.
+  for (const greeting of [first, null]) {
+    for (let n = words.length; n >= 1; n--) {
+      const text = build(greeting, businessOf(n));
+      if (text.length <= SMS_SEGMENT_LIMIT) return text;
+    }
+  }
+  let business = businessOf(1);
+  let text = build(null, business);
+  while (text.length > SMS_SEGMENT_LIMIT && business.length > 1) {
+    business = business.slice(0, -1);
+    text = build(null, business);
+  }
+  return text;
+}
+
 export function initialSmsBody(
   businessName: string,
   customerName: string,
   link: string,
 ): string {
-  return `Hi ${oneLine(customerName)}, thanks for choosing ${oneLine(businessName)}! Mind leaving us a quick review? ${link} Msg&data rates may apply. Reply STOP to opt out, HELP for help.`;
+  return fitSms(
+    (first, business) =>
+      `${first ? `Hi ${first}, thanks` : "Thanks"} for choosing ${business}! Mind leaving a quick review? ${link} Reply STOP to opt out`,
+    businessName,
+    customerName,
+  );
 }
 
 export function reminderSmsBody(
@@ -417,7 +490,12 @@ export function reminderSmsBody(
   customerName: string,
   link: string,
 ): string {
-  return `Hi ${oneLine(customerName)}, quick reminder from ${oneLine(businessName)}. If you have 30 seconds, a review means a lot to us: ${link} Reply STOP to opt out.`;
+  return fitSms(
+    (first, business) =>
+      `${first ? `Hi ${first}, a` : "A"} quick reminder from ${business}: a review takes 30 seconds ${link} Reply STOP to opt out`,
+    businessName,
+    customerName,
+  );
 }
 
 // Subjects are plain text (not HTML), so no escaping, only line breaks removed.

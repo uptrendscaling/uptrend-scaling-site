@@ -49,7 +49,7 @@ import {
   paraHtml as emailParaHtml,
   type EmailSection,
 } from "./email-layout";
-import { MONTHLY_PRICE_CENTS, SETUP_FEE_CENTS, TRIAL_DAYS } from "./pricing";
+import { SETUP_FEE_CENTS, TRIAL_DAYS, tierById } from "./pricing";
 
 const PROVIDER = "stripe" as const;
 
@@ -213,19 +213,33 @@ export function dashboardUrl(
   return `https://dashboard.stripe.com/${livemode ? "" : "test/"}${kind}/${encodeURIComponent(id)}`;
 }
 
-function expectedFirstChargeCents(locations: number): number {
-  return MONTHLY_PRICE_CENTS * locations + SETUP_FEE_CENTS;
+// What a plan's first real charge should be: the plan's monthly price per
+// location, plus the $20 setup fee unless they came through an affiliate link
+// (which waives it). Tier and affiliate come from the checkout metadata.
+type ChargeTerms = { tierId: string | null; waived: boolean };
+
+function chargeTermsOf(metadata: Record<string, string> | null | undefined): ChargeTerms {
+  return {
+    tierId: metadata?.["tier"] ?? null,
+    waived: Boolean(metadata?.["affiliate"]),
+  };
+}
+
+function expectedFirstChargeCents(locations: number, terms: ChargeTerms): number {
+  return tierById(terms.tierId).priceCents * locations + (terms.waived ? 0 : SETUP_FEE_CENTS);
 }
 
 function expectedFirstChargeFormula(
   locations: number,
   currency: string | null,
+  terms: ChargeTerms,
 ): string {
   const plural = locations === 1 ? "location" : "locations";
-  return `${formatMoney(MONTHLY_PRICE_CENTS, currency)} x ${locations} ${plural} + ${formatMoney(
-    SETUP_FEE_CENTS,
-    currency,
-  )} setup fee`;
+  const tier = tierById(terms.tierId);
+  const base = `${tier.name} ${formatMoney(tier.priceCents, currency)} x ${locations} ${plural}`;
+  return terms.waived
+    ? `${base}, setup fee waived (affiliate referral)`
+    : `${base} + ${formatMoney(SETUP_FEE_CENTS, currency)} setup fee`;
 }
 
 // ---- Email layout ---------------------------------------------------------
@@ -394,7 +408,7 @@ export function buildSignupAlert(
     if (locations !== null) {
       rows.push({
         label: "First charge",
-        value: `About ${formatMoney(expectedFirstChargeCents(locations), currency)} on that date (${expectedFirstChargeFormula(locations, currency)}), before any promo code`,
+        value: `About ${formatMoney(expectedFirstChargeCents(locations, chargeTermsOf(metadata)), currency)} on that date (${expectedFirstChargeFormula(locations, currency, chargeTermsOf(metadata))}), before any promo code`,
       });
     }
   }
@@ -563,11 +577,12 @@ export function buildTrialPaymentAlert(
   // setup fee. Say whether Stripe's real amount matches, but never replace it.
   let note: string | null = null;
   if (locations !== null) {
-    const expected = expectedFirstChargeCents(locations);
+    const terms = chargeTermsOf(metadata);
+    const expected = expectedFirstChargeCents(locations, terms);
     note =
       paid === expected
-        ? `This matches the usual first charge (${expectedFirstChargeFormula(locations, currency)}).`
-        : `The usual first charge for ${locations} ${locations === 1 ? "location" : "locations"} is ${formatMoney(expected, currency)} (${expectedFirstChargeFormula(locations, currency)}), but Stripe collected ${formatMoney(paid, currency)}. A promo code, a changed quantity or a missing setup fee can explain that, so it is worth a quick look in Stripe.`;
+        ? `This matches the usual first charge (${expectedFirstChargeFormula(locations, currency, terms)}).`
+        : `The usual first charge for ${locations} ${locations === 1 ? "location" : "locations"} is ${formatMoney(expected, currency)} (${expectedFirstChargeFormula(locations, currency, terms)}), but Stripe collected ${formatMoney(paid, currency)}. A promo code, a changed quantity or a missing setup fee can explain that, so it is worth a quick look in Stripe.`;
   }
 
   const links: AlertLink[] = [];

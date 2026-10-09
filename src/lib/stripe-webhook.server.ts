@@ -102,6 +102,8 @@ async function handleSubscriptionCreated(
 ): Promise<void> {
   if (subscription.status !== "trialing") return;
   if (subscription.metadata?.["plan"] !== "trial") return;
+  // Signups through an affiliate link get the setup fee waived.
+  if (subscription.metadata?.["affiliate"]) return;
 
   const customerId =
     typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id;
