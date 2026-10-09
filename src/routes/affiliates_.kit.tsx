@@ -26,6 +26,17 @@ export const Route = createFileRoute("/affiliates_/kit")({
     meta: [
       { title: "Partner kit | UpTrend Scaling" },
       { name: "robots", content: "noindex" },
+      { property: "og:title", content: "UpTrend Scaling partner kit" },
+      {
+        property: "og:image",
+        content: `${CANONICAL_SITE_URL}/og-affiliates.png`,
+      },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      {
+        name: "twitter:image",
+        content: `${CANONICAL_SITE_URL}/og-affiliates.png`,
+      },
     ],
   }),
   component: PartnerKit,

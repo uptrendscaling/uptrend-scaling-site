@@ -10,6 +10,8 @@ import {
 import { applyForAffiliate } from "../lib/affiliates.server";
 import { CANONICAL_SITE_URL } from "../lib/site";
 
+const AFFILIATE_OG_IMAGE_URL = `${CANONICAL_SITE_URL}/og-affiliates.png`;
+
 export const Route = createFileRoute("/affiliates")({
   head: () => ({
     meta: [
@@ -20,7 +22,23 @@ export const Route = createFileRoute("/affiliates")({
           "Earn 25% of every payment, for as long as they stay, when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
       },
       { property: "og:title", content: "UpTrend Scaling affiliate program" },
+      {
+        property: "og:description",
+        content:
+          "Earn 25% of every payment, for as long as each business you refer stays.",
+      },
       { property: "og:url", content: `${CANONICAL_SITE_URL}/affiliates` },
+      // Link previews (iMessage, Facebook, Slack) show this image: the logo
+      // with AFFILIATE PROGRAM under it.
+      { property: "og:image", content: AFFILIATE_OG_IMAGE_URL },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
+      {
+        property: "og:image:alt",
+        content: "UpTrend Scaling affiliate program",
+      },
+      { name: "twitter:title", content: "UpTrend Scaling affiliate program" },
+      { name: "twitter:image", content: AFFILIATE_OG_IMAGE_URL },
     ],
   }),
   component: AffiliatesPage,
