@@ -6166,8 +6166,10 @@ h1 strong {
     width: calc(100% - 32px);
   }
   .lp-nav-login {
-    display: none;
+    padding: 0 8px;
   }
+  .lp-nav-inner { gap: 12px; }
+  @media (max-width: 480px) { .lp-brand em { display: none; } }
   .lp-hero {
     padding-top: 52px;
   }
