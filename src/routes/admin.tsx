@@ -42,6 +42,11 @@ import {
   type AffiliateSummary,
 } from "../lib/affiliates.server";
 import {
+  getTrybeOverview,
+  type TrybeCreatorSummary,
+  type TrybeOverview,
+} from "../lib/trybe.server";
+import {
   getLeadsOverview,
   markLeadResponded,
   type LeadSummary,
@@ -63,6 +68,7 @@ const ADMIN_TABS = [
   "clients",
   "outreach",
   "affiliates",
+  "trybe",
   "partner-outreach",
 ] as const;
 type AdminTab = (typeof ADMIN_TABS)[number];
@@ -72,6 +78,7 @@ const ADMIN_NAV: ReadonlyArray<{ id: AdminTab; label: string }> = [
   { id: "clients", label: "Clients" },
   { id: "outreach", label: "Outreach" },
   { id: "affiliates", label: "Affiliates" },
+  { id: "trybe", label: "Trybe" },
   { id: "partner-outreach", label: "Affiliate outreach" },
 ];
 
@@ -88,6 +95,13 @@ const EMPTY_ANALYTICS: AnalyticsOverview = {
   activeNow: [],
   loggedInBusinesses: [],
   topLocations: [],
+};
+
+const EMPTY_TRYBE: TrybeOverview = {
+  creators: [],
+  days: [],
+  totalInvited: 0,
+  lastSyncedAt: null,
 };
 
 export const Route = createFileRoute("/admin")({
@@ -112,7 +126,9 @@ export const Route = createFileRoute("/admin")({
     const analytics = await getAdminAnalyticsOverview();
     const affiliateOverview = await getAffiliatesOverview();
     const prospectsOverview = await getAffiliateProspects();
+    const trybeOverview = await getTrybeOverview();
     return {
+      trybe: trybeOverview.ok ? trybeOverview.overview : EMPTY_TRYBE,
       affiliates: affiliateOverview.ok ? affiliateOverview.affiliates : [],
       prospects: prospectsOverview.ok ? prospectsOverview.prospects : [],
       business,
@@ -1089,6 +1105,192 @@ function AffiliateOutreachTab({
   );
 }
 
+// Date-only values like "2026-10-14" come back from the server as plain text.
+// Parsing one directly treats it as midnight UTC, which shows up as the day
+// before in Arizona, so pin it to midday first.
+function trybeDay(value: string | null): string {
+  if (!value) return "—";
+  return formatDate(value.length === 10 ? `${value}T12:00:00` : value);
+}
+
+const TRYBE_STATUS_LABEL: Record<string, string> = {
+  JOIN_REQUESTED: "Wants to join",
+  APPROVED: "Joined",
+  DEMO_EMAIL_ASKED: "Joined",
+  DEMO_CREATED: "Demo ready",
+  DECLINED: "Declined",
+  INACTIVE: "Inactive",
+};
+
+function trybeStatusPill(creator: TrybeCreatorSummary) {
+  const label = TRYBE_STATUS_LABEL[creator.status] ?? creator.status;
+  if (creator.status === "DEMO_CREATED")
+    return <DashPill tone="ok">{label}</DashPill>;
+  if (creator.status === "DECLINED" || creator.status === "INACTIVE") {
+    return <DashPill tone="muted">{label}</DashPill>;
+  }
+  return <DashPill tone="warn">{label}</DashPill>;
+}
+
+function trybeDemoCell(creator: TrybeCreatorSummary) {
+  if (creator.demoState === "active") {
+    return (
+      <>
+        <DashPill tone="ok">Password set</DashPill>
+        <div className="dash-cell-muted">{creator.demoEmail}</div>
+      </>
+    );
+  }
+  if (creator.demoState === "waiting") {
+    return (
+      <>
+        <DashPill tone="warn">Made, not logged in yet</DashPill>
+        <div className="dash-cell-muted">{creator.demoEmail}</div>
+      </>
+    );
+  }
+  if (creator.status === "DEMO_EMAIL_ASKED") {
+    return <span className="dash-cell-muted">Waiting for their email</span>;
+  }
+  return <span className="dash-cell-muted">Not yet</span>;
+}
+
+// Creators recruited on Trybe (jointrybe.com). They earn only through Trybe's
+// own link, so they live here and never in the Affiliates tab above. The
+// numbers come from the daily growth routine, which updates the two Trybe
+// tables once a day, so this tab refreshes itself every time you open it.
+function TrybeTab({ overview }: { overview: TrybeOverview }) {
+  const { creators, days } = overview;
+  const demos = creators.filter((c) => c.demoState !== "none").length;
+  const salesCents = creators.reduce((sum, c) => sum + c.salesCents, 0);
+  const earningsCents = creators.reduce((sum, c) => sum + c.earningsCents, 0);
+  const lastRun = days[0];
+
+  return (
+    <div className="dash-stack">
+      <DashPageHead
+        title="Trybe partners"
+        description="Creators we recruit on Trybe (jointrybe.com). They earn 25% of each referred customer's monthly subscription, paid by Trybe for as long as the customer stays, and only through Trybe's own link, so these partners never get a site referral code and commissions never stack. The daily growth routine sends up to 30 invites a day, answers their messages, sets up their demo dashboards and updates this page. Their sales and earnings come straight from Trybe."
+      />
+
+      <section className="dash-stats dash-stats-4" aria-label="Trybe numbers">
+        <AdminStat
+          label="Invited"
+          value={formatCount(overview.totalInvited)}
+          hint="Trybe invites sent so far"
+        />
+        <AdminStat
+          label="Joined"
+          value={formatCount(creators.length)}
+          hint="Creators in the program"
+        />
+        <AdminStat
+          label="Demos made"
+          value={formatCount(demos)}
+          hint="Standalone demo dashboards"
+        />
+        <AdminStat
+          label="Sales via Trybe"
+          value={formatDollars(salesCents)}
+          hint={`${formatDollars(earningsCents)} earned by creators`}
+        />
+      </section>
+
+      <DashPanel
+        title="Partners"
+        hint={
+          overview.lastSyncedAt
+            ? `Updated ${trybeDay(overview.lastSyncedAt)}`
+            : "Updated daily"
+        }
+      >
+        {creators.length === 0 ? (
+          <DashEmpty compact title="No Trybe partners yet.">
+            Creators show up here once they join the program.
+          </DashEmpty>
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Creator</th>
+                <th>Status</th>
+                <th>Joined</th>
+                <th>Demo dashboard</th>
+                <th>Sales</th>
+                <th>Earned</th>
+                <th>Last message</th>
+              </tr>
+            </thead>
+            <tbody>
+              {creators.map((c) => (
+                <tr key={c.id}>
+                  <td>
+                    <div className="dash-cell-strong">{c.name}</div>
+                    {c.handle ? (
+                      <div className="dash-cell-muted">@{c.handle}</div>
+                    ) : null}
+                  </td>
+                  <td>{trybeStatusPill(c)}</td>
+                  <td className="dash-cell-muted">{trybeDay(c.joinedOn)}</td>
+                  <td>{trybeDemoCell(c)}</td>
+                  <td>{formatDollars(c.salesCents)}</td>
+                  <td>{formatDollars(c.earningsCents)}</td>
+                  <td className="dash-cell-muted">
+                    {trybeDay(c.lastMessageOn)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+
+      <DashPanel
+        title="Daily activity"
+        hint={lastRun ? `Last run ${trybeDay(lastRun.day)}` : "No runs yet"}
+      >
+        {days.length === 0 ? (
+          <DashEmpty compact title="Nothing logged yet." />
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Invites sent</th>
+                <th>Credits left</th>
+                <th>New partners</th>
+                <th>Replies sent</th>
+                <th>Demos made</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((d) => (
+                <tr key={d.day}>
+                  <td className="dash-cell-strong">{trybeDay(d.day)}</td>
+                  <td>{formatCount(d.invitesSent)}</td>
+                  <td className="dash-cell-muted">
+                    {d.creditsLeft === null ? "—" : formatCount(d.creditsLeft)}
+                  </td>
+                  <td>{formatCount(d.newJoins)}</td>
+                  <td>{formatCount(d.repliesSent)}</td>
+                  <td>{formatCount(d.demosCreated)}</td>
+                  <td
+                    className="dash-cell-muted"
+                    style={{ maxWidth: 320, whiteSpace: "normal" }}
+                  >
+                    {d.notes ?? ""}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+    </div>
+  );
+}
+
 function AffiliatesTab({
   affiliates,
   onChanged,
@@ -1539,6 +1741,8 @@ function AdminDashboard() {
             />
           ) : tab === "affiliates" ? (
             <AffiliatesTab affiliates={affiliateList} onChanged={refreshAffiliates} />
+          ) : tab === "trybe" ? (
+            <TrybeTab overview={initial.trybe} />
           ) : tab === "partner-outreach" ? (
             <AffiliateOutreachTab prospects={prospectList} onChanged={refreshAffiliates} />
           ) : tab === "outreach" ? (
