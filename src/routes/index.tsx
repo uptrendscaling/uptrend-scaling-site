@@ -9,7 +9,7 @@ import {
   formatUsd,
 } from "../lib/pricing";
 import { CANONICAL_SITE_URL } from "../lib/site";
-import { WEBSITE_DESIGNS } from "../lib/website-designs";
+import { WEBSITE_DESIGNS, websiteDesignPath } from "../lib/website-designs";
 import { ThemeToggle } from "../components/theme-toggle";
 
 const START_TRIAL = "/start?plan=trial";
@@ -627,11 +627,12 @@ function Index() {
           <div className="lp-container">
             <div className="lp-heading">
               <p className="lp-label">Websites</p>
-              <h2>Need a website too? $299 to build, $99 a month to keep.</h2>
+              <h2>Need a website too? It's $299 to build.</h2>
               <p>
-                We design and build a fast, mobile-first site for your business.
-                You approve it before it goes live. Open any design below to see
-                it live.
+                We design and build a fast, mobile-first site for your business,
+                and you approve it before it goes live. Want us to look after it
+                after that? Maintenance is optional: $99 a month for hosting,
+                small updates and support. Open any design below to see it live.
               </p>
             </div>
             <div className="lp-ws-grid">
@@ -639,9 +640,7 @@ function Index() {
                 <a
                   key={design.slug}
                   className="lp-ws-card"
-                  href={design.liveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={websiteDesignPath(design)}
                 >
                   <img
                     src={design.image}

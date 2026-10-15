@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { ThemeToggle } from "../components/theme-toggle";
-import { WEBSITE_DESIGNS } from "../lib/website-designs";
+import { WEBSITE_DESIGNS, websiteDesignPath } from "../lib/website-designs";
 import { CANONICAL_SITE_URL } from "../lib/site";
 
 export const Route = createFileRoute("/websites")({
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/websites")({
       {
         name: "description",
         content:
-          "Websites for local service businesses: $299 one-time to build, $99 a month for hosting, small updates and support. See live designs.",
+          "Websites for local service businesses: $299 one-time to build. Optional maintenance is $99 a month for hosting, small updates and support. See live designs.",
       },
       { property: "og:title", content: "Websites for local businesses | UpTrend Scaling" },
       { property: "og:url", content: `${CANONICAL_SITE_URL}/websites` },
@@ -53,9 +53,10 @@ function WebsitesPage() {
           <h1>A website that makes your business look as good as your work.</h1>
           <p className="ws-lead">
             We design and build a clean, mobile-first website for your business.
-            You approve it before it goes live. $299 one-time to build, and
-            $99 a month if you want us to host it, make small updates and keep
-            it running. Already have a site? Maintenance only is $99 a month.
+            You approve it before it goes live. The build is $299, one time.
+            Maintenance is optional: $99 a month if you want us to host it,
+            make small updates and keep it running. Already have a site?
+            Maintenance only is $99 a month.
           </p>
           <div className="ws-actions">
             <a className="button button-primary" href="/start?website=build">
@@ -76,10 +77,8 @@ function WebsitesPage() {
               <article key={design.slug} className="ws-card">
                 <a
                   className="ws-shot"
-                  href={design.liveUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`Open the ${design.name} website in a new tab`}
+                  href={websiteDesignPath(design)}
+                  aria-label={`Open the ${design.name} sample website`}
                 >
                   <img
                     src={design.image}
@@ -96,9 +95,7 @@ function WebsitesPage() {
                   <div className="ws-card-actions">
                     <a
                       className="button button-primary"
-                      href={design.liveUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href={websiteDesignPath(design)}
                     >
                       View live site
                     </a>
@@ -115,7 +112,7 @@ function WebsitesPage() {
           <ul className="ws-list">
             <li>A mobile-first design built around your business, with a request or quote form and tap-to-call buttons.</li>
             <li>You approve the design before it goes live.</li>
-            <li>Secure hosting on Lovable's platform, served over HTTPS.</li>
+            <li>Secure hosting, served over HTTPS.</li>
             <li>Optional maintenance at $99 a month: hosting, small updates and email support. Cancel it any time, separately from anything else.</li>
             <li>No free trial on websites. You pay at checkout, and can add Google review automation too if you want it.</li>
           </ul>

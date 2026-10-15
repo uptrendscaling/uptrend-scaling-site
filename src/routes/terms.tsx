@@ -143,14 +143,14 @@ function TermsPage() {
 
           <h2>8. Website security</h2>
           <p>
-            Websites we build are published on Lovable's hosting platform. Based on information
-            Lovable publishes about its platform, published sites are served over HTTPS (plain HTTP
+            Websites we build are published on a third-party hosting platform. Based on information
+            that platform publishes about itself, published sites are served over HTTPS (plain HTTP
             requests are redirected to HTTPS and browsers are told to keep using HTTPS), have a
             valid security certificate, and are sent with browser hardening settings that help
             protect against being embedded in other sites, content type guessing, and unwanted
-            access to sensitive browser features. Lovable also reports checking project
+            access to sensitive browser features. The platform also reports checking project
             dependencies against a public vulnerability database. These protections are provided by
-            Lovable's platform and may change.
+            the hosting platform and may change.
           </p>
           <p>
             Security is a shared effort and no website can be made completely secure. We do not
@@ -172,7 +172,7 @@ function TermsPage() {
           <h2>10. Third-party services</h2>
           <p>
             The Service relies on third-party providers to operate, including Stripe for payments,
-            Telnyx for SMS delivery, Resend for email delivery, and Lovable for hosting the websites we build. Your use of the Service is also
+            Telnyx for SMS delivery, Resend for email delivery, and a third-party hosting provider for the websites we build. Your use of the Service is also
             subject to the applicable terms of those providers where relevant to the features they
             power.
           </p>
