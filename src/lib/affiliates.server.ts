@@ -31,6 +31,7 @@ import {
 import { getSessionBusinessId } from "./auth.server";
 import { ensureDemoAccount } from "./demo.server";
 import { getDb, isDbConfigured } from "./db/client";
+import { WEBSITE_LINE_MARKER } from "./pricing";
 import {
   affiliatePayouts,
   affiliates,
@@ -438,8 +439,13 @@ async function commissionablePayments(
     const setupFee = (inv.lines?.data ?? [])
       .filter((line) => line.description === SETUP_FEE_DESCRIPTION)
       .reduce((sum, line) => sum + Math.max(0, line.amount ?? 0), 0);
+    // Website builds and maintenance (checkout names those lines "UpTrend
+    // Website ...") are not review-plan revenue, so they earn no commission.
+    const websiteMoney = (inv.lines?.data ?? [])
+      .filter((line) => line.description?.includes(WEBSITE_LINE_MARKER))
+      .reduce((sum, line) => sum + Math.max(0, line.amount ?? 0), 0);
     const refunded = inv.post_payment_credit_notes_amount ?? 0;
-    return Math.max(0, (inv.amount_paid ?? 0) - setupFee - refunded);
+    return Math.max(0, (inv.amount_paid ?? 0) - setupFee - websiteMoney - refunded);
   });
 }
 

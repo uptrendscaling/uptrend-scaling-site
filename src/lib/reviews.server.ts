@@ -160,6 +160,14 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       }
 
       const metadata = session.metadata ?? {};
+      // A website-only order has no review dashboard to set up.
+      if (metadata["reviews"] === "no") {
+        return {
+          ok: false,
+          reason: "not_found",
+          message: "This order doesn't include a review dashboard.",
+        };
+      }
       const businessName =
         typeof metadata["businessName"] === "string"
           ? metadata["businessName"]

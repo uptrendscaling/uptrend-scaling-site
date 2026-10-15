@@ -3,7 +3,15 @@ import type Stripe from "stripe";
 import { z } from "zod";
 
 import { findApprovedAffiliate } from "./affiliates.server";
-import { PLAN_TIER_IDS, SETUP_FEE_CENTS, TRIAL_DAYS, tierById } from "./pricing";
+import {
+  PLAN_TIER_IDS,
+  SETUP_FEE_CENTS,
+  TRIAL_DAYS,
+  WEBSITE_LINE_MARKER,
+  WEBSITE_OPTION_IDS,
+  tierById,
+  websiteOptionById,
+} from "./pricing";
 import { resolveOrigin } from "./site";
 
 const checkoutInputSchema = z.object({
@@ -18,11 +26,189 @@ const checkoutInputSchema = z.object({
   origin: z.string().trim().optional(),
   // Affiliate code remembered from a ?ref= link (see affiliate-config.ts).
   ref: z.string().trim().max(64).optional(),
+  // Website offers (see WEBSITE_OPTIONS in ./pricing.ts). When a website option
+  // is picked, the order is always paid today (no free trial), and the Google
+  // review plan is optional: reviews false means a website-only order.
+  website: z.enum(WEBSITE_OPTION_IDS).optional(),
+  reviews: z.boolean().optional(),
+  // Address of the customer's current site, used for maintenance-only orders.
+  websiteUrl: z.string().trim().max(200).optional(),
 });
+
+// Same text the webhook and the affiliate commission math look for.
+const SETUP_FEE_DESCRIPTION = "One-time account setup fee";
 
 export type CheckoutResult =
   | { ok: true; url: string }
   | { ok: false; reason: "not_configured" | "stripe_error"; message: string };
+
+type CheckoutInput = z.infer<typeof checkoutInputSchema>;
+
+export type BuiltCheckout =
+  | { ok: true; params: Stripe.Checkout.SessionCreateParams }
+  | { ok: false; message: string };
+
+// Pure (no Stripe calls): turns the sign-up form into Checkout Session
+// parameters. Kept separate from createCheckoutSession so the money logic
+// (which lines are charged today, trial or not, review plan or not) can be
+// checked without a Stripe key.
+export function buildCheckoutSessionParams(
+  data: CheckoutInput,
+  opts: { baseUrl: string; affiliateCodeIfEligible: string | null },
+): BuiltCheckout {
+  const tier = tierById(data.tier);
+
+  const websiteOption = websiteOptionById(data.website);
+  // Plain review signups (no website option) always include the review plan.
+  const includeReviews = websiteOption ? data.reviews !== false : true;
+  if (websiteOption?.id === "maintenance" && !data.websiteUrl) {
+    return {
+      ok: false,
+      message: "Add the address of your current website so we know what to maintain.",
+    };
+  }
+  // Website orders are paid today, so they never get the free trial.
+  const effectivePlan: "trial" | "membership" | "website" = websiteOption
+    ? includeReviews
+      ? "membership"
+      : "website"
+    : data.plan;
+
+  // Website-only orders have no review account, so no affiliate credit and no
+  // setup fee. With the review plan included, the affiliate rules above apply.
+  const affiliateCode = includeReviews ? opts.affiliateCodeIfEligible : null;
+
+  const subscriptionMetadata: Record<string, string> = {
+    businessName: data.businessName,
+    contactName: data.contactName,
+    phone: data.phone,
+    locations: String(includeReviews ? data.locations : 1),
+    plan: effectivePlan,
+    tier: tier.id,
+    ...(websiteOption
+      ? {
+          website: websiteOption.id,
+          reviews: includeReviews ? "yes" : "no",
+          ...(data.websiteUrl ? { websiteUrl: data.websiteUrl } : {}),
+        }
+      : {}),
+    ...(affiliateCode ? { affiliate: affiliateCode } : {}),
+  };
+
+  const setupFeeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+    effectivePlan === "trial" || effectivePlan === "website" || affiliateCode
+      ? []
+      : [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: SETUP_FEE_DESCRIPTION,
+                description: "Charged once today, not part of the monthly plan",
+              },
+              unit_amount: SETUP_FEE_CENTS,
+            },
+            quantity: 1,
+          },
+        ];
+
+  const reviewLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = includeReviews
+    ? [
+        {
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: `UpTrend Scaling ${tier.name} plan`,
+              description: `Google review automation, up to ${tier.monthlyRequests.toLocaleString("en-US")} review requests a month per location, billed per location`,
+            },
+            unit_amount: tier.priceCents,
+            recurring: { interval: "month" },
+          },
+          quantity: data.locations,
+        },
+      ]
+    : [];
+
+  const websiteLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+  if (websiteOption && websiteOption.buildCents > 0) {
+    websiteLineItems.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `${WEBSITE_LINE_MARKER} build`,
+          description: "One-time design and build of your website",
+        },
+        unit_amount: websiteOption.buildCents,
+      },
+      quantity: 1,
+    });
+  }
+  if (websiteOption && websiteOption.monthlyCents > 0) {
+    websiteLineItems.push({
+      price_data: {
+        currency: "usd",
+        product_data: {
+          name: `${WEBSITE_LINE_MARKER} maintenance`,
+          description: "Hosting, small content updates and email support, billed monthly",
+        },
+        unit_amount: websiteOption.monthlyCents,
+        recurring: { interval: "month" },
+      },
+      quantity: 1,
+    });
+  }
+
+  // Only the no-trial plan pays the setup fee at checkout. Trial signups
+  // get it later from the webhook (see the comment above
+  // createCheckoutSession), so it must NOT be in this list for them.
+  const lineItems = [...reviewLineItems, ...websiteLineItems, ...setupFeeLineItems];
+  const hasMonthlyItem = lineItems.some((item) => item.price_data?.recurring);
+
+  const websiteReturn = websiteOption
+    ? `&website=${websiteOption.id}&reviews=${includeReviews ? "yes" : "no"}`
+    : "";
+  const cancelUrl = `${opts.baseUrl}/start?plan=${effectivePlan === "trial" ? "trial" : "membership"}&tier=${tier.id}${websiteReturn}`;
+  const successUrl = `${opts.baseUrl}/start/success?session_id={CHECKOUT_SESSION_ID}`;
+
+  const common = {
+    customer_email: data.email,
+    allow_promotion_codes: true,
+    line_items: lineItems,
+    metadata: subscriptionMetadata,
+    success_url: successUrl,
+    cancel_url: cancelUrl,
+  } as const;
+
+  if (hasMonthlyItem) {
+    return {
+      ok: true,
+      params: {
+        ...common,
+        mode: "subscription",
+        // Always collect a card, even when nothing is due today (the free
+        // trial). Stripe's default already does this for subscriptions with a
+        // trial, but pinning it keeps "card required to start" true if that
+        // default ever changes, or if a coupon brought the due-today amount to $0.
+        payment_method_collection: "always",
+        subscription_data:
+          effectivePlan === "trial"
+            ? { trial_period_days: TRIAL_DAYS, metadata: subscriptionMetadata }
+            : { metadata: subscriptionMetadata },
+      },
+    };
+  }
+
+  // A one-time website build with nothing monthly attached.
+  return {
+    ok: true,
+    params: {
+      ...common,
+      mode: "payment",
+      customer_creation: "always",
+      payment_intent_data: { metadata: subscriptionMetadata },
+    },
+  };
+}
 
 // Builds the exact pricing model UpTrend Scaling has settled on (a monthly
 // plan per location, Starter $70 / Growth $100 / Pro $200 from ./pricing.ts,
@@ -66,75 +252,16 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       // code rides along on the Stripe metadata so the affiliate gets credit.
       // Someone using their own link (same email) gets neither.
       const affiliate = await findApprovedAffiliate(data.ref);
-      const affiliateCode =
+      const affiliateCodeIfEligible =
         affiliate && affiliate.code && affiliate.email.toLowerCase() !== data.email.toLowerCase()
           ? affiliate.code
           : null;
 
-      const tier = tierById(data.tier);
-
-      const subscriptionMetadata: Record<string, string> = {
-        businessName: data.businessName,
-        contactName: data.contactName,
-        phone: data.phone,
-        locations: String(data.locations),
-        plan: data.plan,
-        tier: tier.id,
-        ...(affiliateCode ? { affiliate: affiliateCode } : {}),
-      };
-
-      const setupFeeLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        data.plan === "trial" || affiliateCode
-          ? []
-          : [
-              {
-                price_data: {
-                  currency: "usd",
-                  product_data: {
-                    name: "One-time account setup fee",
-                    description: "Charged once today, not part of the monthly plan",
-                  },
-                  unit_amount: SETUP_FEE_CENTS,
-                },
-                quantity: 1,
-              },
-            ];
-
-      const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        customer_email: data.email,
-        allow_promotion_codes: true,
-        // Always collect a card, even when nothing is due today (the free
-        // trial). Stripe's default already does this for subscriptions with a
-        // trial, but pinning it keeps "card required to start" true if that
-        // default ever changes, or if a coupon brought the due-today amount to $0.
-        payment_method_collection: "always",
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `UpTrend Scaling ${tier.name} plan`,
-                description: `Google review automation, up to ${tier.monthlyRequests.toLocaleString("en-US")} review requests a month per location, billed per location`,
-              },
-              unit_amount: tier.priceCents,
-              recurring: { interval: "month" },
-            },
-            quantity: data.locations,
-          },
-          // Only the no-trial plan pays the setup fee at checkout. Trial signups
-          // get it later from the webhook (see the comment above
-          // createCheckoutSession), so it must NOT be in this list for them.
-          ...setupFeeLineItems,
-        ],
-        subscription_data:
-          data.plan === "trial"
-            ? { trial_period_days: TRIAL_DAYS, metadata: subscriptionMetadata }
-            : { metadata: subscriptionMetadata },
-        metadata: subscriptionMetadata,
-        success_url: `${baseUrl}/start/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/start?plan=${data.plan}&tier=${tier.id}`,
-      });
+      const built = buildCheckoutSessionParams(data, { baseUrl, affiliateCodeIfEligible });
+      if (!built.ok) {
+        return { ok: false, reason: "stripe_error", message: built.message };
+      }
+      const session = await stripe.checkout.sessions.create(built.params);
 
       if (!session.url) {
         return {
@@ -166,6 +293,10 @@ export type SessionSummary =
       plan: string | null;
       locations: string | null;
       status: string | null;
+      // "build", "build_maintenance" or "maintenance" when a website was ordered.
+      website: string | null;
+      // "no" for a website-only order (no review dashboard to set up).
+      reviews: string | null;
     }
   | { ok: false; reason: "not_configured" | "not_found" };
 
@@ -189,6 +320,8 @@ export const getCheckoutSession = createServerFn({ method: "GET" })
         plan: typeof metadata?.["plan"] === "string" ? metadata["plan"] : null,
         locations: typeof metadata?.["locations"] === "string" ? metadata["locations"] : null,
         status: session.status ?? null,
+        website: typeof metadata?.["website"] === "string" ? metadata["website"] : null,
+        reviews: typeof metadata?.["reviews"] === "string" ? metadata["reviews"] : null,
       };
     } catch (error) {
       console.error("[checkout] failed to retrieve Stripe checkout session", error);

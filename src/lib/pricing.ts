@@ -28,6 +28,54 @@ export const MONTHLY_PRICE_CENTS = PLAN_TIERS[0].priceCents;
 export const SETUP_FEE_CENTS = 2000; // $20 one-time, applies once per account
 export const TRIAL_DAYS = 7; // Free trial length; billing starts on day 7
 
+// ---- Website offers ---------------------------------------------------------
+// Sold at checkout (/start) next to, or instead of, the Google review plans.
+// "build" is a one-time design and build, "maintenance" is a monthly hosting
+// and updates plan, and "build_maintenance" is both. Checkout names its Stripe
+// lines "UpTrend Website ..." (WEBSITE_LINE_MARKER) so affiliate commission can
+// tell website money apart from review-plan money (see affiliates.server.ts).
+export const WEBSITE_BUILD_CENTS = 29900; // $299 one-time
+export const WEBSITE_MAINTENANCE_CENTS = 9900; // $99 per month
+export const WEBSITE_LINE_MARKER = "UpTrend Website";
+
+export const WEBSITE_OPTIONS = [
+  {
+    id: "build",
+    name: "Website build",
+    priceText: "$299 one-time",
+    detail: "We design and build your site. You approve it before it goes live.",
+    buildCents: WEBSITE_BUILD_CENTS,
+    monthlyCents: 0,
+  },
+  {
+    id: "build_maintenance",
+    name: "Website + maintenance",
+    priceText: "$299 once, then $99/mo",
+    detail: "The build, plus hosting, small updates and support every month.",
+    buildCents: WEBSITE_BUILD_CENTS,
+    monthlyCents: WEBSITE_MAINTENANCE_CENTS,
+  },
+  {
+    id: "maintenance",
+    name: "Maintenance only",
+    priceText: "$99/mo",
+    detail: "For a site you already have: hosting, small updates and support.",
+    buildCents: 0,
+    monthlyCents: WEBSITE_MAINTENANCE_CENTS,
+  },
+] as const;
+
+export type WebsiteOption = (typeof WEBSITE_OPTIONS)[number];
+export type WebsiteOptionId = WebsiteOption["id"];
+export const WEBSITE_OPTION_IDS = WEBSITE_OPTIONS.map((o) => o.id) as [
+  WebsiteOptionId,
+  ...WebsiteOptionId[],
+];
+
+export function websiteOptionById(id: string | null | undefined): WebsiteOption | null {
+  return WEBSITE_OPTIONS.find((o) => o.id === id) ?? null;
+}
+
 export function formatUsd(cents: number): string {
   return (cents / 100).toLocaleString("en-US", {
     style: "currency",

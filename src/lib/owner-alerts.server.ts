@@ -49,7 +49,7 @@ import {
   paraHtml as emailParaHtml,
   type EmailSection,
 } from "./email-layout";
-import { SETUP_FEE_CENTS, TRIAL_DAYS, tierById } from "./pricing";
+import { SETUP_FEE_CENTS, TRIAL_DAYS, tierById, websiteOptionById } from "./pricing";
 
 const PROVIDER = "stripe" as const;
 
@@ -325,15 +325,21 @@ export type OwnerAlert = {
 type EventContext = { livemode: boolean; created: number; type: string };
 
 // Pure: turns a completed Checkout session into the email, or null when the
-// session is not a subscription signup. Uses Stripe's own numbers (amount_total
-// is exactly what was collected at checkout, promo codes included).
+// session is neither a subscription signup nor a website order. Uses Stripe's
+// own numbers (amount_total is exactly what was collected at checkout, promo
+// codes included). A one-time website build is a "payment" session, so website
+// orders (metadata.website) are let through even when it is not a subscription.
 export function buildSignupAlert(
   session: Stripe.Checkout.Session,
   ctx: EventContext,
 ): OwnerAlert | null {
-  if (session.mode !== "subscription") return null;
-
   const metadata = metadataOf(session.metadata) ?? {};
+  const websiteOption = websiteOptionById(metadata["website"]);
+  if (session.mode !== "subscription" && !websiteOption) return null;
+
+  // False only for a website-only order (no Google review plan attached).
+  const includesReviews = metadata["reviews"] !== "no";
+  const websiteUrl = nonEmptyString(metadata["websiteUrl"]);
   const plan = metadata["plan"] ?? null;
   const isTrial = plan === "trial";
   const isMember = plan === "membership";
@@ -363,30 +369,49 @@ export function buildSignupAlert(
 
   const displayName = businessName ?? email ?? "Unknown business";
   const testPrefix = ctx.livemode ? "" : "[TEST] ";
-  const kindLabel = isTrial
-    ? "New free trial"
-    : isMember
-      ? "New member"
-      : "New signup";
+  const kindLabel = websiteOption
+    ? "New website order"
+    : isTrial
+      ? "New free trial"
+      : isMember
+        ? "New member"
+        : "New signup";
   const subject = `${testPrefix}${kindLabel}: ${cleanForSubject(displayName)}`;
 
   const trialEnd = ctx.created + TRIAL_DAYS * 24 * 60 * 60;
-  const planText = isTrial
-    ? `Free trial (${TRIAL_DAYS} days, card on file)`
-    : isMember
-      ? "Membership (starts billing today)"
-      : "Not recorded";
+  const planText = websiteOption
+    ? includesReviews
+      ? `${tierById(metadata["tier"]).name} review plan (starts billing today)`
+      : "No review plan (website only)"
+    : isTrial
+      ? `Free trial (${TRIAL_DAYS} days, card on file)`
+      : isMember
+        ? "Membership (starts billing today)"
+        : "Not recorded";
 
   const rows: AlertRow[] = [
     { label: "Business", value: businessName ?? "Not provided" },
     { label: "Contact", value: contactName ?? "Not provided" },
     { label: "Email", value: email ?? "Not provided" },
     { label: "Phone", value: phone ?? "Not provided" },
-    {
-      label: "Locations",
-      value: locations === null ? "Not provided" : String(locations),
-    },
-    { label: "Plan", value: planText },
+    ...(websiteOption
+      ? [
+          {
+            label: "Website order",
+            value: `${websiteOption.name} (${websiteOption.priceText})`,
+          },
+          ...(websiteUrl ? [{ label: "Current website", value: websiteUrl }] : []),
+        ]
+      : []),
+    ...(includesReviews
+      ? [
+          {
+            label: "Locations",
+            value: locations === null ? "Not provided" : String(locations),
+          },
+        ]
+      : []),
+    { label: websiteOption ? "Review plan" : "Plan", value: planText },
     {
       label: "Due today",
       value:
@@ -428,7 +453,11 @@ export function buildSignupAlert(
     });
   }
 
-  const note = isTrial
+  const note = websiteOption
+    ? websiteOption.id === "maintenance"
+      ? "They already have a site and want it maintained. Check the address above, then email them within one business day to get started."
+      : `Paid at checkout. Reach out within one business day to start the website${includesReviews ? ", and they also set up a review dashboard of their own" : ""}.`
+    : isTrial
     ? "Nothing was charged today. The card on file is billed automatically when the trial ends, and you will get a second email when that payment goes through."
     : isMember
       ? paymentPending
@@ -438,21 +467,27 @@ export function buildSignupAlert(
 
   const html = renderAlertEmail({
     subject,
-    preheader: isTrial
+    preheader: websiteOption
+      ? `${displayName} ordered ${websiteOption.name.toLowerCase()}${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`
+      : isTrial
       ? `${displayName} started a free trial. Nothing is due today.`
       : `${displayName} signed up${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`,
     tone: isTrial ? "trial" : "paid",
-    badge: isTrial
-      ? "Free trial started"
-      : isMember
-        ? "New member"
-        : "New signup",
+    badge: websiteOption
+      ? "New website order"
+      : isTrial
+        ? "Free trial started"
+        : isMember
+          ? "New member"
+          : "New signup",
     headline: displayName,
-    subline: isTrial
-      ? "Just started the 7 day free trial."
-      : isMember
-        ? "Just joined as a paying member."
-        : "Just signed up through checkout.",
+    subline: websiteOption
+      ? "Just ordered a website."
+      : isTrial
+        ? "Just started the 7 day free trial."
+        : isMember
+          ? "Just joined as a paying member."
+          : "Just signed up through checkout.",
     testMode: !ctx.livemode,
     rows,
     links,
