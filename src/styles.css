@@ -6104,8 +6104,16 @@ h1 strong {
 }
 .lp-footer-inner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px 40px;
+  grid-template-columns: minmax(250px, 330px) minmax(0, 1fr);
+  gap: 18px 56px;
+  align-items: start;
+}
+.lp-footer-brand,
+.lp-footer-links {
+  min-width: 0;
+}
+.lp-copyright {
+  align-self: end;
 }
 .lp-footer-brand {
   display: grid;
@@ -7509,4 +7517,14 @@ h1 strong {
 }
 .seo-foot p {
   margin: 0;
+}
+
+/* Top menu reused on inner pages: sits in the page flow like the homepage bar */
+.lp-root.lp-nav-wrap {
+  display: contents;
+}
+@media (max-width: 860px) {
+  .lp-nav-wrap .lp-nav-links {
+    display: none;
+  }
 }
