@@ -59,6 +59,9 @@ function SuccessPage() {
   }, [sessionId]);
 
   const email = summary && summary.ok ? summary.email : null;
+  // A website-only order has no review dashboard, so no password form.
+  const websiteOnly = summary && summary.ok ? summary.reviews === "no" : false;
+  const hasWebsite = summary && summary.ok ? Boolean(summary.website) : false;
 
   async function handleClaim(event: FormEvent) {
     event.preventDefault();
@@ -117,51 +120,69 @@ function SuccessPage() {
           <p className="eyebrow">
             <span /> You're in
           </p>
-          <h1 className="start-heading">
-            Thanks{email ? `, we'll be emailing ${email}` : ""}. Let's set up your dashboard.
-          </h1>
-          <p className="start-lead">
-            Create a password to get into your CRM, where you'll add customers and watch review
-            requests go out automatically.
-          </p>
+          {websiteOnly ? (
+            <>
+              <h1 className="start-heading">
+                Thanks{email ? `, we'll be emailing ${email}` : ""}. Your website order is in.
+              </h1>
+              <p className="start-lead">
+                We'll email you within one business day to get started. If you have a logo,
+                photos or anything you want on the site, just reply to that email and send it
+                over. Questions in the meantime: hello@uptrendscaling.com.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="start-heading">
+                Thanks{email ? `, we'll be emailing ${email}` : ""}. Let's set up your dashboard.
+              </h1>
+              <p className="start-lead">
+                Create a password to get into your CRM, where you'll add customers and watch
+                review requests go out automatically.
+                {hasWebsite
+                  ? " We'll also email you within one business day about your website."
+                  : ""}
+              </p>
 
-          <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
-            <label>
-              <span>Create a password</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </label>
-            <label>
-              <span>Confirm password</span>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                autoComplete="new-password"
-                required
-              />
-            </label>
+              <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
+                <label>
+                  <span>Create a password</span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
+                <label>
+                  <span>Confirm password</span>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(event) => setConfirmPassword(event.target.value)}
+                    autoComplete="new-password"
+                    required
+                  />
+                </label>
 
-            {error && <p className="form-alert form-alert-error">{error}</p>}
-            {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
+                {error && <p className="form-alert form-alert-error">{error}</p>}
+                {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
 
-            <button
-              className="button button-primary start-submit"
-              type="submit"
-              disabled={submitting}
-            >
-              {submitting ? "Setting up…" : "Create my dashboard"}
-              <ArrowIcon />
-            </button>
-          </form>
+                <button
+                  className="button button-primary start-submit"
+                  type="submit"
+                  disabled={submitting}
+                >
+                  {submitting ? "Setting up…" : "Create my dashboard"}
+                  <ArrowIcon />
+                </button>
+              </form>
+            </>
+          )}
 
           <a className="button button-ghost" href="/" style={{ marginTop: 18 }}>
-            I'll do this later
+            {websiteOnly ? "Back to the site" : "I'll do this later"}
           </a>
         </div>
       </main>
