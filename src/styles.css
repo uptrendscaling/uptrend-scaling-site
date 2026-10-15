@@ -7439,3 +7439,74 @@ h1 strong {
     display: none;
   }
 }
+
+/* ---- Search landing pages (/get-a-website-built-for-you, /website-for/*) --- */
+.ws-page h2 {
+  margin-top: 28px;
+}
+.ws-page p,
+.ws-page li {
+  line-height: 1.65;
+}
+.seo-steps {
+  display: grid;
+  gap: 10px;
+  padding-left: 22px;
+  max-width: 62ch;
+}
+.seo-price {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+}
+.seo-price > div {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+.seo-price strong {
+  display: block;
+  font-size: 1.4rem;
+}
+.seo-price span {
+  color: var(--muted-foreground);
+  font-size: 0.92rem;
+}
+.seo-faq {
+  display: grid;
+  gap: 8px;
+  max-width: 70ch;
+}
+.seo-faq details {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  background: var(--surface);
+}
+.seo-faq summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.seo-faq p {
+  margin: 10px 0 0;
+  color: var(--muted-foreground);
+}
+.seo-foot {
+  display: grid;
+  gap: 12px;
+  padding: 28px 16px 40px;
+  border-top: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-size: 0.9rem;
+  text-align: center;
+}
+.seo-foot nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 18px;
+}
+.seo-foot p {
+  margin: 0;
+}

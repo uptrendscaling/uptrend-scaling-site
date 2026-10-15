@@ -14,6 +14,7 @@ import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AffiliatesRouteImport } from './routes/affiliates'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
+import { Route as GetAWebsiteBuiltForYouRouteImport } from './routes/get-a-website-built-for-you'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -34,6 +35,7 @@ import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
 import { Route as WebhooksQuickbooksRouteImport } from './routes/webhooks.quickbooks'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
+import { Route as WebsiteForTradeRouteImport } from './routes/website-for.$trade'
 import { Route as WebsitesSlugRouteImport } from './routes/websites_.$slug'
 import { Route as ApiV1MeRouteImport } from './routes/api.v1.me'
 import { Route as ApiV1ReviewRequestsRouteImport } from './routes/api.v1.review-requests'
@@ -70,6 +72,11 @@ const AppRoute = AppRouteImport.update({
 const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
   id: '/forgot-password',
   path: '/forgot-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GetAWebsiteBuiltForYouRoute = GetAWebsiteBuiltForYouRouteImport.update({
+  id: '/get-a-website-built-for-you',
+  path: '/get-a-website-built-for-you',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -172,6 +179,11 @@ const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
   path: '/webhooks/square',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WebsiteForTradeRoute = WebsiteForTradeRouteImport.update({
+  id: '/website-for/$trade',
+  path: '/website-for/$trade',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const WebsitesSlugRoute = WebsitesSlugRouteImport.update({
   id: '/websites_/$slug',
   path: '/websites/$slug',
@@ -241,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/affiliates': typeof AffiliatesRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/get-a-website-built-for-you': typeof GetAWebsiteBuiltForYouRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -261,6 +274,7 @@ export interface FileRoutesByFullPath {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -280,6 +294,7 @@ export interface FileRoutesByTo {
   '/affiliates': typeof AffiliatesRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/get-a-website-built-for-you': typeof GetAWebsiteBuiltForYouRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -300,6 +315,7 @@ export interface FileRoutesByTo {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -320,6 +336,7 @@ export interface FileRoutesById {
   '/affiliates': typeof AffiliatesRoute
   '/app': typeof AppRoute
   '/forgot-password': typeof ForgotPasswordRoute
+  '/get-a-website-built-for-you': typeof GetAWebsiteBuiltForYouRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -340,6 +357,7 @@ export interface FileRoutesById {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites_/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
@@ -361,6 +379,7 @@ export interface FileRouteTypes {
     | '/affiliates'
     | '/app'
     | '/forgot-password'
+    | '/get-a-website-built-for-you'
     | '/login'
     | '/privacy'
     | '/reset-password'
@@ -381,6 +400,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/website-for/$trade'
     | '/websites/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -400,6 +420,7 @@ export interface FileRouteTypes {
     | '/affiliates'
     | '/app'
     | '/forgot-password'
+    | '/get-a-website-built-for-you'
     | '/login'
     | '/privacy'
     | '/reset-password'
@@ -420,6 +441,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/website-for/$trade'
     | '/websites/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -439,6 +461,7 @@ export interface FileRouteTypes {
     | '/affiliates'
     | '/app'
     | '/forgot-password'
+    | '/get-a-website-built-for-you'
     | '/login'
     | '/privacy'
     | '/reset-password'
@@ -459,6 +482,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/website-for/$trade'
     | '/websites_/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
@@ -479,6 +503,7 @@ export interface RootRouteChildren {
   AffiliatesRoute: typeof AffiliatesRoute
   AppRoute: typeof AppRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
+  GetAWebsiteBuiltForYouRoute: typeof GetAWebsiteBuiltForYouRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -499,6 +524,7 @@ export interface RootRouteChildren {
   WebhooksJobberRoute: typeof WebhooksJobberRoute
   WebhooksQuickbooksRoute: typeof WebhooksQuickbooksRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
+  WebsiteForTradeRoute: typeof WebsiteForTradeRoute
   WebsitesSlugRoute: typeof WebsitesSlugRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
   ApiV1ReviewRequestsRoute: typeof ApiV1ReviewRequestsRoute
@@ -548,6 +574,13 @@ declare module '@tanstack/react-router' {
       path: '/forgot-password'
       fullPath: '/forgot-password'
       preLoaderRoute: typeof ForgotPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/get-a-website-built-for-you': {
+      id: '/get-a-website-built-for-you'
+      path: '/get-a-website-built-for-you'
+      fullPath: '/get-a-website-built-for-you'
+      preLoaderRoute: typeof GetAWebsiteBuiltForYouRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -690,6 +723,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebhooksSquareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/website-for/$trade': {
+      id: '/website-for/$trade'
+      path: '/website-for/$trade'
+      fullPath: '/website-for/$trade'
+      preLoaderRoute: typeof WebsiteForTradeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/websites_/$slug': {
       id: '/websites_/$slug'
       path: '/websites/$slug'
@@ -783,6 +823,7 @@ const rootRouteChildren: RootRouteChildren = {
   AffiliatesRoute: AffiliatesRoute,
   AppRoute: AppRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
+  GetAWebsiteBuiltForYouRoute: GetAWebsiteBuiltForYouRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
@@ -803,6 +844,7 @@ const rootRouteChildren: RootRouteChildren = {
   WebhooksJobberRoute: WebhooksJobberRoute,
   WebhooksQuickbooksRoute: WebhooksQuickbooksRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
+  WebsiteForTradeRoute: WebsiteForTradeRoute,
   WebsitesSlugRoute: WebsitesSlugRoute,
   ApiV1MeRoute: ApiV1MeRoute,
   ApiV1ReviewRequestsRoute: ApiV1ReviewRequestsRoute,
