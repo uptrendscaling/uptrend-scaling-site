@@ -29,3 +29,35 @@ export function fireStartedSignupEvent(plan: string): void {
   if (typeof window === "undefined" || typeof window.fbq !== "function") return;
   window.fbq("track", "Lead", { content_name: plan });
 }
+
+// "Purchase": fired once from the checkout success page when money was really
+// charged (for example the $299 website build), with the dollar value so Meta
+// can optimize ads toward actual sales. A free trial start charges $0 and is
+// not sent as a purchase. The Stripe session id doubles as Meta's event id and
+// as a once-per-browser guard so refreshing the page cannot count it twice.
+export function firePurchaseEvent(
+  sessionId: string,
+  amountCents: number,
+  currency: string | null,
+  contentName: string,
+): void {
+  if (typeof window === "undefined" || typeof window.fbq !== "function") return;
+  if (!(amountCents > 0)) return;
+  const guardKey = `meta-purchase-${sessionId}`;
+  try {
+    if (window.localStorage.getItem(guardKey)) return;
+    window.localStorage.setItem(guardKey, "1");
+  } catch {
+    // Storage blocked: still send the event, Meta de-duplicates on eventID.
+  }
+  window.fbq(
+    "track",
+    "Purchase",
+    {
+      value: Math.round(amountCents) / 100,
+      currency: (currency ?? "usd").toUpperCase(),
+      content_name: contentName,
+    },
+    { eventID: sessionId },
+  );
+}

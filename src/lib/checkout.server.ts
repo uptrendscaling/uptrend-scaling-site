@@ -301,6 +301,10 @@ export type SessionSummary =
       website: string | null;
       // "no" for a website-only order (no review dashboard to set up).
       reviews: string | null;
+      // What was actually charged at checkout, in cents (0 for a free trial
+      // start), so the success page can tell Meta about a real purchase.
+      amountTotalCents: number | null;
+      currency: string | null;
     }
   | { ok: false; reason: "not_configured" | "not_found" };
 
@@ -326,6 +330,8 @@ export const getCheckoutSession = createServerFn({ method: "GET" })
         status: session.status ?? null,
         website: typeof metadata?.["website"] === "string" ? metadata["website"] : null,
         reviews: typeof metadata?.["reviews"] === "string" ? metadata["reviews"] : null,
+        amountTotalCents: typeof session.amount_total === "number" ? session.amount_total : null,
+        currency: session.currency ?? null,
       };
     } catch (error) {
       console.error("[checkout] failed to retrieve Stripe checkout session", error);
