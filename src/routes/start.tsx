@@ -60,7 +60,11 @@ function StartPage() {
   const tier = tierById(tierId);
   // Website offers: none by default, so /start still opens as the review signup.
   const [websiteId, setWebsiteId] = useState<WebsiteOptionId | "none">(initialWebsite ?? "none");
-  const [wantsReviews, setWantsReviews] = useState(initialReviews !== "no");
+  // The review plan is opt-in when a website is being ordered, so a website link
+  // starts as website-only unless the link says reviews=yes.
+  const [wantsReviews, setWantsReviews] = useState(
+    initialWebsite ? initialReviews === "yes" : true,
+  );
   const [websiteUrl, setWebsiteUrl] = useState("");
   const websiteOption = websiteOptionById(websiteId === "none" ? null : websiteId);
   const hasWebsite = websiteOption !== null;
@@ -314,7 +318,11 @@ function StartPage() {
                     name="website"
                     value={option.id}
                     checked={option.id === websiteId}
-                    onChange={() => setWebsiteId(option.id)}
+                    onChange={() => {
+                      // Picking a website from "No website" starts website-only.
+                      if (websiteId === "none") setWantsReviews(false);
+                      setWebsiteId(option.id);
+                    }}
                   />
                   <span className="tier-name">{option.name}</span>
                   <span className="tier-price">{option.priceText}</span>
