@@ -1,10 +1,18 @@
 # UpTrend Scaling
 
-> Google review automation for local businesses. Automatically asks customers for a Google review by SMS and email the moment a job is finished, sends one follow-up reminder, and offers QR codes for in-person requests.
+> Websites built for local businesses, and Google review automation. Automatically asks customers for a Google review by SMS and email the moment a job is finished, sends one follow-up reminder, and offers QR codes for in-person requests.
 
 UpTrend Scaling is a small, owner-operated software company based in Glendale, Arizona, founded in September 2026. It is an independent product and is not affiliated with or endorsed by Google.
 
-## Product
+## Websites
+
+- [Get a website built for you](https://www.uptrendscaling.com/get-a-website-built-for-you): UpTrend Scaling designs and builds a mobile-first website for a local business for $299, one time. The customer approves it before it goes live.
+- Maintenance is optional: $99/month covers hosting, small updates and email support. Maintenance only (for a site you already have) is also $99/month. There is no free trial on websites.
+- [Live website samples](https://www.uptrendscaling.com/websites): HVAC, plumbing and landscaping examples.
+- Websites for specific trades: [HVAC companies](https://www.uptrendscaling.com/website-for/hvac-companies), [plumbers](https://www.uptrendscaling.com/website-for/plumbers), [landscapers](https://www.uptrendscaling.com/website-for/landscapers).
+- [Order a website](https://www.uptrendscaling.com/start?website=build)
+
+## Google review automation
 
 - [Homepage](https://www.uptrendscaling.com/): what it does, how it works, pricing, and frequently asked questions.
 - Pricing: $70/month per location, plus a one-time $20 setup fee. 7-day free trial, nothing charged until it ends. Month-to-month, cancel anytime.
