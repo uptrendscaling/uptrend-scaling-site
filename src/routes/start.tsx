@@ -152,16 +152,6 @@ function StartPage() {
       <main className="start-main">
         <div className="page-width start-grid">
           <div className="start-copy">
-            {/* UPTREND50 promo banner. Hides itself automatically after the code
-                expires at the end of Oct 15, 2026 (Arizona time). */}
-            {Date.now() < Date.parse("2026-10-16T07:00:00Z") && (
-              <div className="promo-banner" role="note">
-                <strong>50% off your first month</strong>
-                <span>
-                  Use code <code>UPTREND50</code> on the payment page. Ends 10/15.
-                </span>
-              </div>
-            )}
             {referrerName ? (
               <div className="promo-banner" role="note">
                 <strong>Referred by {referrerName}</strong>
