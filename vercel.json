@@ -35,6 +35,26 @@
     {
       "path": "/cron/lead-followups",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/cron/trybe-sync",
+      "schedule": "5 13 * * *"
+    },
+    {
+      "path": "/cron/trybe-sync",
+      "schedule": "5 16 * * *"
+    },
+    {
+      "path": "/cron/trybe-sync",
+      "schedule": "5 19 * * *"
+    },
+    {
+      "path": "/cron/trybe-sync",
+      "schedule": "5 22 * * *"
+    },
+    {
+      "path": "/cron/trybe-sync",
+      "schedule": "5 1 * * *"
     }
   ]
 }
