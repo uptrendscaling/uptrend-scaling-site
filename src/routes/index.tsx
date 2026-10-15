@@ -9,6 +9,7 @@ import {
   formatUsd,
 } from "../lib/pricing";
 import { CANONICAL_SITE_URL } from "../lib/site";
+import { WEBSITE_DESIGNS } from "../lib/website-designs";
 import { ThemeToggle } from "../components/theme-toggle";
 
 const START_TRIAL = "/start?plan=trial";
@@ -168,6 +169,7 @@ const NAV_LINKS = [
   { href: "#how-it-works", label: "How it works" },
   { href: "#features", label: "Features" },
   { href: "#pricing", label: "Pricing" },
+  { href: "#websites", label: "Websites" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -620,6 +622,52 @@ function Index() {
           </div>
         </section>
 
+        {/* ---- Websites --------------------------------------------------- */}
+        <section id="websites" className="lp-section">
+          <div className="lp-container">
+            <div className="lp-heading">
+              <p className="lp-label">Websites</p>
+              <h2>Need a website too? $299 to build, $99 a month to keep.</h2>
+              <p>
+                We design and build a fast, mobile-first site for your business.
+                You approve it before it goes live. Open any design below to see
+                it live.
+              </p>
+            </div>
+            <div className="lp-ws-grid">
+              {WEBSITE_DESIGNS.map((design) => (
+                <a
+                  key={design.slug}
+                  className="lp-ws-card"
+                  href={design.liveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    src={design.image}
+                    alt={`${design.name} website design`}
+                    width={1200}
+                    height={675}
+                    loading="lazy"
+                  />
+                  <div>
+                    <strong>{design.name}</strong>
+                    <span>{design.trade} website. View it live.</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+            <div className="lp-ws-actions">
+              <a className="lp-btn lp-btn-primary" href="/start?website=build">
+                Order a website
+              </a>
+              <a className="lp-btn lp-btn-ghost" href="/websites">
+                See details
+              </a>
+            </div>
+          </div>
+        </section>
+
         {/* ---- FAQ ------------------------------------------------------- */}
         <section id="faq" className="lp-section">
           <div className="lp-container lp-faq-grid">
@@ -697,6 +745,7 @@ function Index() {
               hello@uptrendscaling.com
             </a>
             <a href="/login">Log in</a>
+            <a href="/websites">Websites</a>
             <a href="/affiliates">Affiliates</a>
             <a href="/compare/nicejob">vs NiceJob</a>
             <a href="/compare/podium">vs Podium</a>

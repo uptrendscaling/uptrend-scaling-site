@@ -126,8 +126,12 @@ const FAQ: Array<{ q: string; a: string }> = [
     a: "No. Every customer gets the same honest request to leave a review on Google. Please never describe it as a way to get only 5-star reviews or hide negative ones.",
   },
   {
+    q: "Do website sales pay too?",
+    a: "Yes. We build websites for local businesses for $299 one-time, with optional maintenance at $99 a month (or maintenance only for a site they already have). You earn $50 for every website build a referred business buys, plus 20% of every monthly maintenance payment for as long as they keep it. There is no free trial on websites.",
+  },
+  {
     q: "How and when do I get paid?",
-    a: "You earn 25% of every payment each business you refer makes, for as long as they stay a customer, plus a $20 bonus when each one makes its 2nd payment. Commission on a business becomes payable after their 2nd monthly payment, and we pay monthly by PayPal once you've earned $25.",
+    a: "You earn 25% of every review plan payment each business you refer makes, for as long as they stay a customer, plus a $20 bonus when each one makes its 2nd payment. Commission on the review plan becomes payable after their 2nd monthly payment. Websites pay too: $50 for every website build a referred business buys and 20% of every monthly maintenance payment, payable as soon as the payment clears. We pay monthly by PayPal once you've earned $25.",
   },
 ];
 

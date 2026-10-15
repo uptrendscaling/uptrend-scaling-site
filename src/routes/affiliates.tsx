@@ -3,7 +3,9 @@ import { useState, type FormEvent } from "react";
 
 import { ThemeToggle } from "../components/theme-toggle";
 import {
+  AFFILIATE_MAINTENANCE_RATE,
   AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS,
+  AFFILIATE_WEBSITE_BUILD_BONUS_DOLLARS,
   AFFILIATE_COOKIE_DAYS,
   AFFILIATE_MIN_PAYOUT_DOLLARS,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
@@ -21,13 +23,13 @@ export const Route = createFileRoute("/affiliates")({
       {
         name: "description",
         content:
-          "Earn 25% of every payment for as long as they stay, plus a $20 bonus, when you refer local service businesses to UpTrend Scaling, Google review automation on autopilot.",
+          "Earn 25% of every review plan payment for as long as they stay, plus $50 for every website you sell and 20% of website maintenance, when you refer local service businesses to UpTrend Scaling.",
       },
       { property: "og:title", content: "UpTrend Scaling affiliate program" },
       {
         property: "og:description",
         content:
-          "Earn 25% of every payment, for as long as each business you refer stays.",
+          "Earn 25% of every review plan payment, plus $50 per website sold and 20% of maintenance.",
       },
       { property: "og:url", content: `${CANONICAL_SITE_URL}/affiliates` },
       // Link previews (iMessage, Facebook, Slack) show this image: the logo
@@ -126,9 +128,15 @@ function AffiliatesPage() {
             <p className="start-lead">
               Know contractors, cleaners, roofers or other local service
               businesses? Share your link. When they sign up, you earn 25% of
-              every payment they make, for as long as they stay a customer, plus
-              a $20 bonus when they make their 2nd payment. They skip our $20
-              setup fee.
+              every review plan payment they make, for as long as they stay a
+              customer, plus a $20 bonus when they make their 2nd payment. They
+              skip our $20 setup fee.
+            </p>
+            <p className="start-lead">
+              We also build websites for local businesses ($299 one-time, or
+              $299 plus $99 a month for maintenance). When a business you refer
+              buys a website you earn $50 for each one, and 20% of every monthly
+              maintenance payment for as long as they keep it.
             </p>
             <p className="aff-note">
               Already an UpTrend customer? You have a referral link already.
@@ -143,6 +151,10 @@ function AffiliatesPage() {
               <div>
                 <span>First year, with $200 in bonuses</span>
                 <strong>$2,300</strong>
+              </div>
+              <div>
+                <span>Sell 5 websites with maintenance</span>
+                <strong>$250 + $99/month</strong>
               </div>
             </div>
 
@@ -197,6 +209,18 @@ function AffiliatesPage() {
                   You also earn a one-time $
                   {AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS} bonus for each
                   referred business once it makes its 2nd monthly payment.
+                </li>
+                <li>
+                  Website sales pay too. You earn $
+                  {AFFILIATE_WEBSITE_BUILD_BONUS_DOLLARS} for every website
+                  build a referred business pays for, and{" "}
+                  {Math.round(AFFILIATE_MAINTENANCE_RATE * 100)}% of every
+                  monthly maintenance payment (after any discounts and refunds)
+                  for as long as they keep maintenance. Website earnings are
+                  payable as soon as the payment clears, since there is no free
+                  trial on websites. A website order does not earn the review
+                  plan's 25%, and a refunded website build does not earn the
+                  $50.
                 </li>
                 <li>
                   Commission on a business becomes payable after their{" "}

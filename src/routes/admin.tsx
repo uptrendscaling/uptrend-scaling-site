@@ -20,6 +20,7 @@ import { ThemeToggle } from "../components/theme-toggle";
 import {
   DashButton,
   DashEmpty,
+  DashInput,
   DashPageHead,
   DashPanel,
   DashPill,
@@ -46,6 +47,7 @@ import {
   type TrybeCreatorSummary,
   type TrybeOverview,
 } from "../lib/trybe.server";
+import { updateWebsiteOrder } from "../lib/website-admin.server";
 import {
   getLeadsOverview,
   markLeadResponded,
@@ -66,6 +68,7 @@ import {
 const ADMIN_TABS = [
   "overview",
   "clients",
+  "websites",
   "outreach",
   "affiliates",
   "trybe",
@@ -76,6 +79,7 @@ type AdminTab = (typeof ADMIN_TABS)[number];
 const ADMIN_NAV: ReadonlyArray<{ id: AdminTab; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "clients", label: "Clients" },
+  { id: "websites", label: "Websites" },
   { id: "outreach", label: "Outreach" },
   { id: "affiliates", label: "Affiliates" },
   { id: "trybe", label: "Trybe" },
@@ -792,6 +796,151 @@ function ClientsTab({
   );
 }
 
+const WEBSITE_OPTION_LABEL: Record<string, string> = {
+  build: "Website build",
+  build_maintenance: "Website + maintenance",
+  maintenance: "Maintenance only",
+};
+
+// Every website order: move it from ordered to building to live and record the
+// site's address. The customer sees the status in their dashboard.
+function WebsitesTab({ businesses }: { businesses: AdminBusinessSummary[] }) {
+  const orders = businesses.filter((b) => b.websitePlan !== null);
+  const [local, setLocal] = useState<
+    Record<string, { status: "ordered" | "building" | "live"; url: string }>
+  >({});
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+
+  function valueFor(b: AdminBusinessSummary) {
+    return (
+      local[b.id] ?? {
+        status: b.websiteStatus ?? "ordered",
+        url: b.websiteUrl ?? "",
+      }
+    );
+  }
+
+  async function save(b: AdminBusinessSummary) {
+    const value = valueFor(b);
+    setBusyId(b.id);
+    setMessage(null);
+    const result = await updateWebsiteOrder({
+      data: { businessId: b.id, status: value.status, websiteUrl: value.url },
+    });
+    setBusyId(null);
+    setMessage(result.ok ? `Saved ${b.businessName}.` : result.message);
+  }
+
+  return (
+    <div className="dash-stack">
+      <DashPageHead
+        title="Websites"
+        description="Every website order. Move each one from ordered to building to live and add the site's address; the customer sees it in their dashboard."
+      />
+      <DashPanel
+        title="Website orders"
+        hint={orders.length === 1 ? "1 order" : `${orders.length} orders`}
+      >
+        {message ? <p className="dash-form-message">{message}</p> : null}
+        {orders.length === 0 ? (
+          <DashEmpty compact title="No website orders yet." />
+        ) : (
+          <DashTable>
+            <thead>
+              <tr>
+                <th>Customer</th>
+                <th>Order</th>
+                <th>Maintenance</th>
+                <th>Status</th>
+                <th>Site address</th>
+                <th>Ordered</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((b) => {
+                const value = valueFor(b);
+                return (
+                  <tr key={b.id}>
+                    <td>
+                      <div className="dash-cell-strong">{b.businessName}</div>
+                      <div className="dash-cell-muted">
+                        {b.contactName} · {b.email}
+                        {b.phone ? ` · ${b.phone}` : ""}
+                      </div>
+                      {b.referredBy ? (
+                        <div className="dash-cell-muted">Referred by {b.referredBy}</div>
+                      ) : null}
+                    </td>
+                    <td>
+                      <DashPill tone="muted">
+                        {WEBSITE_OPTION_LABEL[b.websitePlan ?? ""] ?? b.websitePlan}
+                      </DashPill>
+                    </td>
+                    <td>
+                      {b.websitePlan === "build" ? (
+                        <span className="dash-cell-muted">None</span>
+                      ) : b.maintenanceActive ? (
+                        <DashPill tone="ok">Active</DashPill>
+                      ) : (
+                        <DashPill tone="warn">Canceled</DashPill>
+                      )}
+                    </td>
+                    <td>
+                      <DashSelect
+                        value={value.status}
+                        onChange={(e) =>
+                          setLocal((prev) => ({
+                            ...prev,
+                            [b.id]: {
+                              ...valueFor(b),
+                              status: e.target.value as "ordered" | "building" | "live",
+                            },
+                          }))
+                        }
+                      >
+                        <option value="ordered">Ordered</option>
+                        <option value="building">Building</option>
+                        <option value="live">Live</option>
+                      </DashSelect>
+                    </td>
+                    <td>
+                      <DashInput
+                        value={value.url}
+                        placeholder="yourbusiness.com"
+                        onChange={(e) =>
+                          setLocal((prev) => ({
+                            ...prev,
+                            [b.id]: { ...valueFor(b), url: e.target.value },
+                          }))
+                        }
+                      />
+                    </td>
+                    <td className="dash-cell-muted">
+                      {b.websiteOrderedAt ? formatDate(b.websiteOrderedAt) : ""}
+                    </td>
+                    <td>
+                      <DashButton
+                        size="sm"
+                        variant="primary"
+                        disabled={busyId === b.id}
+                        onClick={() => void save(b)}
+                      >
+                        {busyId === b.id ? "Saving..." : "Save"}
+                      </DashButton>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </DashTable>
+        )}
+      </DashPanel>
+    </div>
+  );
+}
+
 function leadStatusPill(lead: LeadSummary) {
   if (!lead.contactedAt)
     return <DashPill tone="muted">Not yet contacted</DashPill>;
@@ -1170,7 +1319,7 @@ function TrybeTab({ overview }: { overview: TrybeOverview }) {
     <div className="dash-stack">
       <DashPageHead
         title="Trybe partners"
-        description="Creators we recruit on Trybe (jointrybe.com). They earn 25% of each referred customer's monthly subscription, paid by Trybe for as long as the customer stays, and only through Trybe's own link, so these partners never get a site referral code and commissions never stack. The daily growth routine sends up to 30 invites a day, answers their messages, sets up their demo dashboards and updates this page. Their sales and earnings come straight from Trybe."
+        description="Creators we recruit on Trybe (jointrybe.com). They earn 25% of each referred customer's monthly review plan subscription, paid by Trybe for as long as the customer stays, plus $50 for every website build and 20% of website maintenance (set up as part of the Trybe offer), and only through Trybe's own link, so these partners never get a site referral code and commissions never stack. The daily growth routine sends up to 30 invites a day, answers their messages, sets up their demo dashboards and updates this page. Their sales and earnings come straight from Trybe."
       />
 
       <section className="dash-stats dash-stats-4" aria-label="Trybe numbers">
@@ -1388,7 +1537,7 @@ function AffiliatesTab({
     <div className="dash-stack">
       <DashPageHead
         title="Affiliates"
-        description="Partners who send you customers. They earn 25% of every payment each referred business makes, for as long as it stays a customer, plus $20 once it makes its 2nd payment (included in Earned). Commission is payable after the 2nd payment. Paying customers get a referral link automatically and show up here marked Customer. Pay them by PayPal, then record it here."
+        description="Partners who send you customers. They earn 25% of every payment each referred business makes, for as long as it stays a customer, plus $20 once it makes its 2nd payment (included in Earned). Website sales pay $50 per website build and 20% of each maintenance payment, payable right away. Review plan commission is payable after the 2nd payment. Paying customers get a referral link automatically and show up here marked Customer. Pay them by PayPal, then record it here."
       />
 
       <section className="dash-stats dash-stats-4" aria-label="Affiliate numbers">
@@ -1489,7 +1638,7 @@ function AffiliatesTab({
                     {a.referrals.length ? (
                       <div className="dash-cell-muted" style={{ marginTop: 6 }}>
                         {a.referrals
-                          .map((r) => `${r.businessName} (${r.paidPayments} paid${r.accessRevoked ? ", canceled" : ""})`)
+                          .map((r) => `${r.businessName} (${r.paidPayments} paid${r.websiteBuilds ? `, ${r.websiteBuilds} website${r.websiteBuilds > 1 ? "s" : ""}` : ""}${r.accessRevoked ? ", canceled" : ""})`)
                           .join(", ")}
                       </div>
                     ) : null}
@@ -1739,6 +1888,8 @@ function AdminDashboard() {
               selectedSeries={selectedSeries}
               loadingSeries={loadingSeries}
             />
+          ) : tab === "websites" ? (
+            <WebsitesTab businesses={businesses} />
           ) : tab === "affiliates" ? (
             <AffiliatesTab affiliates={affiliateList} onChanged={refreshAffiliates} />
           ) : tab === "trybe" ? (

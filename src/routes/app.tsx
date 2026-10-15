@@ -11,12 +11,13 @@ import { AccessPausedPanel } from "../components/dashboard/access-paused";
 import { CustomersTab } from "../components/dashboard/customers-tab";
 import { DashChips } from "../components/dashboard/integration-chips";
 import { OverviewTab } from "../components/dashboard/overview-tab";
-import { DashAlert } from "../components/dashboard/primitives";
+import { DashAlert, DashButton, DashPageHead } from "../components/dashboard/primitives";
 import { QrTab } from "../components/dashboard/qr-tab";
 import { ReferralPanel } from "../components/dashboard/referral-panel";
 import { ReportsTab } from "../components/dashboard/reports-tab";
 import { RequestsTab } from "../components/dashboard/requests-tab";
 import { SettingsView } from "../components/dashboard/settings-view";
+import { WebsitePanel } from "../components/dashboard/website-panel";
 import { DashTopBar } from "../components/dashboard/top-bar";
 import {
   DASHBOARD_TABS,
@@ -115,13 +116,54 @@ function Dashboard() {
   const paused = business.accessRevoked;
   const tabProps = { business, shell, refresh };
 
+  // Website customers with no active review plan (a website-only order, or
+  // the review plan was canceled) get a website dashboard instead of the
+  // review one.
+  const hasWebsite = business.websitePlan !== null;
+  const websiteOnly = hasWebsite && (paused || !business.plan);
+
   let content;
-  if (paused) {
+  if (websiteOnly && tab === "settings") {
+    content = (
+      <SettingsView
+        shell={shell}
+        crmError={crmError}
+        locations={locations}
+        locationsError={locationsError}
+        refresh={refresh}
+      />
+    );
+  } else if (websiteOnly) {
+    content = (
+      <div className="dash-stack">
+        <DashPageHead
+          title="Your website"
+          description="Where your website stands, and your plans."
+          actions={
+            <DashButton href="/app?tab=settings" size="sm">
+              Manage plans
+            </DashButton>
+          }
+        />
+        {paused ? (
+          <DashAlert tone="info">
+            Your Google review plan has ended, so the review dashboard is
+            paused. Your customer data is safe. Email{" "}
+            <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>{" "}
+            any time to turn it back on.
+          </DashAlert>
+        ) : null}
+        <WebsitePanel business={business} />
+        {business.isDemo ? null : <ReferralPanel />}
+      </div>
+    );
+  } else if (paused) {
     content = <AccessPausedPanel />;
   } else if (tab === "overview" && overview) {
     content = (
       <>
         <OverviewTab shell={shell} overview={overview} refresh={refresh} />
+        {hasWebsite ? <WebsitePanel business={business} /> : null}
         {business.isDemo ? null : <ReferralPanel />}
       </>
     );
@@ -157,8 +199,9 @@ function Dashboard() {
         live={shell.live}
         todoCount={shell.todos.length}
         paused={paused}
+        websiteOnly={websiteOnly}
       />
-      {paused ? null : (
+      {paused || websiteOnly ? null : (
         <DashChips chips={shell.chips} generatedAt={shell.generatedAt} />
       )}
       <main className={isLoading ? "dash-main is-loading" : "dash-main"}>

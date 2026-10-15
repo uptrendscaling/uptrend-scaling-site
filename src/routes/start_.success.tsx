@@ -59,7 +59,7 @@ function SuccessPage() {
   }, [sessionId]);
 
   const email = summary && summary.ok ? summary.email : null;
-  // A website-only order has no review dashboard, so no password form.
+  // A website-only order gets a website dashboard instead of the review one.
   const websiteOnly = summary && summary.ok ? summary.reviews === "no" : false;
   const hasWebsite = summary && summary.ok ? Boolean(summary.website) : false;
 
@@ -128,7 +128,8 @@ function SuccessPage() {
               <p className="start-lead">
                 We'll email you within one business day to get started. If you have a logo,
                 photos or anything you want on the site, just reply to that email and send it
-                over. Questions in the meantime: hello@uptrendscaling.com.
+                over. Create a password below to follow your website's progress, manage your plan
+                and get your referral link. Questions in the meantime: hello@uptrendscaling.com.
               </p>
             </>
           ) : (
@@ -143,46 +144,46 @@ function SuccessPage() {
                   ? " We'll also email you within one business day about your website."
                   : ""}
               </p>
-
-              <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
-                <label>
-                  <span>Create a password</span>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                </label>
-                <label>
-                  <span>Confirm password</span>
-                  <input
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    autoComplete="new-password"
-                    required
-                  />
-                </label>
-
-                {error && <p className="form-alert form-alert-error">{error}</p>}
-                {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
-
-                <button
-                  className="button button-primary start-submit"
-                  type="submit"
-                  disabled={submitting}
-                >
-                  {submitting ? "Setting up…" : "Create my dashboard"}
-                  <ArrowIcon />
-                </button>
-              </form>
             </>
           )}
 
+            <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
+              <label>
+                <span>Create a password</span>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </label>
+              <label>
+                <span>Confirm password</span>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
+                  required
+                />
+              </label>
+
+              {error && <p className="form-alert form-alert-error">{error}</p>}
+              {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
+
+              <button
+                className="button button-primary start-submit"
+                type="submit"
+                disabled={submitting}
+              >
+                {submitting ? "Setting up…" : websiteOnly ? "Create my account" : "Create my dashboard"}
+                <ArrowIcon />
+              </button>
+            </form>
+
           <a className="button button-ghost" href="/" style={{ marginTop: 18 }}>
-            {websiteOnly ? "Back to the site" : "I'll do this later"}
+            I'll do this later
           </a>
         </div>
       </main>
