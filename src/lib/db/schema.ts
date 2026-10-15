@@ -72,6 +72,31 @@ export const businesses = pgTable("businesses", {
   // paid invoice. Saves texting costs and keeps regulars from being pestered.
   // Owners can switch it off in Settings.
   repeatGuardEnabled: boolean("repeat_guard_enabled").notNull().default(true),
+  // Website orders (see WEBSITE_OPTIONS in ../pricing.ts). Set from the Stripe
+  // checkout metadata when the order is paid. websitePlan is null for people
+  // who never ordered a website. websiteUrl is the customer's current site
+  // (maintenance orders) or the new site's address once it is built.
+  websitePlan: text("website_plan", {
+    enum: ["build", "build_maintenance", "maintenance"],
+  }),
+  websiteUrl: text("website_url"),
+  // Where the build stands: ordered -> building -> live. Colby changes it in
+  // the admin Websites view; the client sees it in their dashboard.
+  websiteStatus: text("website_status", {
+    enum: ["ordered", "building", "live"],
+  }),
+  websiteOrderedAt: timestamp("website_ordered_at", { withTimezone: true }),
+  // The Stripe subscription that carries the maintenance line when it is NOT
+  // the review subscription (a website-only order, or a website ordered later
+  // than the review plan). Null when maintenance rides on stripeSubscriptionId.
+  websiteSubscriptionId: text("website_subscription_id"),
+  // True while the $99/month maintenance line is on their Stripe subscription.
+  maintenanceActive: boolean("maintenance_active").notNull().default(false),
+  maintenanceCanceledAt: timestamp("maintenance_canceled_at", {
+    withTimezone: true,
+  }),
+  // Set when only the review plan was canceled (maintenance keeps going).
+  reviewsCanceledAt: timestamp("reviews_canceled_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
