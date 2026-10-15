@@ -93,6 +93,7 @@ function copyFor(input: OutreachEmailInput): Copy {
       ],
       question: [
         `Would it be worth a quick look at how this would work for ${business}? There's a free 7-day trial and I'll help you set it up.`,
+        "We also build clean, mobile-first websites for local service businesses. It's $299 one time, with optional upkeep at $99 a month, and you can see live samples at uptrendscaling.com/websites.",
       ],
       signoff: ["Colby", "UpTrend Scaling | uptrendscaling.com"],
       ps: `P.S. Not a fit? Reply "no thanks" and I won't email again.`,
@@ -106,6 +107,7 @@ function copyFor(input: OutreachEmailInput): Copy {
     ],
     question: [
       `If it's not a priority right now, no problem at all. If you'd like to see how it works, just reply "yes" and I'll send over a short walkthrough, or take a look at uptrendscaling.com.`,
+      "We also build websites for local businesses, $299 one time, and the samples are at uptrendscaling.com/websites.",
     ],
     signoff: ["Colby", "UpTrend Scaling"],
     ps: `P.S. If this isn't a fit, reply "no thanks" and I won't email you again.`,
@@ -150,7 +152,7 @@ export function renderOutreachEmail(
     <tr>
       <td align="center" bgcolor="#0b0b0c" style="background:#0b0b0c;padding:26px 36px 24px;">
         <a href="${CANONICAL_SITE_URL}" style="text-decoration:none;font-family:${font};font-size:28px;line-height:1.2;font-weight:700;color:#fafafa;letter-spacing:-0.5px;">UpTrend <span style="font-weight:400;color:#a1a1aa;">Scaling</span></a>
-        <div style="margin-top:6px;font-family:${font};font-size:11px;line-height:1.4;letter-spacing:2px;color:#8d8d93;">GOOGLE REVIEWS ON AUTOPILOT</div>
+        <div style="margin-top:6px;font-family:${font};font-size:11px;line-height:1.4;letter-spacing:2px;color:#8d8d93;">REVIEWS AND WEBSITES FOR LOCAL BUSINESSES</div>
       </td>
     </tr>
     <tr>
