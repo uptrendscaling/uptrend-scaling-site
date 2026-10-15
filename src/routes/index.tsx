@@ -34,6 +34,16 @@ const FAQ_ITEMS = [
     answer: `There are three plans, all priced per location per month: ${PLAN_TIERS.map((t) => `${t.name} ${formatUsd(t.priceCents)} (up to ${t.monthlyRequests.toLocaleString("en-US")} review requests a month)`).join(", ")}. Every plan includes every feature, plus a one-time ${formatUsd(SETUP_FEE_CENTS)} setup fee. It's month-to-month with no long-term contract, and you can cancel anytime.`,
   },
   {
+    question: "Can you build a website for my business?",
+    answer:
+      "Yes. We design and build a clean, mobile-first website for local businesses for $299, one time, and you approve it before it goes live. You can see live samples for HVAC, plumbing and landscaping businesses on our websites page.",
+  },
+  {
+    question: "Do I have to pay $99 a month to get a website?",
+    answer:
+      "No. The $299 website build is a one-time charge. Website maintenance is optional at $99 a month and covers hosting, small updates and email support. If you already have a site, you can order maintenance on its own.",
+  },
+  {
     question: "Is there a free trial?",
     answer: `Yes. There's a ${TRIAL_DAYS}-day free trial, and nothing is charged until it ends.`,
   },
@@ -87,6 +97,8 @@ const ORGANIZATION_SCHEMA = {
   url: CANONICAL_SITE_URL,
   logo: OG_IMAGE_URL,
   email: "hello@uptrendscaling.com",
+  description:
+    "UpTrend Scaling builds websites for local businesses and automates Google review requests by SMS and email.",
   foundingDate: "2026-09-18",
   sameAs: [
     "https://www.facebook.com/profile.php?id=61594598074617",
@@ -117,6 +129,24 @@ const SOFTWARE_SCHEMA = {
   },
 };
 
+const WEBSITE_SERVICE_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "Service",
+  name: "Done-for-you website design and build for local businesses",
+  serviceType: "Web design",
+  provider: { "@type": "Organization", name: "UpTrend Scaling", url: CANONICAL_SITE_URL },
+  areaServed: { "@type": "Country", name: "United States" },
+  url: `${CANONICAL_SITE_URL}/get-a-website-built-for-you`,
+  description:
+    "We design and build a mobile-first website for a local business for a one-time $299. Optional maintenance is $99 a month.",
+  offers: {
+    "@type": "Offer",
+    price: "299.00",
+    priceCurrency: "USD",
+    url: `${CANONICAL_SITE_URL}/start?website=build`,
+  },
+};
+
 const FAQ_SCHEMA = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -130,20 +160,20 @@ const FAQ_SCHEMA = {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "UpTrend Scaling | Google Review Automation" },
+      { title: "UpTrend Scaling | Websites Built for You and Google Review Automation" },
       {
         name: "description",
         content:
-          "Turn finished jobs into genuine Google reviews with automated SMS and email requests, reminders, QR codes, and simple reporting.",
+          "Need a website built for you? We design and build one for local businesses for $299, and also automate Google review requests by SMS and email, with reminders, QR codes and simple reporting.",
       },
       {
         property: "og:title",
-        content: "UpTrend Scaling | Put your reputation on an uptrend",
+        content: "UpTrend Scaling | Websites and Google reviews for local businesses",
       },
       {
         property: "og:description",
         content:
-          "Google review automation built for local businesses and owner-operators.",
+          "Websites built for you ($299) and Google review automation for local businesses and owner-operators.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: CANONICAL_SITE_URL },
@@ -203,6 +233,13 @@ function Index() {
         type="application/ld+json"
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_SCHEMA) }}
+      />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(WEBSITE_SERVICE_SCHEMA),
+        }}
       />
       <script
         type="application/ld+json"
@@ -285,6 +322,10 @@ function Index() {
                 <a href={START_MEMBERSHIP}>
                   Prefer to skip the trial and subscribe today?
                 </a>
+              </p>
+              <p className="lp-hero-fine">
+                Need a website too? We build them for local businesses,{" "}
+                <a href="/get-a-website-built-for-you">$299 one time</a>.
               </p>
             </div>
 
@@ -627,7 +668,7 @@ function Index() {
           <div className="lp-container">
             <div className="lp-heading">
               <p className="lp-label">Websites</p>
-              <h2>Need a website too? It's $299 to build.</h2>
+              <h2>Need a website built for you? It's $299.</h2>
               <p>
                 We design and build a fast, mobile-first site for your business,
                 and you approve it before it goes live. Want us to look after it
@@ -737,7 +778,7 @@ function Index() {
                 UpTrend <em>Scaling</em>
               </span>
             </a>
-            <p>Google review automation for local businesses.</p>
+            <p>Websites and Google review automation for local businesses.</p>
           </div>
           <nav className="lp-footer-links" aria-label="Footer">
             <a href="mailto:hello@uptrendscaling.com">
@@ -745,6 +786,10 @@ function Index() {
             </a>
             <a href="/login">Log in</a>
             <a href="/websites">Websites</a>
+            <a href="/get-a-website-built-for-you">Get a website built for you</a>
+            <a href="/website-for/hvac-companies">HVAC websites</a>
+            <a href="/website-for/plumbers">Plumber websites</a>
+            <a href="/website-for/landscapers">Landscaper websites</a>
             <a href="/affiliates">Affiliates</a>
             <a href="/compare/nicejob">vs NiceJob</a>
             <a href="/compare/podium">vs Podium</a>

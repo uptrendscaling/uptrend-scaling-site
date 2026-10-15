@@ -84,7 +84,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "UpTrend Scaling" },
-      { name: "description", content: "Google review automation for local businesses." },
+      { name: "description", content: "Websites built for you and Google review automation for local businesses." },
       { name: "author", content: "UpTrend Scaling, LLC" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
