@@ -34,6 +34,7 @@ import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
 import { Route as WebhooksQuickbooksRouteImport } from './routes/webhooks.quickbooks'
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
+import { Route as WebsitesSlugRouteImport } from './routes/websites_.$slug'
 import { Route as ApiV1MeRouteImport } from './routes/api.v1.me'
 import { Route as ApiV1ReviewRequestsRouteImport } from './routes/api.v1.review-requests'
 import { Route as ConnectGoogleCallbackRouteImport } from './routes/connect.google.callback'
@@ -171,6 +172,11 @@ const WebhooksSquareRoute = WebhooksSquareRouteImport.update({
   path: '/webhooks/square',
   getParentRoute: () => rootRouteImport,
 } as any)
+const WebsitesSlugRoute = WebsitesSlugRouteImport.update({
+  id: '/websites_/$slug',
+  path: '/websites/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiV1MeRoute = ApiV1MeRouteImport.update({
   id: '/api/v1/me',
   path: '/api/v1/me',
@@ -255,6 +261,7 @@ export interface FileRoutesByFullPath {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/websites/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -293,6 +300,7 @@ export interface FileRoutesByTo {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/websites/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/webhooks/jobber': typeof WebhooksJobberRoute
   '/webhooks/quickbooks': typeof WebhooksQuickbooksRoute
   '/webhooks/square': typeof WebhooksSquareRoute
+  '/websites_/$slug': typeof WebsitesSlugRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -372,6 +381,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/websites/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -410,6 +420,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/websites/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -448,6 +459,7 @@ export interface FileRouteTypes {
     | '/webhooks/jobber'
     | '/webhooks/quickbooks'
     | '/webhooks/square'
+    | '/websites_/$slug'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -487,6 +499,7 @@ export interface RootRouteChildren {
   WebhooksJobberRoute: typeof WebhooksJobberRoute
   WebhooksQuickbooksRoute: typeof WebhooksQuickbooksRoute
   WebhooksSquareRoute: typeof WebhooksSquareRoute
+  WebsitesSlugRoute: typeof WebsitesSlugRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
   ApiV1ReviewRequestsRoute: typeof ApiV1ReviewRequestsRoute
   ConnectGoogleCallbackRoute: typeof ConnectGoogleCallbackRoute
@@ -677,6 +690,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WebhooksSquareRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/websites_/$slug': {
+      id: '/websites_/$slug'
+      path: '/websites/$slug'
+      fullPath: '/websites/$slug'
+      preLoaderRoute: typeof WebsitesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/v1/me': {
       id: '/api/v1/me'
       path: '/api/v1/me'
@@ -783,6 +803,7 @@ const rootRouteChildren: RootRouteChildren = {
   WebhooksJobberRoute: WebhooksJobberRoute,
   WebhooksQuickbooksRoute: WebhooksQuickbooksRoute,
   WebhooksSquareRoute: WebhooksSquareRoute,
+  WebsitesSlugRoute: WebsitesSlugRoute,
   ApiV1MeRoute: ApiV1MeRoute,
   ApiV1ReviewRequestsRoute: ApiV1ReviewRequestsRoute,
   ConnectGoogleCallbackRoute: ConnectGoogleCallbackRoute,
