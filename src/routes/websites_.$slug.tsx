@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 
-import { ThemeToggle } from "../components/theme-toggle";
+import { SiteNav } from "../components/site-nav";
 import { CANONICAL_SITE_URL } from "../lib/site";
 import { websiteDesignBySlug } from "../lib/website-designs";
 
@@ -28,17 +28,8 @@ function SampleWebsitePage() {
   const { design } = Route.useLoaderData();
   return (
     <div className="demo-page">
+      <SiteNav />
       <header className="demo-bar">
-        <a className="brand" href="/" aria-label="UpTrend Scaling home">
-          <span className="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 28 28">
-              <path d="M4 20 11 13l4 4 9-10M17 7h7v7" />
-            </svg>
-          </span>
-          <span>
-            UpTrend <em>Scaling</em>
-          </span>
-        </a>
         <p className="demo-note">
           Sample website: <strong>{design.name}</strong>
         </p>
@@ -49,7 +40,6 @@ function SampleWebsitePage() {
           <a className="button button-primary nav-cta" href="/start?website=build">
             Get one like this
           </a>
-          <ThemeToggle />
         </div>
       </header>
       <iframe

@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ThemeToggle } from "../components/theme-toggle";
+import { SiteNav } from "../components/site-nav";
 import { WEBSITE_DESIGNS, websiteDesignPath } from "../lib/website-designs";
 import { CANONICAL_SITE_URL } from "../lib/site";
 
@@ -24,26 +24,7 @@ export const Route = createFileRoute("/websites")({
 function WebsitesPage() {
   return (
     <div className="site-shell">
-      <header className="site-nav">
-        <div className="nav-inner">
-          <a className="brand" href="/" aria-label="UpTrend Scaling home">
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 28 28">
-                <path d="M4 20 11 13l4 4 9-10M17 7h7v7" />
-              </svg>
-            </span>
-            <span>
-              UpTrend <em>Scaling</em>
-            </span>
-          </a>
-          <div className="site-nav-actions">
-            <ThemeToggle />
-            <a className="button button-ghost nav-cta" href="/">
-              Back to site
-            </a>
-          </div>
-        </div>
-      </header>
+      <SiteNav />
 
       <main className="legal-main">
         <div className="page-width ws-page">
