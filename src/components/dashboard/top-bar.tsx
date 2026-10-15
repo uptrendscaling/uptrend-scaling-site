@@ -91,6 +91,7 @@ export function DashTopBar({
   live,
   todoCount,
   paused,
+  websiteOnly = false,
 }: {
   businessName: string;
   email: string;
@@ -99,6 +100,8 @@ export function DashTopBar({
   live: boolean;
   todoCount: number;
   paused: boolean;
+  // Website customers without an active review plan: no review tabs.
+  websiteOnly?: boolean;
 }) {
   const menuProps = { businessName, email, isAdmin };
 
@@ -128,7 +131,7 @@ export function DashTopBar({
             </button>
           }
         />
-        {paused ? null : (
+        {paused || websiteOnly ? null : (
           <nav className="dash-nav" aria-label="Dashboard sections">
             {NAV_TABS.map((tab) => (
               <Link
@@ -148,7 +151,12 @@ export function DashTopBar({
         )}
         <div className="dash-topbar-right">
           <ThemeToggle className="is-dash" />
-          {paused ? (
+          {websiteOnly ? (
+            <span className="dash-live">
+              <i className="dash-live-dot" aria-hidden="true" />
+              WEBSITE
+            </span>
+          ) : paused ? (
             <span className="dash-live is-off">PAUSED</span>
           ) : live ? (
             <span

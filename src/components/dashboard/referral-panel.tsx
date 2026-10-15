@@ -19,7 +19,8 @@ function dollars(cents: number): string {
 
 // "Refer a business" on the Overview page. Every paying customer has a
 // referral link on the same terms as affiliates: 25% of every payment for as
-// long as the referred business stays, plus $20 on its 2nd payment. Loads on
+// long as the referred business stays, plus $20 on its 2nd payment, plus $50 per
+// website sold and 20% of maintenance. Loads on
 // its own after the page so it never slows the dashboard down, and simply
 // doesn't show for demo and admin accounts.
 export function ReferralPanel() {
@@ -81,14 +82,15 @@ export function ReferralPanel() {
   return (
     <DashPanel
       title="Refer a business, earn every month"
-      hint="25% of every payment for as long as they stay, plus $20"
+      hint="25% of every review plan payment, $50 per website, 20% of maintenance"
     >
       <div className="ref-panel">
         <p className="ref-lead">
           Know another business owner who needs more Google reviews? Share your
           link. They skip the $20 setup fee, and you earn 25% of every payment
           they make for as long as they stay, plus a $20 bonus on their 2nd
-          payment. Paid monthly by PayPal once you've earned $25.
+          payment. If they order a website, you also earn $50 per website and
+          20% of every monthly maintenance payment. Paid monthly by PayPal once you've earned $25.
         </p>
         <div className="ref-link">
           <code>{data.link}</code>
