@@ -5,7 +5,7 @@ import { z } from "zod";
 import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
 import { claimBusinessAccount } from "../lib/reviews.server";
 import { fireLeadConversion } from "../lib/google-ads";
-import { fireSignupEvent } from "../lib/meta-pixel";
+import { firePurchaseEvent, fireSignupEvent } from "../lib/meta-pixel";
 import { ThemeToggle } from "../components/theme-toggle";
 
 const searchSchema = z.object({
@@ -57,6 +57,19 @@ function SuccessPage() {
     fireLeadConversion();
     fireSignupEvent();
   }, [sessionId]);
+
+  // Tell Meta about a real paid order (like the $299 website build) once the
+  // checkout details are in, so ads can be measured and optimized on sales.
+  useEffect(() => {
+    if (!sessionId || !summary || !summary.ok) return;
+    if (!summary.amountTotalCents || summary.amountTotalCents <= 0) return;
+    firePurchaseEvent(
+      sessionId,
+      summary.amountTotalCents,
+      summary.currency,
+      summary.website ? `website_${summary.website}` : (summary.plan ?? "review_plan"),
+    );
+  }, [sessionId, summary]);
 
   const email = summary && summary.ok ? summary.email : null;
   // A website-only order gets a website dashboard instead of the review one.
