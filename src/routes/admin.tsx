@@ -1268,7 +1268,7 @@ const TRYBE_STATUS_LABEL: Record<string, string> = {
   DEMO_EMAIL_ASKED: "Joined",
   DEMO_CREATED: "Demo ready",
   DECLINED: "Declined",
-  INACTIVE: "Inactive",
+  INACTIVE: "Left the program",
 };
 
 function trybeStatusPill(creator: TrybeCreatorSummary) {
@@ -1319,7 +1319,7 @@ function TrybeTab({ overview }: { overview: TrybeOverview }) {
     <div className="dash-stack">
       <DashPageHead
         title="Trybe partners"
-        description="Creators we recruit on Trybe (jointrybe.com). They earn 25% of each referred customer's monthly review plan subscription, paid by Trybe for as long as the customer stays, plus $50 for every website build and 20% of website maintenance (set up as part of the Trybe offer), and only through Trybe's own link, so these partners never get a site referral code and commissions never stack. The daily growth routine sends up to 30 invites a day, answers their messages, sets up their demo dashboards and updates this page. Their sales and earnings come straight from Trybe."
+        description="Creators we recruit on Trybe (jointrybe.com). They earn 20% of each referred customer's sales, paid by Trybe, including review plan payments and any website build or maintenance payments, and only through Trybe's own link, so these partners never get a site referral code and commissions never stack. The daily growth routine sends up to 30 invites a day, answers their messages, sets up their demo dashboards and updates this page. Their sales and earnings come straight from Trybe."
       />
 
       <section className="dash-stats dash-stats-4" aria-label="Trybe numbers">
@@ -1330,7 +1330,9 @@ function TrybeTab({ overview }: { overview: TrybeOverview }) {
         />
         <AdminStat
           label="Joined"
-          value={formatCount(creators.length)}
+          value={formatCount(
+            creators.filter((c) => c.status !== "INACTIVE" && c.status !== "DECLINED").length,
+          )}
           hint="Creators in the program"
         />
         <AdminStat
