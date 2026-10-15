@@ -74,9 +74,10 @@ export function buildCheckoutSessionParams(
       : "website"
     : data.plan;
 
-  // Website-only orders have no review account, so no affiliate credit and no
-  // setup fee. With the review plan included, the affiliate rules above apply.
-  const affiliateCode = includeReviews ? opts.affiliateCodeIfEligible : null;
+  // A valid affiliate gets credit for website orders too ($50 per website
+  // build, 20% of maintenance; see affiliates.server.ts). Website-only orders
+  // have no setup fee to waive, they simply carry the code along.
+  const affiliateCode = opts.affiliateCodeIfEligible;
 
   const subscriptionMetadata: Record<string, string> = {
     businessName: data.businessName,
@@ -205,6 +206,9 @@ export function buildCheckoutSessionParams(
       ...common,
       mode: "payment",
       customer_creation: "always",
+      // A real invoice for the one-time build, so affiliate commission can be
+      // read from the customer's paid invoices like everything else.
+      invoice_creation: { enabled: true, invoice_data: { metadata: subscriptionMetadata } },
       payment_intent_data: { metadata: subscriptionMetadata },
     },
   };

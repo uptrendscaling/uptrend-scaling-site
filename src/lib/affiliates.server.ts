@@ -2,7 +2,8 @@
 // (uptrendscaling.com/?ref=CODE) earn 25% of every payment each referred
 // customer makes, for as long as that customer stays, plus a one-time $20
 // bonus when that customer makes their 2nd monthly payment. Referred customers
-// skip the $20 setup fee. Every paying UpTrend customer also gets a referral
+// skip the $20 setup fee. Website sales pay too: $50 for every website build
+// a referred business buys and 20% of its monthly maintenance payments. Every paying UpTrend customer also gets a referral
 // link of their own automatically, on the same terms (source = "customer").
 //
 // How a referral is tracked, end to end:
@@ -26,7 +27,9 @@ import { z } from "zod";
 import {
   AFFILIATE_COMMISSION_RATE,
   AFFILIATE_PAYABLE_AFTER_PAYMENTS,
+  AFFILIATE_MAINTENANCE_RATE,
   AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS,
+  AFFILIATE_WEBSITE_BUILD_BONUS_DOLLARS,
 } from "./affiliate-config";
 import { getSessionBusinessId } from "./auth.server";
 import { ensureDemoAccount } from "./demo.server";
@@ -251,7 +254,7 @@ function applicantConfirmationHtml(name: string): string {
       },
       {
         html: para(
-          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, plus a $20 bonus when they make their 2nd payment. The businesses you send skip our $20 setup fee.",
+          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, plus a $20 bonus when they make their 2nd payment. Website sales pay too: $50 for every website build and 20% of every monthly maintenance payment. The businesses you send skip our $20 setup fee.",
         ),
       },
       {
@@ -297,7 +300,12 @@ function approvalEmailHtml(
             {
               label: "You earn",
               value:
-                "25% of every payment each referred business makes, for as long as they stay a customer, plus a $20 bonus on their 2nd payment",
+                "25% of every review plan payment each referred business makes, for as long as they stay a customer, plus a $20 bonus on their 2nd payment",
+            },
+            {
+              label: "Website sales",
+              value:
+                "$50 for every website build a referred business buys, plus 20% of every monthly maintenance payment",
             },
             {
               label: "They get",
@@ -369,6 +377,10 @@ export type AffiliateReferral = {
   signedUpAt: Date;
   accessRevoked: boolean;
   paidPayments: number;
+  // Website builds this business paid for, and which website option they
+  // picked (null when they only have the review plan).
+  websiteBuilds: number;
+  websitePlan: "build" | "build_maintenance" | "maintenance" | null;
   // Totals in cents over every paid monthly payment so far.
   commissionEarnedCents: number;
   commissionPayableCents: number;
@@ -402,26 +414,114 @@ export type AffiliatesOverviewResult =
 
 type StripeLike = import("stripe").default;
 
-// 25% of everything paid, plus the one-time bonus once the business has made
-// its 2nd payment.
-function commissionCentsFor(payments: number[]): number {
+// What a referred business has paid us, split by what it was for. Reviews are
+// paid out on the review-plan rules (25% + the 2nd payment bonus). Websites
+// pay a flat bonus per build and a share of each maintenance payment.
+export type CommissionableActivity = {
+  // Per-invoice review-plan money in cents, oldest first (setup fee, website
+  // lines and refunds already taken out). Zero-dollar invoices are left out.
+  reviewPayments: number[];
+  // Website builds paid for (and not refunded).
+  websiteBuilds: number;
+  // Maintenance money paid so far, in cents (net of refunds).
+  maintenanceCents: number;
+};
+
+export type CommissionBreakdown = {
+  earnedCents: number;
+  payableCents: number;
+  paidPayments: number;
+  websiteBuilds: number;
+};
+
+// 25% of everything paid for the review plan, plus the one-time bonus once the
+// business has made its 2nd payment; plus $50 per website build and 20% of
+// maintenance payments.
+export function commissionFor(activity: CommissionableActivity): CommissionBreakdown {
   const percent = Math.round(
-    payments.reduce((sum, cents) => sum + cents, 0) * AFFILIATE_COMMISSION_RATE,
+    activity.reviewPayments.reduce((sum, cents) => sum + cents, 0) *
+      AFFILIATE_COMMISSION_RATE,
   );
-  const bonus =
-    payments.length >= AFFILIATE_PAYABLE_AFTER_PAYMENTS
-      ? AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS * 100
-      : 0;
-  return percent + bonus;
+  const reviewPayable =
+    activity.reviewPayments.length >= AFFILIATE_PAYABLE_AFTER_PAYMENTS;
+  const bonus = reviewPayable ? AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS * 100 : 0;
+  const reviewEarned = percent + bonus;
+  const websiteEarned =
+    activity.websiteBuilds * AFFILIATE_WEBSITE_BUILD_BONUS_DOLLARS * 100 +
+    Math.round(activity.maintenanceCents * AFFILIATE_MAINTENANCE_RATE);
+  return {
+    earnedCents: reviewEarned + websiteEarned,
+    // Review money only becomes payable after the 2nd payment; website money
+    // is payable as soon as it was paid.
+    payableCents: (reviewPayable ? reviewEarned : 0) + websiteEarned,
+    paidPayments: activity.reviewPayments.length,
+    websiteBuilds: activity.websiteBuilds,
+  };
 }
 
-// What a referred business has paid us that earns commission: every paid
-// invoice, minus any setup fee on it and minus anything refunded with a credit
-// note. Returns per-payment amounts in cents.
-async function commissionablePayments(
+// Pure: sorts one customer's paid invoices into review money, website builds
+// and maintenance money. Checkout names the website lines "UpTrend Website
+// build" and "UpTrend Website maintenance" (WEBSITE_LINE_MARKER), which is how
+// they are told apart from the review plan here. Any refund (credit note) is
+// taken off the website money on that invoice first, then the review money.
+export function activityFromInvoices(
+  invoices: Array<{
+    amount_paid?: number | null;
+    created?: number | null;
+    post_payment_credit_notes_amount?: number | null;
+    lines?: {
+      data?: Array<{ description?: string | null; amount?: number | null }>;
+    } | null;
+  }>,
+): CommissionableActivity {
+  const paid = invoices
+    .filter((inv) => (inv.amount_paid ?? 0) > 0)
+    .sort((a, b) => (a.created ?? 0) - (b.created ?? 0));
+
+  const activity: CommissionableActivity = {
+    reviewPayments: [],
+    websiteBuilds: 0,
+    maintenanceCents: 0,
+  };
+
+  for (const inv of paid) {
+    const lines = inv.lines?.data ?? [];
+    const sumOf = (match: (description: string) => boolean): number =>
+      lines
+        .filter((line) => match(line.description ?? ""))
+        .reduce((sum, line) => sum + Math.max(0, line.amount ?? 0), 0);
+    const setupFee = sumOf((d) => d === SETUP_FEE_DESCRIPTION);
+    const buildCents = sumOf((d) => d.includes(`${WEBSITE_LINE_MARKER} build`));
+    const maintenanceCents = sumOf((d) =>
+      d.includes(`${WEBSITE_LINE_MARKER} maintenance`),
+    );
+    let refunded = inv.post_payment_credit_notes_amount ?? 0;
+
+    // Refunds come off website money first.
+    const buildRefund = Math.min(refunded, buildCents);
+    refunded -= buildRefund;
+    const maintenanceRefund = Math.min(refunded, maintenanceCents);
+    refunded -= maintenanceRefund;
+
+    if (buildCents > 0 && buildRefund < buildCents) activity.websiteBuilds += 1;
+    activity.maintenanceCents += maintenanceCents - maintenanceRefund;
+
+    const review = Math.max(
+      0,
+      (inv.amount_paid ?? 0) - setupFee - buildCents - maintenanceCents - refunded,
+    );
+    // An invoice that was only website money is not a review payment.
+    if (review > 0) activity.reviewPayments.push(review);
+  }
+  return activity;
+}
+
+// What a referred business has paid us that earns commission, read from
+// Stripe: every paid invoice sorted into reviews / website build / maintenance.
+async function commissionableActivity(
   stripe: StripeLike,
   stripeCustomerId: string,
-): Promise<number[]> {
+): Promise<CommissionableActivity> {
   const invoices = [];
   for await (const invoice of stripe.invoices.list({
     customer: stripeCustomerId,
@@ -431,22 +531,7 @@ async function commissionablePayments(
     invoices.push(invoice);
     if (invoices.length >= 1000) break;
   }
-  const paid = invoices
-    .filter((inv) => (inv.amount_paid ?? 0) > 0)
-    .sort((a, b) => (a.created ?? 0) - (b.created ?? 0));
-
-  return paid.map((inv) => {
-    const setupFee = (inv.lines?.data ?? [])
-      .filter((line) => line.description === SETUP_FEE_DESCRIPTION)
-      .reduce((sum, line) => sum + Math.max(0, line.amount ?? 0), 0);
-    // Website builds and maintenance (checkout names those lines "UpTrend
-    // Website ...") are not review-plan revenue, so they earn no commission.
-    const websiteMoney = (inv.lines?.data ?? [])
-      .filter((line) => line.description?.includes(WEBSITE_LINE_MARKER))
-      .reduce((sum, line) => sum + Math.max(0, line.amount ?? 0), 0);
-    const refunded = inv.post_payment_credit_notes_amount ?? 0;
-    return Math.max(0, (inv.amount_paid ?? 0) - setupFee - websiteMoney - refunded);
-  });
+  return activityFromInvoices(invoices);
 }
 
 export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
@@ -478,6 +563,7 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
               accessRevoked: businesses.accessRevoked,
               stripeCustomerId: businesses.stripeCustomerId,
               referredBy: businesses.referredBy,
+              websitePlan: businesses.websitePlan,
             })
             .from(businesses)
             .where(
@@ -507,12 +593,15 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
 
       const referralsByCode = new Map<string, AffiliateReferral[]>();
       for (const biz of referred) {
-        let payments: number[] = [];
+        let commission = commissionFor({
+          reviewPayments: [],
+          websiteBuilds: 0,
+          maintenanceCents: 0,
+        });
         if (stripe && biz.stripeCustomerId) {
           try {
-            payments = await commissionablePayments(
-              stripe,
-              biz.stripeCustomerId,
+            commission = commissionFor(
+              await commissionableActivity(stripe, biz.stripeCustomerId),
             );
           } catch (error) {
             console.error(
@@ -522,17 +611,17 @@ export const getAffiliatesOverview = createServerFn({ method: "GET" }).handler(
             );
           }
         }
-        const earned = commissionCentsFor(payments);
         const referral: AffiliateReferral = {
           businessId: biz.id,
           businessName: biz.businessName,
           email: biz.email,
           signedUpAt: biz.createdAt,
           accessRevoked: biz.accessRevoked,
-          paidPayments: payments.length,
-          commissionEarnedCents: earned,
-          commissionPayableCents:
-            payments.length >= AFFILIATE_PAYABLE_AFTER_PAYMENTS ? earned : 0,
+          paidPayments: commission.paidPayments,
+          websiteBuilds: commission.websiteBuilds,
+          websitePlan: biz.websitePlan,
+          commissionEarnedCents: commission.earnedCents,
+          commissionPayableCents: commission.payableCents,
         };
         const key = biz.referredBy ?? "";
         referralsByCode.set(key, [
@@ -927,9 +1016,13 @@ export const getMyReferral = createServerFn({ method: "GET" }).handler(
         for (const biz of referred) {
           if (!biz.stripeCustomerId) continue;
           try {
-            const payments = await commissionablePayments(stripe, biz.stripeCustomerId);
-            if (payments.length) payingReferrals += 1;
-            earnedCents += commissionCentsFor(payments);
+            const commission = commissionFor(
+              await commissionableActivity(stripe, biz.stripeCustomerId),
+            );
+            if (commission.paidPayments > 0 || commission.websiteBuilds > 0 || commission.earnedCents > 0) {
+              payingReferrals += 1;
+            }
+            earnedCents += commission.earnedCents;
           } catch (error) {
             console.error("[affiliates] failed to read referral invoices", error);
           }

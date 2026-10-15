@@ -609,7 +609,111 @@ export function welcomeEmailHtml(
                 "Know another business owner?",
                 `${emailParaHtml(
                   escapeHtml(
-                    "Share your referral link. They skip the $20 setup fee, and you earn 25% of every payment they make for as long as they stay, plus $20 on their 2nd payment. Your link and earnings are on your dashboard.",
+                    "Share your referral link. They skip the $20 setup fee, and you earn 25% of every payment they make for as long as they stay, plus $20 on their 2nd payment. If they order a website, you also earn $50 per website and 20% of every monthly maintenance payment. Your link and earnings are on your dashboard.",
+                  ),
+                  10,
+                )}<p style="margin:0;font-size:15px;font-weight:700;word-break:break-all;color:#18181b;">${escapeHtml(referralLink)}</p>`,
+              ),
+            },
+          ]
+        : []),
+      {
+        top: 12,
+        bottom: 28,
+        html: emailMutedPara(
+          "P.S. If you ever get stuck, have a question, or just want to say hi, reply to this email. It comes straight to me.",
+          0,
+        ),
+      },
+    ],
+    footerLines: ["UpTrend Scaling LLC \u00b7 Glendale, AZ"],
+  });
+}
+
+// Welcome email for a website-only order (no Google review plan). Same design
+// as the main welcome email; the steps are about the website instead.
+export function websiteWelcomeEmailSubject(): string {
+  return "Your UpTrend Scaling website order";
+}
+
+export function websiteWelcomeEmailHtml(
+  businessName: string,
+  contactName: string,
+  optionName: string,
+  buildsNewSite: boolean,
+  referralLink: string | null = null,
+): string {
+  const loginUrl = `${CANONICAL_SITE_URL}/login`;
+  const safeBusinessName = escapeHtml(businessName);
+  const safeContactName = escapeHtml(contactName);
+  const steps = buildsNewSite
+    ? [
+        {
+          title: "We start your design",
+          detail:
+            "You will hear from us within one business day with a first look at your site. You approve it before it goes live.",
+        },
+        {
+          title: "Follow along in your dashboard",
+          detail:
+            "Your website's status (ordered, building, live) shows on your dashboard.",
+        },
+        {
+          title: "Reply with anything we should know",
+          detail:
+            "Your logo, photos, services and hours help. Just reply to this email.",
+        },
+      ]
+    : [
+        {
+          title: "We review your current site",
+          detail:
+            "You will hear from us within one business day to get started on hosting and updates.",
+        },
+        {
+          title: "Send us your update requests",
+          detail:
+            "Reply to this email any time with changes you want made to your site.",
+        },
+      ];
+
+  return emailShell({
+    subject: websiteWelcomeEmailSubject(),
+    preheader: "Thanks for your order. Here is what happens next.",
+    tagline: "Websites for local businesses",
+    sections: [
+      {
+        top: 32,
+        bottom: 8,
+        html: `${emailParaHtml(`Hi ${safeContactName},`)}
+        ${emailParaHtml(`Thanks for ordering <strong>${escapeHtml(optionName)}</strong> for <strong>${safeBusinessName}</strong>. Your account is set up, and here is what happens next.`)}`,
+      },
+      {
+        top: 8,
+        bottom: 12,
+        html: emailCard("What happens next", emailSteps(steps)),
+      },
+      {
+        top: 12,
+        bottom: 28,
+        html: emailButton("Log in to your dashboard", loginUrl),
+      },
+      {
+        top: 4,
+        bottom: 8,
+        html: `${emailParaHtml(escapeHtml("Thanks for giving us a shot!"), 12)}
+        ${emailSignoff("Colby", "Founder, UpTrend Scaling | uptrendscaling.com")}`,
+      },
+      ...(referralLink
+        ? [
+            {
+              top: 8,
+              bottom: 8,
+              html: emailCard(
+                "Know another business owner?",
+                `${emailParaHtml(
+                  escapeHtml(
+                    "Share your referral link. You earn $50 for every website a business you refer buys, and 20% of every monthly maintenance payment. Your link and earnings are on your dashboard.",
                   ),
                   10,
                 )}<p style="margin:0;font-size:15px;font-weight:700;word-break:break-all;color:#18181b;">${escapeHtml(referralLink)}</p>`,

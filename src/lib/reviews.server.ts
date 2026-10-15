@@ -47,7 +47,8 @@ import {
   type Message,
 } from "./db/schema";
 import type { CustomerSource } from "./crm/providers";
-import { monthlyRequestLimit, tierById } from "./pricing";
+import { monthlyRequestLimit, tierById, websiteOptionById } from "./pricing";
+import { websiteFieldsFromMetadata } from "./website-orders.server";
 import { CANONICAL_SITE_URL } from "./site";
 import {
   initialEmailHtml,
@@ -68,6 +69,8 @@ import {
   sendSms,
   TRUSTPILOT_AFS_BCC_EMAIL,
   UPTREND_SUPPORT_EMAIL,
+  websiteWelcomeEmailHtml,
+  websiteWelcomeEmailSubject,
   welcomeEmailHtml,
   welcomeEmailSubject,
 } from "./messaging.server";
@@ -95,6 +98,11 @@ export type PublicBusiness = {
   isAdmin: boolean;
   accessRevoked: boolean;
   isDemo: boolean;
+  // Website order (null websitePlan means they never ordered one).
+  websitePlan: "build" | "build_maintenance" | "maintenance" | null;
+  websiteUrl: string | null;
+  websiteStatus: "ordered" | "building" | "live" | null;
+  maintenanceActive: boolean;
 };
 
 function toPublicBusiness(business: Business): PublicBusiness {
@@ -110,6 +118,10 @@ function toPublicBusiness(business: Business): PublicBusiness {
     isAdmin: business.isAdmin,
     accessRevoked: business.accessRevoked,
     isDemo: business.isDemo,
+    websitePlan: business.websitePlan,
+    websiteUrl: business.websiteUrl,
+    websiteStatus: business.websiteStatus,
+    maintenanceActive: business.maintenanceActive,
   };
 }
 
@@ -160,14 +172,9 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       }
 
       const metadata = session.metadata ?? {};
-      // A website-only order has no review dashboard to set up.
-      if (metadata["reviews"] === "no") {
-        return {
-          ok: false,
-          reason: "not_found",
-          message: "This order doesn't include a review dashboard.",
-        };
-      }
+      // A website-only order has no review plan; the account still exists so
+      // the customer can see their website, cancel maintenance and refer others.
+      const websiteOnly = metadata["reviews"] === "no";
       const businessName =
         typeof metadata["businessName"] === "string"
           ? metadata["businessName"]
@@ -190,8 +197,19 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         typeof metadata["plan"] === "string" ? metadata["plan"] : null;
       const stripeCustomerId =
         typeof session.customer === "string" ? session.customer : null;
-      const stripeSubscriptionId =
+      const sessionSubscriptionId =
         typeof session.subscription === "string" ? session.subscription : null;
+      // Website fields from the checkout (the webhook usually did this already;
+      // doing it here too means the page works even before the webhook arrives).
+      const websiteFields = websiteFieldsFromMetadata(metadata, {
+        subscriptionId: sessionSubscriptionId,
+      });
+      const websiteOption = websiteOptionById(
+        typeof metadata["website"] === "string" ? metadata["website"] : undefined,
+      );
+      // A website-only order's subscription (maintenance) is tracked separately
+      // from the review subscription, so it never counts as review access.
+      const stripeSubscriptionId = websiteOnly ? null : sessionSubscriptionId;
       const tier = tierById(
         typeof metadata["tier"] === "string" ? metadata["tier"] : null,
       ).id;
@@ -229,13 +247,24 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         await db
           .update(businesses)
           .set({
+            ...websiteFields,
+            // Keep the order dates/status the webhook already recorded.
+            ...(existing.websiteOrderedAt
+              ? {
+                  websiteOrderedAt: existing.websiteOrderedAt,
+                  websiteStatus: existing.websiteStatus,
+                }
+              : {}),
             passwordHash,
-            stripeCustomerId,
-            stripeSubscriptionId,
+            stripeCustomerId: existing.stripeCustomerId ?? stripeCustomerId,
+            stripeSubscriptionId:
+              stripeSubscriptionId ?? existing.stripeSubscriptionId,
             referredBy: existing.referredBy ?? referredBy,
-            tier,
+            tier: websiteOnly ? existing.tier : tier,
             plan:
-              plan === "trial" || plan === "membership" ? plan : existing.plan,
+              !websiteOnly && (plan === "trial" || plan === "membership")
+                ? plan
+                : existing.plan,
           })
           .where(eq(businesses.id, existing.id));
       } else {
@@ -244,6 +273,7 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         const [created] = await db
           .insert(businesses)
           .values({
+            ...websiteFields,
             businessName: welcomeBusinessName,
             contactName: welcomeContactName,
             email,
@@ -254,7 +284,10 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
             stripeSubscriptionId,
             referredBy,
             tier,
-            plan: plan === "trial" || plan === "membership" ? plan : null,
+            plan:
+              !websiteOnly && (plan === "trial" || plan === "membership")
+                ? plan
+                : null,
           })
           .returning({ id: businesses.id });
         if (!created) {
@@ -295,12 +328,20 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
       if (isResendConfigured()) {
         const result = await sendEmail(
           email,
-          welcomeEmailSubject(),
-          welcomeEmailHtml(
-            welcomeBusinessName,
-            welcomeContactName,
-            referralLink,
-          ),
+          websiteOnly ? websiteWelcomeEmailSubject() : welcomeEmailSubject(),
+          websiteOnly && websiteOption
+            ? websiteWelcomeEmailHtml(
+                welcomeBusinessName,
+                welcomeContactName,
+                websiteOption.name,
+                websiteOption.buildCents > 0,
+                referralLink,
+              )
+            : welcomeEmailHtml(
+                welcomeBusinessName,
+                welcomeContactName,
+                referralLink,
+              ),
           UPTREND_SUPPORT_EMAIL,
           TRUSTPILOT_AFS_BCC_EMAIL,
         );
@@ -1516,9 +1557,17 @@ export type AdminBusinessSummary = {
   businessName: string;
   contactName: string;
   email: string;
+  phone: string;
   plan: string | null;
   accessRevoked: boolean;
   createdAt: Date;
+  // Website order, if any (see the admin Websites tab).
+  websitePlan: "build" | "build_maintenance" | "maintenance" | null;
+  websiteStatus: "ordered" | "building" | "live" | null;
+  websiteUrl: string | null;
+  websiteOrderedAt: Date | null;
+  maintenanceActive: boolean;
+  referredBy: string | null;
   totalCustomers: number;
   messagesSent: number;
   linkClicks: number;
@@ -1562,9 +1611,16 @@ export const getAdminOverview = createServerFn({ method: "GET" }).handler(
           businessName: business.businessName,
           contactName: business.contactName,
           email: business.email,
+          phone: business.phone,
           plan: business.plan,
           accessRevoked: business.accessRevoked,
           createdAt: business.createdAt,
+          websitePlan: business.websitePlan,
+          websiteStatus: business.websiteStatus,
+          websiteUrl: business.websiteUrl,
+          websiteOrderedAt: business.websiteOrderedAt,
+          maintenanceActive: business.maintenanceActive,
+          referredBy: business.referredBy,
           totalCustomers: bizCustomers.length,
           messagesSent: bizMessages.filter((m) => m.status === "sent").length,
           linkClicks: bizCustomers.filter((c) => c.linkClickedAt).length,

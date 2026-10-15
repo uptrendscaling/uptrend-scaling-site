@@ -14,47 +14,21 @@
 // reach the client through Vercel's page-rendering pipeline, so this
 // returns Response objects directly instead.
 
-import { eq } from "drizzle-orm";
 import type Stripe from "stripe";
 
-import { getDb, isDbConfigured } from "./db/client";
-import { businesses } from "./db/schema";
+import { isDbConfigured } from "./db/client";
 import {
   CANCEL_ALERT_EVENT,
   isOwnerAlertEventType,
   sendOwnerAlertForEvent,
 } from "./owner-alerts.server";
 import { SETUP_FEE_CENTS } from "./pricing";
+import { recordWebsiteOrder, syncBusinessWithSubscription } from "./website-orders.server";
 
 export function isStripeWebhookConfigured(): boolean {
   return Boolean(
     process.env["STRIPE_SECRET_KEY"] && process.env["STRIPE_WEBHOOK_SECRET"] && isDbConfigured(),
   );
-}
-
-// Subscription statuses that mean "this business should lose access."
-const REVOKED_STATUSES = new Set<Stripe.Subscription.Status>(["canceled", "unpaid"]);
-// Statuses that mean "this business should have access" -- covers a
-// subscription being reactivated (e.g. Colby un-cancels it in Stripe, or a
-// failed payment gets retried successfully) after it was revoked.
-const RESTORED_STATUSES = new Set<Stripe.Subscription.Status>(["active", "trialing"]);
-
-async function setAccessRevokedForSubscription(
-  subscriptionId: string,
-  revoked: boolean,
-): Promise<void> {
-  const db = getDb();
-  const [business] = await db
-    .select({ id: businesses.id, accessRevoked: businesses.accessRevoked })
-    .from(businesses)
-    .where(eq(businesses.stripeSubscriptionId, subscriptionId))
-    .limit(1);
-
-  // No matching business (e.g. checkout was started but never claimed) --
-  // nothing to revoke or restore.
-  if (!business || business.accessRevoked === revoked) return;
-
-  await db.update(businesses).set({ accessRevoked: revoked }).where(eq(businesses.id, business.id));
 }
 
 // The one-time setup fee for FREE TRIAL signups. These reach Stripe Checkout
@@ -132,6 +106,16 @@ async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<v
   // is a deleted subscription, which also turns dashboard access off below, so
   // it is handled further down: access first, then the alert.
   if (isOwnerAlertEventType(event.type) && event.type !== CANCEL_ALERT_EVENT) {
+    // A paid website order gets its business row (and affiliate credit) right
+    // away, before the heads-up email. A failure here must never stop the
+    // email or make Stripe retry forever, so it is only logged.
+    if (event.type === "checkout.session.completed") {
+      try {
+        await recordWebsiteOrder(event.data.object as Stripe.Checkout.Session);
+      } catch (error) {
+        console.error("[stripe-webhook] could not record the website order", error);
+      }
+    }
     await sendOwnerAlertForEvent(stripe, event);
     return;
   }
@@ -150,11 +134,15 @@ async function handleStripeEvent(stripe: Stripe, event: Stripe.Event): Promise<v
 
   const subscription = event.data.object as Stripe.Subscription;
 
-  if (event.type === "customer.subscription.deleted" || REVOKED_STATUSES.has(subscription.status)) {
-    await setAccessRevokedForSubscription(subscription.id, true);
-  } else if (RESTORED_STATUSES.has(subscription.status)) {
-    await setAccessRevokedForSubscription(subscription.id, false);
-  }
+  // Review access and website maintenance both follow the subscription (see
+  // ./website-orders.server.ts): a deleted or unpaid subscription turns them
+  // off, an active one turns them back on, and removing just one of the two
+  // lines (the partial cancel buttons) switches off only that part.
+  await syncBusinessWithSubscription(
+    stripe,
+    subscription.id,
+    event.type === "customer.subscription.deleted" ? "deleted" : subscription.status,
+  );
 
   // Access is already handled, so the heads-up email can never get in its way
   // (sendOwnerAlertForEvent swallows every error and enforces its own time limit).

@@ -548,6 +548,10 @@ function toPublicBusiness(business: Business): DashboardShell["business"] {
     isAdmin: business.isAdmin,
     accessRevoked: business.accessRevoked,
     isDemo: business.isDemo,
+    websitePlan: business.websitePlan,
+    websiteUrl: business.websiteUrl,
+    websiteStatus: business.websiteStatus,
+    maintenanceActive: business.maintenanceActive,
   };
 }
 

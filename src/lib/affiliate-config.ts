@@ -11,6 +11,12 @@ export const AFFILIATE_SECOND_PAYMENT_BONUS_DOLLARS = 20;
 // Commission only becomes payable once the customer has made this many
 // monthly payments, so a trial that cancels or refunds right away pays nothing.
 export const AFFILIATE_PAYABLE_AFTER_PAYMENTS = 2;
+// Website sales. A flat bonus for every website build a referred business
+// pays for, plus a share of every monthly maintenance payment. Both are
+// payable as soon as the payment clears (website orders never have a free
+// trial, so there is nothing to wait out).
+export const AFFILIATE_WEBSITE_BUILD_BONUS_DOLLARS = 50;
+export const AFFILIATE_MAINTENANCE_RATE = 0.2;
 export const AFFILIATE_MIN_PAYOUT_DOLLARS = 25;
 export const AFFILIATE_COOKIE_DAYS = 60;
 export const REF_COOKIE = "uptrend_ref";

@@ -28,7 +28,7 @@
 // insert-or-skip claim is what keeps it to one email. If the email fails the
 // claim is deleted so a dashboard "Resend event" can send it later.
 
-import { and, eq, isNull, lt } from "drizzle-orm";
+import { and, eq, isNull, lt, or } from "drizzle-orm";
 import type Stripe from "stripe";
 
 import { getDb } from "./db/client";
@@ -671,7 +671,7 @@ export type CanceledAccount = {
 function cancellationSource(subscription: Stripe.Subscription): string {
   const details = subscription.cancellation_details;
   if (details?.comment === DASHBOARD_CANCEL_COMMENT) {
-    return "The client, using Cancel membership in their dashboard";
+    return "The client, using the cancel buttons in their dashboard";
   }
   if (details?.reason === "payment_failed") {
     return "Stripe, automatically, after payments kept failing";
@@ -721,10 +721,14 @@ export function buildCancellationAlert(
 
   const displayName = businessName ?? email ?? "Unknown business";
   const testPrefix = ctx.livemode ? "" : "[TEST] ";
-  const subject = `${testPrefix}Membership canceled: ${cleanForSubject(displayName)}`;
+  // A subscription that only carried website maintenance (a website-only order).
+  const isMaintenanceOnly = plan === "website" || metadata["reviews"] === "no";
+  const canceledWhat = isMaintenanceOnly ? "Website maintenance" : "Membership";
+  const subject = `${testPrefix}${canceledWhat} canceled: ${cleanForSubject(displayName)}`;
 
-  const planText =
-    plan === "trial"
+  const planText = isMaintenanceOnly
+    ? "Website maintenance ($99/month)"
+    : plan === "trial"
       ? `Free trial (${TRIAL_DAYS} days, card on file)`
       : plan === "membership"
         ? "Membership (billing from day one)"
@@ -773,13 +777,13 @@ export function buildCancellationAlert(
     subject,
     preheader: duringTrial
       ? `${displayName} canceled during the free trial. Nothing was charged.`
-      : `${displayName} canceled their membership.`,
+      : `${displayName} canceled their ${canceledWhat.toLowerCase()}.`,
     tone: duringTrial ? "trial" : "paid",
-    badge: duringTrial ? "Canceled during free trial" : "Membership canceled",
+    badge: duringTrial ? "Canceled during free trial" : `${canceledWhat} canceled`,
     headline: displayName,
     subline: duringTrial
       ? "Canceled before the free trial ended."
-      : "Canceled their membership.",
+      : `Canceled their ${canceledWhat.toLowerCase()}.`,
     testMode: !ctx.livemode,
     rows,
     links,
@@ -787,6 +791,59 @@ export function buildCancellationAlert(
   });
 
   return { dedupeKey: `cancel:${subscriptionId}`, subject, html };
+}
+
+// ---- Alert D: one part of a plan canceled -----------------------------------
+
+// Sent by the cancel buttons (./membership.server.ts) when only one line of a
+// subscription was removed, which leaves the subscription alive so Stripe sends
+// no "canceled" event. Best effort: never throws, never blocks the cancel.
+export async function sendPartialCancelAlert(input: {
+  businessName: string;
+  contactName: string;
+  email: string;
+  phone: string;
+  part: "reviews" | "maintenance" | "both";
+}): Promise<void> {
+  try {
+    if (!isResendConfigured()) return;
+    const what =
+      input.part === "reviews"
+        ? "Google review plan"
+        : input.part === "maintenance"
+          ? "website maintenance"
+          : "review plan and website maintenance";
+    const subject = `Canceled ${what}: ${cleanForSubject(input.businessName)}`;
+    const html = renderAlertEmail({
+      subject,
+      preheader: `${input.businessName} canceled their ${what}.`,
+      tone: "paid",
+      badge: "Part of a plan canceled",
+      headline: input.businessName,
+      subline: `Canceled their ${what} from the dashboard.`,
+      testMode: false,
+      rows: [
+        { label: "Business", value: input.businessName },
+        { label: "Contact", value: input.contactName },
+        { label: "Email", value: input.email },
+        { label: "Phone", value: input.phone || "Not provided" },
+        { label: "Canceled", value: what },
+      ],
+      links: [],
+      note:
+        input.part === "reviews"
+          ? "Their review dashboard access was turned off. Website maintenance keeps billing unless they cancel it too."
+          : input.part === "maintenance"
+            ? "Maintenance billing stopped. Their review plan keeps going."
+            : "Both were canceled.",
+    });
+    await raceTimeout(
+      sendEmail(UPTREND_SUPPORT_EMAIL, subject, html, ALERT_FROM),
+      SEND_TIMEOUT_MS,
+    );
+  } catch (error) {
+    console.error("[owner-alerts] could not send the partial cancel alert", error);
+  }
 }
 
 // ---- Claiming (exactly once) ----------------------------------------------
@@ -1037,7 +1094,12 @@ async function findCanceledAccount(
         locations: businesses.locations,
       })
       .from(businesses)
-      .where(eq(businesses.stripeSubscriptionId, subscriptionId))
+      .where(
+        or(
+          eq(businesses.stripeSubscriptionId, subscriptionId),
+          eq(businesses.websiteSubscriptionId, subscriptionId),
+        ),
+      )
       .limit(1);
     return row ?? null;
   } catch (error) {
