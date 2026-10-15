@@ -27,6 +27,7 @@ import { Route as CompareCompetitorRouteImport } from './routes/compare.$competi
 import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
+import { Route as CronTrybeSyncRouteImport } from './routes/cron.trybe-sync'
 import { Route as CronWeeklySummaryRouteImport } from './routes/cron.weekly-summary'
 import { Route as QTokenRouteImport } from './routes/q.$token'
 import { Route as RTokenRouteImport } from './routes/r.$token'
@@ -137,6 +138,11 @@ const CronLeadFollowupsRoute = CronLeadFollowupsRouteImport.update({
 const CronRemindersRoute = CronRemindersRouteImport.update({
   id: '/cron/reminders',
   path: '/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CronTrybeSyncRoute = CronTrybeSyncRouteImport.update({
+  id: '/cron/trybe-sync',
+  path: '/cron/trybe-sync',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CronWeeklySummaryRoute = CronWeeklySummaryRouteImport.update({
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -349,6 +357,7 @@ export interface FileRoutesById {
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
@@ -392,6 +401,7 @@ export interface FileRouteTypes {
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
@@ -433,6 +443,7 @@ export interface FileRouteTypes {
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
@@ -474,6 +485,7 @@ export interface FileRouteTypes {
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
@@ -516,6 +528,7 @@ export interface RootRouteChildren {
   CronGoogleSyncRoute: typeof CronGoogleSyncRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
+  CronTrybeSyncRoute: typeof CronTrybeSyncRoute
   CronWeeklySummaryRoute: typeof CronWeeklySummaryRoute
   QTokenRoute: typeof QTokenRoute
   RTokenRoute: typeof RTokenRoute
@@ -665,6 +678,13 @@ declare module '@tanstack/react-router' {
       path: '/cron/reminders'
       fullPath: '/cron/reminders'
       preLoaderRoute: typeof CronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cron/trybe-sync': {
+      id: '/cron/trybe-sync'
+      path: '/cron/trybe-sync'
+      fullPath: '/cron/trybe-sync'
+      preLoaderRoute: typeof CronTrybeSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/cron/weekly-summary': {
@@ -836,6 +856,7 @@ const rootRouteChildren: RootRouteChildren = {
   CronGoogleSyncRoute: CronGoogleSyncRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
+  CronTrybeSyncRoute: CronTrybeSyncRoute,
   CronWeeklySummaryRoute: CronWeeklySummaryRoute,
   QTokenRoute: QTokenRoute,
   RTokenRoute: RTokenRoute,
