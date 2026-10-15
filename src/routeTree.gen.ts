@@ -20,6 +20,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
+import { Route as WebsitesRouteImport } from './routes/websites'
 import { Route as AffiliatesKitRouteImport } from './routes/affiliates_.kit'
 import { Route as CompareCompetitorRouteImport } from './routes/compare.$competitor'
 import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
@@ -98,6 +99,11 @@ const TermsRoute = TermsRouteImport.update({
 const UnsubscribeRoute = UnsubscribeRouteImport.update({
   id: '/unsubscribe',
   path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WebsitesRoute = WebsitesRouteImport.update({
+  id: '/websites',
+  path: '/websites',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AffiliatesKitRoute = AffiliatesKitRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/websites': typeof WebsitesRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
@@ -272,6 +279,7 @@ export interface FileRoutesByTo {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/websites': typeof WebsitesRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
+  '/websites': typeof WebsitesRoute
   '/affiliates_/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
@@ -349,6 +358,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/websites'
     | '/affiliates/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
@@ -386,6 +396,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/websites'
     | '/affiliates/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
@@ -423,6 +434,7 @@ export interface FileRouteTypes {
     | '/start'
     | '/terms'
     | '/unsubscribe'
+    | '/websites'
     | '/affiliates_/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
@@ -461,6 +473,7 @@ export interface RootRouteChildren {
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
+  WebsitesRoute: typeof WebsitesRoute
   AffiliatesKitRoute: typeof AffiliatesKitRoute
   CompareCompetitorRoute: typeof CompareCompetitorRoute
   CronGoogleSyncRoute: typeof CronGoogleSyncRoute
@@ -564,6 +577,13 @@ declare module '@tanstack/react-router' {
       path: '/unsubscribe'
       fullPath: '/unsubscribe'
       preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/websites': {
+      id: '/websites'
+      path: '/websites'
+      fullPath: '/websites'
+      preLoaderRoute: typeof WebsitesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/affiliates_/kit': {
@@ -749,6 +769,7 @@ const rootRouteChildren: RootRouteChildren = {
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
+  WebsitesRoute: WebsitesRoute,
   AffiliatesKitRoute: AffiliatesKitRoute,
   CompareCompetitorRoute: CompareCompetitorRoute,
   CronGoogleSyncRoute: CronGoogleSyncRoute,

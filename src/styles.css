@@ -7233,3 +7233,165 @@ h1 strong {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Customer dashboard: "Your website" progress steps */
+.web-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 22px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+.web-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--dash-faint);
+  font-size: 14px;
+}
+.web-step-dot {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--dash-border-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.web-step.is-done {
+  color: var(--dash-text-2);
+}
+.web-step.is-done .web-step-dot {
+  border-color: var(--dash-green);
+  color: var(--dash-green);
+}
+.web-step.is-current {
+  color: var(--dash-text);
+  font-weight: 600;
+}
+.web-step.is-current .web-step-dot {
+  border-color: var(--dash-amber);
+  background: color-mix(in oklab, var(--dash-amber) 18%, transparent);
+  color: var(--dash-amber);
+}
+
+/* ---- Websites page and homepage previews --------------------------------- */
+.ws-page {
+  display: grid;
+  gap: 18px;
+  padding-block: 56px 80px;
+}
+.ws-page h1 {
+  max-width: 22ch;
+  text-wrap: balance;
+}
+.ws-lead,
+.ws-sub {
+  max-width: 62ch;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+.ws-actions,
+.ws-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ws-heading {
+  margin-top: 28px;
+}
+.ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 20px;
+}
+.ws-card {
+  display: grid;
+  align-content: start;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+.ws-shot {
+  display: block;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--border);
+}
+.ws-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.ws-card-body {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+}
+.ws-card-body h3 {
+  margin: 0;
+}
+.ws-card-body p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 14px;
+  line-height: 1.55;
+}
+.ws-trade {
+  color: var(--muted-foreground);
+  font: 400 11px/1.4 var(--font-mono, monospace);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.ws-list {
+  display: grid;
+  gap: 8px;
+  max-width: 70ch;
+  padding-left: 1.2em;
+  line-height: 1.55;
+}
+.ws-fine {
+  color: var(--muted-foreground);
+  font-size: 14px;
+}
+/* Homepage strip */
+.lp-ws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 16px;
+}
+.lp-ws-card {
+  display: grid;
+  overflow: hidden;
+  border: 1px solid var(--dash-border-strong);
+  border-radius: 14px;
+  background: oklch(1 0 0 / 3%);
+  color: var(--dash-text);
+  text-decoration: none;
+}
+.lp-ws-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  object-position: top;
+}
+.lp-ws-card div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+}
+.lp-ws-card span {
+  color: var(--dash-muted);
+  font-size: 13px;
+}
+.lp-ws-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
