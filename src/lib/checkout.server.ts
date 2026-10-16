@@ -174,6 +174,10 @@ export function buildCheckoutSessionParams(
   const common = {
     customer_email: data.email,
     allow_promotion_codes: true,
+    // Shown on Stripe's own payment page, right above the pay button.
+    custom_text: {
+      submit: { message: "Questions before you pay? Call or text Colby at (480) 536-0301." },
+    },
     line_items: lineItems,
     metadata: subscriptionMetadata,
     success_url: successUrl,
