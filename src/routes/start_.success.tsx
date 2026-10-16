@@ -142,7 +142,8 @@ function SuccessPage() {
                 We'll email you within one business day to get started. If you have a logo,
                 photos or anything you want on the site, just reply to that email and send it
                 over. Create a password below to follow your website's progress, manage your plan
-                and get your referral link. Questions in the meantime: hello@uptrendscaling.com.
+                and get your referral link. Questions in the meantime: call Colby at{" "}
+                <a href="tel:+14805360301">(480) 536-0301</a> or email hello@uptrendscaling.com.
               </p>
             </>
           ) : (

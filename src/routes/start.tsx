@@ -525,6 +525,10 @@ function StartPage() {
                   ? "One payment, nothing recurring."
                   : "Monthly services can be canceled anytime, no long-term contract."}
             </p>
+            <p className="start-disclaimer start-callout">
+              Questions before you pay? Call Colby at{" "}
+              <a href="tel:+14805360301">(480) 536-0301</a>.
+            </p>
           </form>
         </div>
       </main>
