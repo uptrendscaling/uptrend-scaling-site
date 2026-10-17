@@ -1330,8 +1330,13 @@ function TrybeTab({ overview }: { overview: TrybeOverview }) {
         />
         <AdminStat
           label="Joined"
+          // Only creators who actually joined, so this matches the Total
+          // Creators number on Trybe. People who were only invited (and have
+          // not joined yet), declined, or left are not counted.
           value={formatCount(
-            creators.filter((c) => c.status !== "INACTIVE" && c.status !== "DECLINED").length,
+            creators.filter((c) =>
+              ["JOINED", "APPROVED", "DEMO_EMAIL_ASKED", "DEMO_CREATED"].includes(c.status),
+            ).length,
           )}
           hint="Creators in the program"
         />
