@@ -156,7 +156,7 @@ function TermsPage() {
             Security is a shared effort and no website can be made completely secure. We do not
             promise that your site will never be attacked, defaced, or interrupted, and these
             platform protections are not a certification or audit of your particular site. Our
-            sample and customer sites are informational and do not collect payments or store
+            design and customer sites are informational and do not collect payments or store
             customer accounts unless we have agreed to that in writing. Please do not send us
             passwords or payment card details by email.
           </p>

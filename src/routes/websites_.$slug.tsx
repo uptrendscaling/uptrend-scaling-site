@@ -16,7 +16,7 @@ export const Route = createFileRoute("/websites_/$slug")({
   },
   head: ({ loaderData }) => ({
     meta: [
-      { title: `${loaderData?.design.name ?? "Sample website"} | UpTrend Scaling` },
+      { title: `${loaderData?.design.name ?? "Website design"} | UpTrend Scaling` },
       { name: "robots", content: "noindex" },
       { property: "og:url", content: `${CANONICAL_SITE_URL}/websites` },
     ],
@@ -31,11 +31,11 @@ function SampleWebsitePage() {
       <SiteNav />
       <header className="demo-bar">
         <p className="demo-note">
-          Sample website: <strong>{design.name}</strong>
+          Live design: <strong>{design.name}</strong>
         </p>
         <div className="demo-actions">
           <a className="button button-ghost nav-cta" href="/websites">
-            All samples
+            All designs
           </a>
           <a className="button button-primary nav-cta" href="/start?website=build">
             Get one like this
@@ -44,7 +44,7 @@ function SampleWebsitePage() {
       </header>
       <iframe
         className="demo-frame"
-        title={`${design.name} sample website`}
+        title={`${design.name} website design`}
         src={design.embedUrl}
         loading="eager"
         referrerPolicy="no-referrer"

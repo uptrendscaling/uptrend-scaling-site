@@ -51,7 +51,7 @@ const TRADES: Record<string, Trade> = {
       },
       {
         q: "Can I see an HVAC website you built?",
-        a: "Yes. Open the Desert Breeze HVAC sample from this page to try it on your phone or computer.",
+        a: "Yes. Open the Desert Breeze HVAC design from this page to try it on your phone or computer.",
       },
       {
         q: "Do I have to sign up for monthly maintenance?",
@@ -87,7 +87,7 @@ const TRADES: Record<string, Trade> = {
       },
       {
         q: "Can I see a plumbing website you built?",
-        a: "Yes. Open the Copperline Plumbing sample from this page to try it on your phone or computer.",
+        a: "Yes. Open the Copperline Plumbing design from this page to try it on your phone or computer.",
       },
       {
         q: "Can you build the site if I already have a logo and photos?",
@@ -123,7 +123,7 @@ const TRADES: Record<string, Trade> = {
       },
       {
         q: "Can I see a landscaping website you built?",
-        a: "Yes. Open the Greenway Landscaping sample from this page to try it on your phone or computer.",
+        a: "Yes. Open the Greenway Landscaping design from this page to try it on your phone or computer.",
       },
       {
         q: "Can I add new photos later?",
@@ -196,7 +196,7 @@ function TradePage() {
         </a>
         {sample ? (
           <a className="button button-ghost" href={websiteDesignPath(sample)}>
-            See a live sample
+            See a live design
           </a>
         ) : null}
       </div>
@@ -233,7 +233,7 @@ function TradePage() {
 
       <p className="ws-fine">
         More: <a href="/get-a-website-built-for-you">how getting a website built for you works</a>,{" "}
-        <a href="/websites">all website samples</a>. Questions? Email{" "}
+        <a href="/websites">all website designs</a>. Questions? Email{" "}
         <a href="mailto:hello@uptrendscaling.com">hello@uptrendscaling.com</a>.
       </p>
     </SeoPageShell>

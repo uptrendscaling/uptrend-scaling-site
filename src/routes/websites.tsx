@@ -59,7 +59,7 @@ function WebsitesPage() {
                 <a
                   className="ws-shot"
                   href={websiteDesignPath(design)}
-                  aria-label={`Open the ${design.name} sample website`}
+                  aria-label={`Open the ${design.name} website design`}
                 >
                   <img
                     src={design.image}

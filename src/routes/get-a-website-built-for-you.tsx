@@ -37,8 +37,8 @@ const FAQ: ReadonlyArray<FaqEntry> = [
     a: "A website builder is a tool you use yourself: you pick a template, write the text, add the photos and publish it. Having a website built for you means someone else does that work. We design and build the site, and you review and approve it.",
   },
   {
-    q: "Can I see examples of the websites you build?",
-    a: "Yes. There are live samples for an HVAC company, a plumbing company and a landscaping company. Open any of them on your phone or computer from the samples page.",
+    q: "Can I see the websites you build?",
+    a: "Yes. There are live designs for an HVAC company, a plumbing company and a landscaping company. Open any of them on your phone or computer from the designs page.",
   },
   {
     q: "I already have a website. Can you just look after it?",
@@ -129,7 +129,7 @@ function BuiltForYouPage() {
           Order a website
         </a>
         <a className="button button-ghost" href="/websites">
-          See live samples
+          See live designs
         </a>
       </div>
 
