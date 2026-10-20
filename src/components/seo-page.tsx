@@ -41,7 +41,7 @@ export function SeoPageShell({ children }: { children: ReactNode }) {
       <footer className="seo-foot">
         <nav aria-label="More from UpTrend Scaling">
           <a href="/">Home</a>
-          <a href="/websites">Website samples</a>
+          <a href="/websites">Website designs</a>
           <a href="/get-a-website-built-for-you">Get a website built for you</a>
           <a href="/website-for/hvac-companies">Websites for HVAC companies</a>
           <a href="/website-for/plumbers">Websites for plumbers</a>
