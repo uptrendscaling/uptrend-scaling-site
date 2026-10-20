@@ -371,8 +371,8 @@ export const prospectEligible = and(
   isNull(affiliateProspects.respondedAt),
   isNull(affiliateProspects.unsubscribedAt),
   sql`coalesce(${affiliateProspects.notes}, '') not like ${NOT_SENT_NOTE_PREFIX + "%"}`,
-  sql`not exists (select 1 from affiliates a where lower(a.email) = ${affiliateProspects.email})`,
-  sql`not exists (select 1 from leads l where lower(l.email) = ${affiliateProspects.email} and l.unsubscribed_at is not null)`,
+  sql`not exists (select 1 from affiliates a where lower(a.email) = affiliate_prospects.email)`,
+  sql`not exists (select 1 from leads l where lower(l.email) = affiliate_prospects.email and l.unsubscribed_at is not null)`,
 );
 
 async function sendProspectEmails(
@@ -627,7 +627,7 @@ export const getAffiliateProspects = createServerFn({ method: "GET" }).handler(
       const rows = await db
         .select({
           prospect: affiliateProspects,
-          applied: sql<boolean>`exists (select 1 from affiliates a where lower(a.email) = ${affiliateProspects.email})`,
+          applied: sql<boolean>`exists (select 1 from affiliates a where lower(a.email) = affiliate_prospects.email)`,
         })
         .from(affiliateProspects)
         .orderBy(
