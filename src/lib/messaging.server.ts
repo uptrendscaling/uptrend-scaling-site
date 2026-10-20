@@ -194,10 +194,7 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
 
     // Non-2xx, or a 2xx that carries an error list and no message id, both
     // mean Telnyx did not accept the message.
-    if (
-      !response.ok ||
-      (payload?.errors?.length && !payload?.data?.id)
-    ) {
+    if (!response.ok || (payload?.errors?.length && !payload?.data?.id)) {
       const error = telnyxErrorText(payload, response.status);
       console.error("[messaging] Telnyx did not accept the SMS:", error);
       return { ok: false, error };
@@ -213,6 +210,25 @@ export async function sendSms(to: string, body: string): Promise<SendResult> {
         : "Network error sending SMS.",
     };
   }
+}
+
+// The sender line for a business's own review-request emails: their business
+// name in front of our sending address, e.g. "Stone's Plumbing
+// <reviews@mail.uptrendscaling.com>". A bare "reviews@..." address with no
+// name looks like a mass mailer to inbox providers and is far more likely to
+// land in spam. Returns undefined (so the default sender is used) when no
+// sending address is configured.
+export function reviewSenderFor(businessName: string): string | undefined {
+  const configured = process.env["RESEND_FROM_EMAIL"];
+  if (!configured) return undefined;
+  const match = configured.match(/<([^>]+)>/);
+  const address = (match?.[1] ?? configured).trim();
+  const name = businessName
+    .replace(/["<>,;:\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!address || !name) return undefined;
+  return `${name.slice(0, 60)} <${address}>`;
 }
 
 // Sends a single email via Resend's REST API. Pass `from` to override the
@@ -232,7 +248,7 @@ export async function sendEmail(
   html: string,
   from?: string,
   bcc?: string,
-  options?: { idempotencyKey?: string },
+  options?: { idempotencyKey?: string; replyTo?: string },
 ): Promise<SendResult> {
   const apiKey = process.env["RESEND_API_KEY"];
   const fromAddress = from ?? process.env["RESEND_FROM_EMAIL"];
@@ -256,6 +272,7 @@ export async function sendEmail(
         subject,
         html,
         ...(bcc ? { bcc } : {}),
+        ...(options?.replyTo ? { reply_to: options.replyTo } : {}),
       }),
       signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     });
@@ -434,7 +451,19 @@ function gsmSafe(value: string): string {
   );
 }
 
-const NAME_TITLES = new Set(["dr", "dr.", "mr", "mr.", "mrs", "mrs.", "ms", "ms.", "miss", "mx", "mx."]);
+const NAME_TITLES = new Set([
+  "dr",
+  "dr.",
+  "mr",
+  "mr.",
+  "mrs",
+  "mrs.",
+  "ms",
+  "ms.",
+  "miss",
+  "mx",
+  "mx.",
+]);
 
 // First name only, skipping a leading title. Null when there is no usable
 // first name or it is too long to greet with (then the text just says
@@ -454,7 +483,10 @@ function fitSms(
   const first = firstNameOf(customerName);
   const words = (gsmSafe(businessName) || "us").split(" ");
   const businessOf = (n: number) =>
-    words.slice(0, n).join(" ").replace(/[\s,&+\-/:]+$/, "");
+    words
+      .slice(0, n)
+      .join(" ")
+      .replace(/[\s,&+\-/:]+$/, "");
   // 1. Drop whole words off the end of a long business name (keeps at least
   //    the first word), 2. then drop the greeting, 3. then cut the name.
   for (const greeting of [first, null]) {
@@ -609,7 +641,7 @@ export function welcomeEmailHtml(
                 "Know another business owner?",
                 `${emailParaHtml(
                   escapeHtml(
-                    "Share your referral link. They skip the $20 setup fee, and you earn 25% of every payment they make for as long as they stay, plus $20 on their 2nd payment. If they order a website, you also earn $50 per website and 20% of every monthly maintenance payment. Your link and earnings are on your dashboard.",
+                    "Share your referral link. They skip the $15 setup fee, and you earn 25% of every payment they make for as long as they stay, plus $20 on their 2nd payment. If they order a website, you also earn $50 per website and 20% of every monthly maintenance payment. Your link and earnings are on your dashboard.",
                   ),
                   10,
                 )}<p style="margin:0;font-size:15px;font-weight:700;word-break:break-all;color:#18181b;">${escapeHtml(referralLink)}</p>`,

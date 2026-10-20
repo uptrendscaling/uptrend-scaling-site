@@ -6,9 +6,9 @@
 // asks sent to customers (the automatic first ask or a manual resend). The one
 // follow-up reminder that goes with each ask is included and never counted.
 export const PLAN_TIERS = [
-  { id: "starter", name: "Starter", priceCents: 7000, monthlyRequests: 1000 },
-  { id: "growth", name: "Growth", priceCents: 10000, monthlyRequests: 2500 },
-  { id: "pro", name: "Pro", priceCents: 20000, monthlyRequests: 6000 },
+  { id: "starter", name: "Starter", priceCents: 5000, monthlyRequests: 1000 },
+  { id: "growth", name: "Growth", priceCents: 9000, monthlyRequests: 2500 },
+  { id: "pro", name: "Pro", priceCents: 17000, monthlyRequests: 6000 },
 ] as const;
 
 export type PlanTierId = (typeof PLAN_TIERS)[number]["id"];
@@ -23,9 +23,9 @@ export function tierById(id: string | null | undefined): PlanTier {
   return PLAN_TIERS.find((t) => t.id === id) ?? PLAN_TIERS[0];
 }
 
-// The cheapest plan's price, used wherever the site says "from $70".
+// The cheapest plan's price, used wherever the site says "from $50".
 export const MONTHLY_PRICE_CENTS = PLAN_TIERS[0].priceCents;
-export const SETUP_FEE_CENTS = 2000; // $20 one-time, applies once per account
+export const SETUP_FEE_CENTS = 1500; // $15 one-time, applies once per account
 export const TRIAL_DAYS = 7; // Free trial length; billing starts on day 7
 
 // ---- Website offers ---------------------------------------------------------
@@ -43,7 +43,8 @@ export const WEBSITE_OPTIONS = [
     id: "build",
     name: "Website build",
     priceText: "$299 one-time",
-    detail: "We design and build your site. You approve it before it goes live.",
+    detail:
+      "We design and build your site. You approve it before it goes live.",
     buildCents: WEBSITE_BUILD_CENTS,
     monthlyCents: 0,
   },
@@ -72,7 +73,9 @@ export const WEBSITE_OPTION_IDS = WEBSITE_OPTIONS.map((o) => o.id) as [
   ...WebsiteOptionId[],
 ];
 
-export function websiteOptionById(id: string | null | undefined): WebsiteOption | null {
+export function websiteOptionById(
+  id: string | null | undefined,
+): WebsiteOption | null {
   return WEBSITE_OPTIONS.find((o) => o.id === id) ?? null;
 }
 

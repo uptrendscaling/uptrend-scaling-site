@@ -133,21 +133,21 @@ export function renderInviteEmail(p: ProspectEmailInput): OutreachEmail & {
   };
   const examples = [
     {
-      label: "1 business, $100 plan",
-      value: "$25 a month to you, every month they stay",
+      label: "1 business, $90 plan",
+      value: "$22.50 a month to you, every month they stay",
     },
     {
       label: "Bonus",
       value: "$20 extra when each business makes its 2nd payment",
     },
-    { label: "10 businesses", value: "$250 a month, plus $200 in bonuses" },
+    { label: "10 businesses", value: "$225 a month, plus $200 in bonuses" },
     {
       label: "Websites",
       value: "$50 per website build, plus 20% of each $99 maintenance payment",
     },
     {
       label: "What they get",
-      value: "No $20 setup fee, plus a 7-day free trial",
+      value: "No $15 setup fee, plus a 7-day free trial",
     },
   ];
 
@@ -217,7 +217,7 @@ export function renderFollowUpEmail(p: ProspectEmailInput): OutreachEmail & {
   const lines = {
     intro:
       "Quick follow up on my note about the UpTrend Scaling partner program.",
-    short: `The short version: you earn 25% of every payment from each business you send us, for as long as they stay a customer, plus $20 when each one makes its 2nd payment. Website sales count too, with $50 for each build and 20% of each monthly maintenance payment. The businesses you send skip our $20 setup fee. Most of ${whoTheyServe(p.kind)} could use more Google reviews, and this gets them without anyone having to ask.`,
+    short: `The short version: you earn 25% of every payment from each business you send us, for as long as they stay a customer, plus $20 when each one makes its 2nd payment. Website sales count too, with $50 for each build and 20% of each monthly maintenance payment. The businesses you send skip our $15 setup fee. Most of ${whoTheyServe(p.kind)} could use more Google reviews, and this gets them without anyone having to ask.`,
     ask: "Want me to send a short walkthrough of how it works? Just reply and I will.",
     ps: "P.S. If this isn't a fit, reply \"no thanks\" and I won't email you again.",
   };

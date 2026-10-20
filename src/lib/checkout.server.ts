@@ -219,17 +219,17 @@ export function buildCheckoutSessionParams(
 }
 
 // Builds the exact pricing model UpTrend Scaling has settled on (a monthly
-// plan per location, Starter $70 / Growth $100 / Pro $200 from ./pricing.ts,
-// + a one-time $20 setup fee, billed together with the first
+// plan per location, Starter $50 / Growth $90 / Pro $170 from ./pricing.ts,
+// + a one-time $15 setup fee, billed together with the first
 // recurring invoice) without requiring any Products/Prices to be
 // pre-configured in the Stripe dashboard — everything is defined inline via
 // price_data. The moment STRIPE_SECRET_KEY is set in the deploy environment,
 // this goes live with no further code changes.
 //
-// When the $20 setup fee is charged:
+// When the $15 setup fee is charged:
 // - plan "membership" (subscribe today, no trial): the fee is a one-time line
-//   item in Checkout, so the customer pays the $20 setup fee plus the first
-//   $70 month today. Nothing else ever adds a setup fee for this plan.
+//   item in Checkout, so the customer pays the $15 setup fee plus the first
+//   $50 month today. Nothing else ever adds a setup fee for this plan.
 // - plan "trial": Checkout charges one-time line items immediately, even when
 //   the subscription has a trial (trial_period_days only defers the recurring
 //   items). So for trial signups the fee is left out of line_items entirely and

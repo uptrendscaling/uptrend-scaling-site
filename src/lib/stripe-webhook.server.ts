@@ -32,14 +32,14 @@ export function isStripeWebhookConfigured(): boolean {
 }
 
 // The one-time setup fee for FREE TRIAL signups. These reach Stripe Checkout
-// with the $20 fee left out of line_items on purpose (see
+// with the $15 fee left out of line_items on purpose (see
 // ../lib/checkout.server.ts): Checkout charges one-time line items
 // immediately, even on a trialing subscription, which would defeat "nothing
 // charged for 7 days." Instead, once the subscription exists and is trialing,
 // we queue the fee as a pending invoice item tied to that customer and
 // subscription. Stripe folds pending items into the subscription's next
 // invoice, which for a fresh trial is the one generated when the trial ends,
-// so the $20 lands on the same invoice as the first month, exactly once.
+// so the $15 lands on the same invoice as the first month, exactly once.
 //
 // This only runs for plan "trial". Plan "membership" (no trial) pays the fee
 // as a Checkout line item today, so it must never get a second one here.
