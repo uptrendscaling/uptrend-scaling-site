@@ -197,7 +197,7 @@ export const Route = createFileRoute("/")({
       { rel: "stylesheet", href: homeCss },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist:wght@300..700&family=Geist+Mono:wght@400..600&family=Instrument+Serif&family=Barlow+Condensed:wght@600;700&display=swap",
       },
     ],
   }),
