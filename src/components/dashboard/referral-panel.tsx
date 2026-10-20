@@ -87,7 +87,7 @@ export function ReferralPanel() {
       <div className="ref-panel">
         <p className="ref-lead">
           Know another business owner who needs more Google reviews? Share your
-          link. They skip the $20 setup fee, and you earn 25% of every payment
+          link. They skip the $15 setup fee, and you earn 25% of every payment
           they make for as long as they stay, plus a $20 bonus on their 2nd
           payment. If they order a website, you also earn $50 per website and
           20% of every monthly maintenance payment. Paid monthly by PayPal once you've earned $25.
