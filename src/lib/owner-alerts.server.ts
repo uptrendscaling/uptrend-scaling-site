@@ -214,7 +214,7 @@ export function dashboardUrl(
 }
 
 // What a plan's first real charge should be: the plan's monthly price per
-// location, plus the $20 setup fee unless they came through an affiliate link
+// location, plus the $15 setup fee unless they came through an affiliate link
 // (which waives it). Tier and affiliate come from the checkout metadata.
 type ChargeTerms = { tierId: string | null; waived: boolean };
 
