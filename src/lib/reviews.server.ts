@@ -66,6 +66,7 @@ import {
   reviewLinkFor,
   shortReviewLinkFor,
   sendEmail,
+  reviewSenderFor,
   sendSms,
   TRUSTPILOT_AFS_BCC_EMAIL,
   UPTREND_SUPPORT_EMAIL,
@@ -205,7 +206,9 @@ export const claimBusinessAccount = createServerFn({ method: "POST" })
         subscriptionId: sessionSubscriptionId,
       });
       const websiteOption = websiteOptionById(
-        typeof metadata["website"] === "string" ? metadata["website"] : undefined,
+        typeof metadata["website"] === "string"
+          ? metadata["website"]
+          : undefined,
       );
       // A website-only order's subscription (maintenance) is tracked separately
       // from the review subscription, so it never counts as review access.
@@ -839,11 +842,15 @@ async function sendReviewRequestAndLog(
         email,
         emailSubject,
         emailHtml,
+        reviewSenderFor(business.businessName),
         undefined,
-        undefined,
-        options.sendKey
-          ? { idempotencyKey: `${options.sendKey}/${kind}/email` }
-          : undefined,
+        {
+          // Replies go to the business itself, not to our mailbox.
+          replyTo: business.email,
+          ...(options.sendKey
+            ? { idempotencyKey: `${options.sendKey}/${kind}/email` }
+            : {}),
+        },
       );
       emailSent = result.ok;
       emailError = result.ok ? null : result.error;

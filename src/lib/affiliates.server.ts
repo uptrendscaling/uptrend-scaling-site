@@ -2,7 +2,7 @@
 // (uptrendscaling.com/?ref=CODE) earn 25% of every payment each referred
 // customer makes, for as long as that customer stays, plus a one-time $20
 // bonus when that customer makes their 2nd monthly payment. Referred customers
-// skip the $20 setup fee. Website sales pay too: $50 for every website build
+// skip the $15 setup fee. Website sales pay too: $50 for every website build
 // a referred business buys and 20% of its monthly maintenance payments. Every paying UpTrend customer also gets a referral
 // link of their own automatically, on the same terms (source = "customer").
 //
@@ -254,7 +254,7 @@ function applicantConfirmationHtml(name: string): string {
       },
       {
         html: para(
-          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, plus a $20 bonus when they make their 2nd payment. Website sales pay too: $50 for every website build and 20% of every monthly maintenance payment. The businesses you send skip our $20 setup fee.",
+          "Once you're approved you'll get your own link. You earn 25% of every payment from each business you refer, for as long as they stay a customer, plus a $20 bonus when they make their 2nd payment. Website sales pay too: $50 for every website build and 20% of every monthly maintenance payment. The businesses you send skip our $15 setup fee.",
         ),
       },
       {
@@ -309,7 +309,7 @@ function approvalEmailHtml(
             },
             {
               label: "They get",
-              value: "The $20 setup fee waived, plus our 7-day free trial",
+              value: "The $15 setup fee waived, plus our 7-day free trial",
             },
             {
               label: "Tracking",
