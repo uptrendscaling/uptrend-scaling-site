@@ -51,7 +51,7 @@ function templates(link: string) {
       "UpTrend Scaling gets local businesses more Google reviews without anyone having to ask.",
       "When a customer pays (through Square or Jobber, or added by hand), UpTrend texts and emails them a one-tap Google review link, with one friendly reminder.",
       "The owner sees every request and every result in a simple dashboard, and can print QR codes for in-person asks.",
-      "Plans start at $70 a month per location, with a 7-day free trial. Anyone who signs up through your link skips the $20 setup fee.",
+      "Plans start at $50 a month per location, with a 7-day free trial. Anyone who signs up through your link skips the $15 setup fee.",
     ],
     email: `Subject: How I'd get more Google reviews
 
@@ -61,13 +61,13 @@ Quick one. If you're looking for more Google reviews without having to chase cus
 
 Once a customer pays, it automatically texts and emails them a one-tap link to leave a review, plus one reminder. It works with Square and Jobber, so there's nothing extra to do after a job.
 
-There's a 7-day free trial, and through my link you skip the $20 setup fee:
+There's a 7-day free trial, and through my link you skip the $15 setup fee:
 ${link}
 
 Full disclosure: I earn a commission if you sign up through my link.
 
 [your name]`,
-    text: `Hey [name], if you want more Google reviews without chasing customers, check out UpTrend Scaling. It texts your customers a review link automatically after they pay. 7-day free trial, and my link skips the $20 setup fee: ${link} (I earn a commission if you sign up.)`,
+    text: `Hey [name], if you want more Google reviews without chasing customers, check out UpTrend Scaling. It texts your customers a review link automatically after they pay. 7-day free trial, and my link skips the $15 setup fee: ${link} (I earn a commission if you sign up.)`,
     posts: [
       `Most local businesses don't have a "bad service" problem. They have a "we never ask for reviews" problem.
 
@@ -111,7 +111,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: "What does it cost?",
-    a: "Starter is $70 a month per location for up to 1,000 review requests, Growth is $100 for up to 2,500, and Pro is $200 for up to 6,000. Every plan starts with a 7-day free trial. Through your link, the one-time $20 setup fee is waived.",
+    a: "Starter is $50 a month per location for up to 1,000 review requests, Growth is $90 for up to 2,500, and Pro is $170 for up to 6,000. Every plan starts with a 7-day free trial. Through your link, the one-time $15 setup fee is waived.",
   },
   {
     q: "Does it work with the software they already use?",

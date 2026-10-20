@@ -45,16 +45,16 @@ const COMPETITORS: Record<string, Competitor> = {
     name: "NiceJob",
     headline: "UpTrend Scaling vs NiceJob",
     summary:
-      "Both send automatic Google review requests. UpTrend is the focused option: it does one job, getting you more Google reviews, starting at $70 a month, with clear request limits and one friendly reminder instead of a long follow-up sequence.",
+      "Both send automatic Google review requests. UpTrend is the focused option: it does one job, getting you more Google reviews, starting at $50 a month, with clear request limits and one friendly reminder instead of a long follow-up sequence.",
     rows: [
       {
         label: "Starting price",
-        us: { text: "$70 / month", good: true },
+        us: { text: "$50 / month", good: true },
         them: { text: "$75 / month (Starter)" },
       },
       {
         label: "Price of the next plan up",
-        us: { text: "$100 / month (2,500 requests)", good: true },
+        us: { text: "$90 / month (2,500 requests)", good: true },
         them: { text: "$125 / month (Pro)" },
       },
       {
@@ -112,7 +112,7 @@ const COMPETITORS: Record<string, Competitor> = {
     faq: [
       {
         q: "Is UpTrend cheaper than NiceJob?",
-        a: "UpTrend starts at $70 a month per location. NiceJob's published plans are $75 (Starter) and $125 (Pro) a month.",
+        a: "UpTrend starts at $50 a month per location. NiceJob's published plans are $75 (Starter) and $125 (Pro) a month.",
       },
       {
         q: "Can I switch from NiceJob to UpTrend?",
@@ -132,11 +132,11 @@ const COMPETITORS: Record<string, Competitor> = {
     name: "Podium",
     headline: "UpTrend Scaling vs Podium",
     summary:
-      "Podium is a big all-in-one messaging, payments and AI platform with sales-call pricing. UpTrend is built for local service businesses that just want more Google reviews: $70 a month, month to month, set up yourself in minutes.",
+      "Podium is a big all-in-one messaging, payments and AI platform with sales-call pricing. UpTrend is built for local service businesses that just want more Google reviews: $50 a month, month to month, set up yourself in minutes.",
     rows: [
       {
         label: "Starting price",
-        us: { text: "$70 / month", good: true },
+        us: { text: "$50 / month", good: true },
         them: { text: "About $399 / month (reported)" },
       },
       {
@@ -175,7 +175,7 @@ const COMPETITORS: Record<string, Competitor> = {
       {
         title: "A fraction of the price",
         detail:
-          "Podium's plans are reported to start around $399 a month. UpTrend starts at $70, and every price is on our website.",
+          "Podium's plans are reported to start around $399 a month. UpTrend starts at $50, and every price is on our website.",
       },
       {
         title: "No sales call, no long contract",
@@ -198,7 +198,7 @@ const COMPETITORS: Record<string, Competitor> = {
     faq: [
       {
         q: "How much does Podium cost compared to UpTrend?",
-        a: "Podium doesn't publish prices. Third-party reports put its plans at about $399 and $599 a month. UpTrend is $70, $100 or $200 a month per location, published on our site.",
+        a: "Podium doesn't publish prices. Third-party reports put its plans at about $399 and $599 a month. UpTrend is $50, $90 or $170 a month per location, published on our site.",
       },
       {
         q: "Do I have to sign a contract with UpTrend?",
@@ -226,11 +226,11 @@ const COMPETITORS: Record<string, Competitor> = {
     name: "Birdeye",
     headline: "UpTrend Scaling vs Birdeye",
     summary:
-      "Birdeye is an enterprise reputation platform built for multi-location brands, sold through demos, with annual contracts reported by customers. UpTrend gives local service businesses automatic Google review requests for $70 a month, month to month.",
+      "Birdeye is an enterprise reputation platform built for multi-location brands, sold through demos, with annual contracts reported by customers. UpTrend gives local service businesses automatic Google review requests for $50 a month, month to month.",
     rows: [
       {
         label: "Starting price",
-        us: { text: "$70 / month", good: true },
+        us: { text: "$50 / month", good: true },
         them: { text: "About $299 / month per location (reported)" },
       },
       {
@@ -270,7 +270,7 @@ const COMPETITORS: Record<string, Competitor> = {
       {
         title: "About a quarter of the price",
         detail:
-          "Birdeye is reported to start around $299 a month per location, on an annual contract. UpTrend starts at $70 a month with no contract.",
+          "Birdeye is reported to start around $299 a month per location, on an annual contract. UpTrend starts at $50 a month with no contract.",
       },
       {
         title: "Simple enough to set up today",
@@ -293,7 +293,7 @@ const COMPETITORS: Record<string, Competitor> = {
     faq: [
       {
         q: "How much does Birdeye cost compared to UpTrend?",
-        a: "Birdeye doesn't publish prices. Third-party reports put its plans at about $299 to $449 a month per location, billed annually. UpTrend is $70, $100 or $200 a month per location, month to month.",
+        a: "Birdeye doesn't publish prices. Third-party reports put its plans at about $299 to $449 a month per location, billed annually. UpTrend is $50, $90 or $170 a month per location, month to month.",
       },
       {
         q: "Does UpTrend work with Jobber and Square like Birdeye?",
@@ -332,7 +332,7 @@ export const Route = createFileRoute("/compare/$competitor")({
     // before a colon off some link previews.
     const title = `UpTrend Scaling vs ${c.name}: pricing and features compared`;
     const shareTitle = `UpTrend Scaling vs ${c.name}`;
-    const description = `Comparing UpTrend Scaling and ${c.name} for Google review requests: price, contract, setup and features. UpTrend starts at $70 a month, month to month.`;
+    const description = `Comparing UpTrend Scaling and ${c.name} for Google review requests: price, contract, setup and features. UpTrend starts at $50 a month, month to month.`;
     const image = `${CANONICAL_SITE_URL}/og-compare-${c.slug}.png`;
     return {
       meta: [
@@ -454,7 +454,7 @@ function ComparePage() {
             <div>
               <h2>Try UpTrend free for 7 days</h2>
               <p>
-                Plans from $70 a month per location. Month to month, set up in
+                Plans from $50 a month per location. Month to month, set up in
                 minutes, no sales call.
               </p>
             </div>

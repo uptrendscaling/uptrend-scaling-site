@@ -203,7 +203,7 @@ function StartPage() {
             {referrerName && includeReviews ? (
               <div className="promo-banner" role="note">
                 <strong>Referred by {referrerName}</strong>
-                <span>Your $20 setup fee is waived.</span>
+                <span>Your $15 setup fee is waived.</span>
               </div>
             ) : null}
             <p className="eyebrow">

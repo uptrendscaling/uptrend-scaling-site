@@ -130,7 +130,7 @@ function AffiliatesPage() {
               businesses? Share your link. When they sign up, you earn 25% of
               every review plan payment they make, for as long as they stay a
               customer, plus a $20 bonus when they make their 2nd payment. They
-              skip our $20 setup fee.
+              skip our $15 setup fee.
             </p>
             <p className="start-lead">
               We also build websites for local businesses ($299 one-time, or
@@ -145,12 +145,12 @@ function AffiliatesPage() {
 
             <div className="aff-example" aria-label="Earnings example">
               <div>
-                <span>Refer 10 businesses on the $70 plan</span>
-                <strong>$175/month</strong>
+                <span>Refer 10 businesses on the $50 plan</span>
+                <strong>$125/month</strong>
               </div>
               <div>
                 <span>First year, with $200 in bonuses</span>
-                <strong>$2,300</strong>
+                <strong>$1,700</strong>
               </div>
               <div>
                 <span>Sell 5 websites with maintenance</span>
