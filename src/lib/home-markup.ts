@@ -75,7 +75,8 @@ export function buildHomeHtml(input: HomeMarkupInput): string {
       <div><label class="lab" for="bn">Your business name</label><input id="bn" type="text" value="Sunrise Home Services" maxlength="28" autocomplete="off" spellcheck="false"></div>
       <div><span class="lab" id="trl">Your trade</span><div class="chips" id="trades" role="group" aria-labelledby="trl"></div></div>
       <div class="ctl-end">
-        <div><span class="lab" id="acl">Color</span><div class="sw" id="sw" role="group" aria-labelledby="acl"></div></div>
+        <div class="clr"><span class="lab" id="acl">Color</span><button type="button" class="clr-b" id="clrB" aria-expanded="false" aria-controls="clrP" aria-labelledby="acl"><i id="clrDot"></i>Choose a color<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div class="clr-p" id="clrP" hidden><div class="clr-g" id="clrG" role="group" aria-label="Brand colors"></div><label class="clr-c"><input type="color" id="clrC" value="#2457ff" aria-label="Pick any custom color"><span>Pick any custom color</span></label></div></div>
         <button class="rand" id="rand" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>Shuffle</button>
       </div>
     </div>
@@ -88,23 +89,9 @@ export function buildHomeHtml(input: HomeMarkupInput): string {
     <div class="sec-hd pre rv-t">
       <span class="eyebrow"><b>01</b> Designs</span>
       <h2>Three live designs. Open one and use it.</h2>
-      <p>Every site is built phone first, loads fast, and has a quote form and tap-to-call button built in. Pick a design, drag the slider, or open the real thing.</p>
+      <p>Every site is built phone first, loads fast, and has a quote form and tap-to-call button built in. These are real, working sites. Open any one and try it.</p>
     </div>
-    <div class="dz">
-      <div class="dz-stage">
-        <div class="dz-in">
-          <div class="dsk"><div class="bar"><i></i><i></i><i></i></div><div class="vp" id="vpD"><img id="imD" alt="" decoding="async"></div></div>
-          <div class="phw"><div class="pho"><div class="vp" id="vpM"><img id="imM" alt="" decoding="async"></div></div></div>
-        </div>
-        <div class="scrub">
-          <button type="button" id="play" aria-label="Pause auto scroll"></button>
-          <span>Scroll</span><input type="range" id="scr" min="0" max="100" value="0" aria-label="Scroll the website preview">
-        </div>
-      </div>
-      <div class="dz-list">
-        <div class="dlist" id="dlist" role="tablist" aria-label="Designs"></div>
-      </div>
-    </div>
+    <div class="dgrid" id="dgrid"></div>
   </div>
 </section>
 
@@ -129,7 +116,7 @@ export function buildHomeHtml(input: HomeMarkupInput): string {
 
 <section class="sec" id="pricing">
   <div class="wrap">
-    <div class="sec-hd pre rv-t"><span class="eyebrow"><b>03</b> Pricing</span><h2>Build your bundle. Watch the total move.</h2><p>The website is the start. Add upkeep and automatic Google review requests if you want them, and see exactly what you would pay.</p></div>
+    <div class="sec-hd pre rv-t"><span class="eyebrow"><b>03</b> Pricing</span><h2>One flat price. Add only what you need.</h2><p>Your website is a single payment. Upkeep and automatic Google review requests are optional add-ons, billed monthly, so you only ever pay for what you pick.</p></div>
     <div class="pz">
       <div class="opts">
         <div class="opt on">
@@ -150,18 +137,17 @@ export function buildHomeHtml(input: HomeMarkupInput): string {
         </div>
       </div>
       <div class="rcpt" id="rcpt" aria-live="polite">
-        <h3>Your bundle</h3>
+        <h3>Your plan</h3>
         <div class="ln"><span>Website build</span><span>$299</span></div>
         <div class="ln off" id="lUp"><span>Upkeep</span><span>$99 / mo</span></div>
-        <div class="ln off" id="lRv"><span id="lRvT">Review automation</span><span id="lRvP">$70 / mo</span></div>
+        <div class="ln off" id="lRv"><span id="lRvT">Review automation</span><span id="lRvP">${starter} / mo</span></div>
         <div class="ln off" id="lSu"><span>Review setup fee</span><span>${setup} once</span></div>
         <div class="big">
-          <div class="y"><small>Website, due today</small><strong id="vToday">$299</strong></div>
-          <div><small>Then each month</small><strong id="vMonth">$0</strong></div>
-          <div><small>First 12 months</small><strong id="vYear">$299</strong></div>
+          <div class="y"><small>Website, one time</small><strong id="vToday">$299</strong></div>
+          <div><small>Add-ons, per month</small><strong id="vMonth">$0</strong></div>
         </div>
         <p class="note" id="rnote">Just the website. One payment, and you approve it before it goes live.</p>
-        <a class="btn btn-y" href="/start?website=build" id="order">Order this bundle</a>
+        <a class="btn btn-y" href="/start?website=build" id="order">Get started</a>
       </div>
     </div>
   </div>
