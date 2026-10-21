@@ -49,7 +49,12 @@ import {
   paraHtml as emailParaHtml,
   type EmailSection,
 } from "./email-layout";
-import { SETUP_FEE_CENTS, TRIAL_DAYS, tierById, websiteOptionById } from "./pricing";
+import {
+  SETUP_FEE_CENTS,
+  TRIAL_DAYS,
+  tierById,
+  websiteOptionById,
+} from "./pricing";
 
 const PROVIDER = "stripe" as const;
 
@@ -218,15 +223,23 @@ export function dashboardUrl(
 // (which waives it). Tier and affiliate come from the checkout metadata.
 type ChargeTerms = { tierId: string | null; waived: boolean };
 
-function chargeTermsOf(metadata: Record<string, string> | null | undefined): ChargeTerms {
+function chargeTermsOf(
+  metadata: Record<string, string> | null | undefined,
+): ChargeTerms {
   return {
     tierId: metadata?.["tier"] ?? null,
     waived: Boolean(metadata?.["affiliate"]),
   };
 }
 
-function expectedFirstChargeCents(locations: number, terms: ChargeTerms): number {
-  return tierById(terms.tierId).priceCents * locations + (terms.waived ? 0 : SETUP_FEE_CENTS);
+function expectedFirstChargeCents(
+  locations: number,
+  terms: ChargeTerms,
+): number {
+  return (
+    tierById(terms.tierId).priceCents * locations +
+    (terms.waived ? 0 : SETUP_FEE_CENTS)
+  );
 }
 
 function expectedFirstChargeFormula(
@@ -400,7 +413,9 @@ export function buildSignupAlert(
             label: "Website order",
             value: `${websiteOption.name} (${websiteOption.priceText})`,
           },
-          ...(websiteUrl ? [{ label: "Current website", value: websiteUrl }] : []),
+          ...(websiteUrl
+            ? [{ label: "Current website", value: websiteUrl }]
+            : []),
         ]
       : []),
     ...(includesReviews
@@ -456,22 +471,22 @@ export function buildSignupAlert(
   const note = websiteOption
     ? websiteOption.id === "maintenance"
       ? "They already have a site and want it maintained. Check the address above, then email them within one business day to get started."
-      : `Paid at checkout. Reach out within one business day to start the website${includesReviews ? ", and they also set up a review dashboard of their own" : ""}.`
+      : `Paid at checkout. They were emailed a link to tell us about the business. You get another email when their site is built and ready for you to review${includesReviews ? ". They also set up a review dashboard of their own" : ""}.`
     : isTrial
-    ? "Nothing was charged today. The card on file is billed automatically when the trial ends, and you will get a second email when that payment goes through."
-    : isMember
-      ? paymentPending
-        ? "This client chose to pay today, but Stripe has not confirmed the payment yet."
-        : "This client skipped the free trial and paid at checkout."
-      : null;
+      ? "Nothing was charged today. The card on file is billed automatically when the trial ends, and you will get a second email when that payment goes through."
+      : isMember
+        ? paymentPending
+          ? "This client chose to pay today, but Stripe has not confirmed the payment yet."
+          : "This client skipped the free trial and paid at checkout."
+        : null;
 
   const html = renderAlertEmail({
     subject,
     preheader: websiteOption
       ? `${displayName} ordered ${websiteOption.name.toLowerCase()}${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`
       : isTrial
-      ? `${displayName} started a free trial. Nothing is due today.`
-      : `${displayName} signed up${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`,
+        ? `${displayName} started a free trial. Nothing is due today.`
+        : `${displayName} signed up${dueToday === null ? "" : ` and paid ${formatMoney(dueToday, currency)} today`}.`,
     tone: isTrial ? "trial" : "paid",
     badge: websiteOption
       ? "New website order"
@@ -779,7 +794,9 @@ export function buildCancellationAlert(
       ? `${displayName} canceled during the free trial. Nothing was charged.`
       : `${displayName} canceled their ${canceledWhat.toLowerCase()}.`,
     tone: duringTrial ? "trial" : "paid",
-    badge: duringTrial ? "Canceled during free trial" : `${canceledWhat} canceled`,
+    badge: duringTrial
+      ? "Canceled during free trial"
+      : `${canceledWhat} canceled`,
     headline: displayName,
     subline: duringTrial
       ? "Canceled before the free trial ended."
@@ -842,7 +859,10 @@ export async function sendPartialCancelAlert(input: {
       SEND_TIMEOUT_MS,
     );
   } catch (error) {
-    console.error("[owner-alerts] could not send the partial cancel alert", error);
+    console.error(
+      "[owner-alerts] could not send the partial cancel alert",
+      error,
+    );
   }
 }
 

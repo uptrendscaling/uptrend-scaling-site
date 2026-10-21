@@ -47,7 +47,8 @@ export function websiteFieldsFromMetadata(
     // A site they already have is live from day one; a new build starts as
     // "ordered" and moves along in the admin Websites view.
     websiteStatus:
-      opts.existing?.websiteStatus ?? (option.id === "maintenance" ? "live" : "ordered"),
+      opts.existing?.websiteStatus ??
+      (option.id === "maintenance" ? "live" : "ordered"),
     maintenanceActive: option.monthlyCents > 0,
     maintenanceCanceledAt: null,
   };
@@ -71,7 +72,9 @@ function subscriptionIdOf(session: Stripe.Checkout.Session): string | null {
 
 // Called by the webhook on checkout.session.completed. Only does anything for
 // website orders (metadata.website). Safe to run twice for the same session.
-export async function recordWebsiteOrder(session: Stripe.Checkout.Session): Promise<void> {
+export async function recordWebsiteOrder(
+  session: Stripe.Checkout.Session,
+): Promise<void> {
   const metadata = (session.metadata ?? {}) as Meta;
   const option = websiteOptionById(metadata["website"] ?? undefined);
   if (!option) return;
@@ -90,7 +93,8 @@ export async function recordWebsiteOrder(session: Stripe.Checkout.Session): Prom
     .limit(1);
 
   const includesReviews = metadata["reviews"] !== "no";
-  const customerId = typeof session.customer === "string" ? session.customer : null;
+  const customerId =
+    typeof session.customer === "string" ? session.customer : null;
   const referredBy = str(metadata["affiliate"]);
   const fields = websiteFieldsFromMetadata(metadata, {
     subscriptionId: subscriptionIdOf(session),
@@ -106,6 +110,7 @@ export async function recordWebsiteOrder(session: Stripe.Checkout.Session): Prom
         referredBy: existing.referredBy ?? referredBy,
       })
       .where(eq(businesses.id, existing.id));
+    await startSiteBuild(email, option.buildCents);
     return;
   }
 
@@ -117,13 +122,35 @@ export async function recordWebsiteOrder(session: Stripe.Checkout.Session): Prom
       contactName: str(metadata["contactName"]) ?? "Owner",
       email,
       phone: str(metadata["phone"]) ?? "",
-      locations: Number.isFinite(locationsRaw) && locationsRaw > 0 ? Math.round(locationsRaw) : 1,
+      locations:
+        Number.isFinite(locationsRaw) && locationsRaw > 0
+          ? Math.round(locationsRaw)
+          : 1,
       stripeCustomerId: customerId,
       referredBy,
-      plan: includesReviews && metadata["plan"] === "membership" ? "membership" : null,
+      plan:
+        includesReviews && metadata["plan"] === "membership"
+          ? "membership"
+          : null,
       ...fields,
     })
     .onConflictDoNothing({ target: businesses.email });
+  await startSiteBuild(email, option.buildCents);
+}
+
+// A paid website build gets its site record and an email with the link to the
+// details form. Never lets a problem here undo the order itself.
+async function startSiteBuild(
+  email: string,
+  buildCents: number,
+): Promise<void> {
+  if (buildCents <= 0) return;
+  try {
+    const { startSiteForOrder } = await import("./site-gen/sites.server");
+    await startSiteForOrder(email);
+  } catch (error) {
+    console.error("[website-orders] could not start the site build", error);
+  }
 }
 
 // ---- What a subscription carries -----------------------------------------------
@@ -142,7 +169,10 @@ export async function classifySubscriptionItems(
   });
   const items: ClassifiedItem[] = subscription.items.data.map((item) => {
     const product = item.price.product;
-    const name = typeof product === "object" && product && "name" in product ? String(product.name) : "";
+    const name =
+      typeof product === "object" && product && "name" in product
+        ? String(product.name)
+        : "";
     return {
       id: item.id,
       kind: name.includes(WEBSITE_LINE_MARKER) ? "maintenance" : "reviews",
@@ -154,7 +184,10 @@ export async function classifySubscriptionItems(
 // ---- Keep the database in step with a subscription ---------------------------
 
 // Statuses that bring review access back (same as before website orders).
-const RESTORING_STATUSES = new Set<Stripe.Subscription.Status>(["active", "trialing"]);
+const RESTORING_STATUSES = new Set<Stripe.Subscription.Status>([
+  "active",
+  "trialing",
+]);
 // Statuses that mean the subscription is over for good.
 const DEAD_STATUSES = new Set<Stripe.Subscription.Status>([
   "canceled",
@@ -250,7 +283,12 @@ export async function syncBusinessWithSubscription(
       maintenance: items.some((i) => i.kind === "maintenance"),
     };
   }
-  const change = planSubscriptionSync(business, subscriptionId, eventStatus, carries);
+  const change = planSubscriptionSync(
+    business,
+    subscriptionId,
+    eventStatus,
+    carries,
+  );
   if (Object.keys(change).length === 0) return;
   await db.update(businesses).set(change).where(eq(businesses.id, business.id));
 }
