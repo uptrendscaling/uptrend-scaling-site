@@ -16,6 +16,7 @@ import {
   type SiteBrief,
   type SiteContent,
 } from "./types";
+import { widgetForTrade } from "./widgets";
 
 // ---- Small helpers ----------------------------------------------------------
 
@@ -206,6 +207,7 @@ export function buildFallbackContent(brief: SiteBrief): SiteContent {
       primaryCta: hasEstimates ? "Get a free quote" : "Request a quote",
       secondaryCta: "Call now",
       imageId: brief.photoIds[0] ?? null,
+      widget: widgetForTrade(brief.trade),
     },
     badges,
     stats: stats.slice(0, 4),
@@ -400,21 +402,34 @@ export async function writeContentWithAi(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 45_000);
   try {
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      signal: controller.signal,
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: process.env["ANTHROPIC_MODEL"] || "claude-sonnet-4-5",
-        max_tokens: 3500,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: JSON.stringify(input, null, 2) }],
-      }),
-    });
+    // Newest model first. If an address is not available to this account
+    // (404), fall back to the next one so the AI writing keeps working.
+    const models = [
+      process.env["ANTHROPIC_MODEL"],
+      "claude-sonnet-5-5",
+      "claude-sonnet-4-5",
+      "claude-haiku-5-5",
+    ].filter((m): m is string => Boolean(m));
+    let response: Response | null = null;
+    for (const model of models) {
+      response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 3500,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: "user", content: JSON.stringify(input, null, 2) }],
+        }),
+      });
+      if (response.status !== 404) break;
+    }
+    if (!response) return { ok: false, error: "No AI model was reachable." };
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       return {

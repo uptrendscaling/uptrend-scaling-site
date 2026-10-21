@@ -4,6 +4,7 @@
 
 import { buildCss, fontLink } from "./render-css";
 import { telHref, type SiteContent } from "./types";
+import { WIDGET_CSS, WIDGET_SCRIPT, widgetHtml } from "./widgets";
 
 export type RenderContext = {
   // Where a quote form posts to, and how an uploaded picture is addressed.
@@ -81,6 +82,7 @@ function heroHtml(c: SiteContent, ctx: RenderContext): string {
   const tel = telHref(c.brand.phone);
   const h1 = `${esc(h.headline)}${h.headlineAccent ? ` <em>${esc(h.headlineAccent)}</em>` : ""}`;
   const buttons = `<div class="cta-row"><a class="btn btn-a" href="#quote">${esc(h.primaryCta)} ${ARROW}</a><a class="btn btn-g" href="${esc(tel)}">${PHONE} ${esc(h.secondaryCta)}</a></div>`;
+  const wx = widgetHtml(c, ctx.assetUrl);
   const photo = h.imageId
     ? `<div class="hero-photo"><img src="${esc(ctx.assetUrl(h.imageId))}" alt="${esc(c.brand.name)}" loading="eager"></div>`
     : "";
@@ -95,7 +97,11 @@ function heroHtml(c: SiteContent, ctx: RenderContext): string {
       ${buttons}
       ${badgesHtml(c)}
     </div>
-    <aside class="qcard" id="top-form">${photo}${formHtml(c, ctx, c.cta.button, "h")}</aside>
+    ${
+      wx
+        ? `<aside class="wx-col" id="top-form">${wx}</aside>`
+        : `<aside class="qcard" id="top-form">${photo}${formHtml(c, ctx, c.cta.button, "h")}</aside>`
+    }
   </div>
   <svg class="hills" viewBox="0 0 1440 160" preserveAspectRatio="none" aria-hidden="true"><path fill="var(--bg)" d="M0 160V96c120-38 230-70 360-46 150 28 230 86 400 60 150-22 250-82 420-84 100-1 190 22 260 52v82z"/><path fill="#00000022" d="M0 160V118c140-30 250-46 400-24 160 24 260 62 430 40 140-18 260-64 400-58 80 3 150 22 210 40v44z"/></svg>
 </section>`;
@@ -111,11 +117,15 @@ function heroHtml(c: SiteContent, ctx: RenderContext): string {
       ${buttons}
       ${badgesHtml(c)}
     </div>
-    <aside class="qcard" id="top-form">
+    ${
+      wx
+        ? `<aside class="wx-col" id="top-form">${wx}</aside>`
+        : `<aside class="qcard" id="top-form">
       <div class="fig"><span>Fig. 01 / Request service</span><b>&#9679; Live</b></div>
       ${photo}
       ${formHtml(c, ctx, c.cta.button, "h")}
-    </aside>
+    </aside>`
+    }
   </div>
 </section>`;
   }
@@ -131,8 +141,8 @@ function heroHtml(c: SiteContent, ctx: RenderContext): string {
       <div><span class="pill">${esc(h.eyebrow)}</span><h1>${esc(h.headline)}${h.headlineAccent ? ` <em>${esc(h.headlineAccent)}</em>` : ""}</h1></div>
       ${side}
     </div>
-    <div class="hero-img">${image}
-      <div class="hero-card"><div class="t">${esc(c.brand.name)}</div><div class="p">${esc(c.brand.tagline || h.eyebrow)}</div><a class="btn btn-a" href="${esc(tel)}">${PHONE} ${esc(c.brand.phone)}</a></div>
+    <div class="hero-img${wx ? " has-wx" : ""}">${image}
+      ${wx}<div class="hero-card"><div class="t">${esc(c.brand.name)}</div><div class="p">${esc(c.brand.tagline || h.eyebrow)}</div><a class="btn btn-a" href="${esc(tel)}">${PHONE} ${esc(c.brand.phone)}</a></div>
     </div>
     ${c.badges.length ? `<div class="badge-row">${badgesHtml(c)}</div>` : ""}
   </div>
@@ -323,7 +333,7 @@ ${ctx.preview ? '<meta name="robots" content="noindex,nofollow">' : ""}
 ${canonical}${og}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${fontLink(c.style)}">
-<style>${buildCss(c.style, c.accent)}</style>
+<style>${buildCss(c.style, c.accent)}${WIDGET_CSS}</style>
 ${ctx.preview ? "" : jsonLd(c, ctx)}
 </head>
 <body>
@@ -349,7 +359,7 @@ ${extrasHtml(c, "end")}
 </main>
 ${footerHtml(c)}
 <div class="callbar"><a class="c1" href="${esc(tel)}">Call ${esc(c.brand.phone)}</a><a class="c2" href="#quote">Get a quote</a></div>
-<script>${SCRIPT}</script>
+<script>${SCRIPT}${WIDGET_SCRIPT}</script>
 </body>
 </html>`;
 }

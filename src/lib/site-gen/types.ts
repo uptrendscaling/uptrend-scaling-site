@@ -33,6 +33,11 @@ export const SITE_STYLE_INFO: Record<
   },
 };
 
+// The hands-on piece at the top of a site: a thermostat dial, a pressure gauge
+// with a valve, a project planner, or none (just the quote form).
+export const SITE_WIDGETS = ["dial", "gauge", "planner", "form"] as const;
+export type SiteWidget = (typeof SITE_WIDGETS)[number];
+
 export const TRADES = [
   "HVAC",
   "Plumbing",
@@ -124,6 +129,7 @@ export const contentSchema = z.object({
     primaryCta: line(30),
     secondaryCta: line(30),
     imageId: z.string().uuid().nullable().default(null),
+    widget: z.enum(SITE_WIDGETS).default("planner"),
   }),
   badges: z.array(line(40)).max(6).default([]),
   stats: z
