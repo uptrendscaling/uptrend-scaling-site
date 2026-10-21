@@ -292,7 +292,8 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
                 ? "A site is being written right now. Refresh in a minute."
                 : "They have an email with the link, or you can send it from their dashboard."}
             </p>
-            <div>
+            {site.lastError ? <p>Last problem: {site.lastError}</p> : null}
+            <div className="sd-row">
               <button
                 className="sd-btn"
                 type="button"
@@ -300,6 +301,24 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
               >
                 Refresh
               </button>
+              {site.brief ? (
+                <button
+                  className="sd-btn pri"
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run("regen", () =>
+                      adminRegenerate({
+                        data: { businessId: site.businessId },
+                      }),
+                    )
+                  }
+                >
+                  {busy === "regen"
+                    ? "Writing the site..."
+                    : "Write the site from their form now"}
+                </button>
+              ) : null}
             </div>
           </section>
         ) : (
