@@ -4,6 +4,7 @@ import {
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -652,3 +653,111 @@ export const coldSends = pgTable(
 );
 
 export type ColdSend = typeof coldSends.$inferSelect;
+
+// ---- Websites we build for customers ------------------------------------
+// One row per website order. The customer's answers are kept in `brief`, the
+// page text and settings the template draws from are in `content`, and the
+// pictures they upload are in website_site_assets. The finished site is served
+// by our own app (see lib/site-gen), at /s/<slug> and, once connected, at the
+// customer's own domain.
+export const websiteSites = pgTable(
+  "website_sites",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    businessId: uuid("business_id")
+      .notNull()
+      .references(() => businesses.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    // awaiting_details: paid, has not filled in the form yet
+    // generating: form received, we are writing the site
+    // review: built, waiting for Colby to look and approve
+    // customer_review: Colby approved, the customer is checking it
+    // live: published
+    // paused: free address ran out (no domain connected, no upkeep)
+    status: text("status", {
+      enum: [
+        "awaiting_details",
+        "generating",
+        "review",
+        "customer_review",
+        "live",
+        "paused",
+      ],
+    })
+      .notNull()
+      .default("awaiting_details"),
+    brief: jsonb("brief"),
+    content: jsonb("content"),
+    // Random secret in preview links, so an unapproved site is not public.
+    previewToken: text("preview_token").notNull(),
+    customDomain: text("custom_domain"),
+    domainRequestedAt: timestamp("domain_requested_at", { withTimezone: true }),
+    liveAt: timestamp("live_at", { withTimezone: true }),
+    // After this the free address stops working unless a domain is connected
+    // or upkeep is active.
+    domainDeadlineAt: timestamp("domain_deadline_at", { withTimezone: true }),
+    // [{ at: ISO string, text }] what the customer asked to change.
+    changeRequests: jsonb("change_requests")
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    aiUsed: boolean("ai_used").notNull().default(false),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("website_sites_business_idx").on(table.businessId),
+    uniqueIndex("website_sites_slug_idx").on(table.slug),
+    index("website_sites_domain_idx").on(table.customDomain),
+  ],
+);
+
+// Logo and photos a customer uploads, shrunk in the browser first. Stored as
+// base64 text so no extra storage service is needed.
+export const websiteSiteAssets = pgTable(
+  "website_site_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => websiteSites.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: ["logo", "photo"] }).notNull(),
+    mime: text("mime").notNull(),
+    data: text("data").notNull(),
+    bytes: integer("bytes").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("website_site_assets_site_idx").on(table.siteId)],
+);
+
+// Quote requests typed into a customer's finished site.
+export const websiteSiteLeads = pgTable(
+  "website_site_leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    siteId: uuid("site_id")
+      .notNull()
+      .references(() => websiteSites.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    email: text("email"),
+    service: text("service"),
+    message: text("message"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("website_site_leads_site_idx").on(table.siteId, table.createdAt),
+  ],
+);
+
+export type WebsiteSite = typeof websiteSites.$inferSelect;
+export type WebsiteSiteAsset = typeof websiteSiteAssets.$inferSelect;
+export type WebsiteSiteLead = typeof websiteSiteLeads.$inferSelect;
