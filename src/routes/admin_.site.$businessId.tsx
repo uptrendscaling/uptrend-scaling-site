@@ -14,8 +14,10 @@ import {
 import {
   SITE_STYLES,
   SITE_STYLE_INFO,
+  SITE_WIDGETS,
   type SiteContent,
 } from "../lib/site-gen/types";
+import { WIDGET_LABELS } from "../lib/site-gen/widgets";
 import siteDetailsCss from "../site-details.css?url";
 
 // Colby's editor for one customer's website: change any word, add sections the
@@ -411,6 +413,27 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
                     }
                     style={{ height: 44 }}
                   />
+                </Field>
+                <Field label="Interactive piece at the top">
+                  <select
+                    value={c.hero.widget}
+                    onChange={(e) =>
+                      upd((x) => ({
+                        ...x,
+                        hero: {
+                          ...x.hero,
+                          widget: e.target
+                            .value as SiteContent["hero"]["widget"],
+                        },
+                      }))
+                    }
+                  >
+                    {SITE_WIDGETS.map((w) => (
+                      <option key={w} value={w}>
+                        {WIDGET_LABELS[w]}
+                      </option>
+                    ))}
+                  </select>
                 </Field>
                 <Field label="Logo">
                   <select
