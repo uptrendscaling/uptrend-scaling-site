@@ -55,6 +55,10 @@
     {
       "path": "/cron/trybe-sync",
       "schedule": "5 1 * * *"
+    },
+    {
+      "path": "/cron/site-reminders",
+      "schedule": "0 16 * * *"
     }
   ]
 }
