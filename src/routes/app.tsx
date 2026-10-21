@@ -18,6 +18,7 @@ import { ReportsTab } from "../components/dashboard/reports-tab";
 import { RequestsTab } from "../components/dashboard/requests-tab";
 import { SettingsView } from "../components/dashboard/settings-view";
 import { WebsitePanel } from "../components/dashboard/website-panel";
+import siteDetailsCss from "../site-details.css?url";
 import { DashTopBar } from "../components/dashboard/top-bar";
 import {
   DASHBOARD_TABS,
@@ -53,6 +54,7 @@ type DashboardLoaderData = {
 export const Route = createFileRoute("/app")({
   head: () => ({
     meta: [{ title: "Dashboard | UpTrend Scaling" }],
+    links: [{ rel: "stylesheet", href: siteDetailsCss }],
   }),
   validateSearch: (search: Record<string, unknown>) =>
     searchSchema.parse(search),

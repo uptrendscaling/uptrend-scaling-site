@@ -2,7 +2,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { z } from "zod";
 
-import { getCheckoutSession, type SessionSummary } from "../lib/checkout.server";
+import {
+  getCheckoutSession,
+  type SessionSummary,
+} from "../lib/checkout.server";
 import { claimBusinessAccount } from "../lib/reviews.server";
 import { fireLeadConversion } from "../lib/google-ads";
 import { firePurchaseEvent, fireSignupEvent } from "../lib/meta-pixel";
@@ -13,7 +16,8 @@ const searchSchema = z.object({
 });
 
 export const Route = createFileRoute("/start_/success")({
-  validateSearch: (search: Record<string, unknown>) => searchSchema.parse(search),
+  validateSearch: (search: Record<string, unknown>) =>
+    searchSchema.parse(search),
   head: () => ({
     meta: [{ title: "You're in | UpTrend Scaling" }],
   }),
@@ -67,7 +71,9 @@ function SuccessPage() {
       sessionId,
       summary.amountTotalCents,
       summary.currency,
-      summary.website ? `website_${summary.website}` : (summary.plan ?? "review_plan"),
+      summary.website
+        ? `website_${summary.website}`
+        : (summary.plan ?? "review_plan"),
     );
   }, [sessionId, summary]);
 
@@ -75,13 +81,19 @@ function SuccessPage() {
   // A website-only order gets a website dashboard instead of the review one.
   const websiteOnly = summary && summary.ok ? summary.reviews === "no" : false;
   const hasWebsite = summary && summary.ok ? Boolean(summary.website) : false;
+  const hasBuild =
+    summary && summary.ok
+      ? summary.website === "build" || summary.website === "build_maintenance"
+      : false;
 
   async function handleClaim(event: FormEvent) {
     event.preventDefault();
     setError(null);
 
     if (!sessionId) {
-      setError("Missing checkout session. Refresh this page from your confirmation email.");
+      setError(
+        "Missing checkout session. Refresh this page from your confirmation email.",
+      );
       return;
     }
     if (password.length < 8) {
@@ -95,10 +107,14 @@ function SuccessPage() {
 
     setSubmitting(true);
     try {
-      const result = await claimBusinessAccount({ data: { sessionId, password } });
+      const result = await claimBusinessAccount({
+        data: { sessionId, password },
+      });
       if (result.ok) {
         setClaimed(true);
-        void navigate({ to: "/app" });
+        // A paid website build goes straight to the details form, so the site
+        // can be built while they are still here.
+        void navigate({ to: hasBuild ? "/site-details" : "/app" });
         return;
       }
       setError(result.message);
@@ -136,24 +152,29 @@ function SuccessPage() {
           {websiteOnly ? (
             <>
               <h1 className="start-heading">
-                Thanks{email ? `, we'll be emailing ${email}` : ""}. Your website order is in.
+                Thanks{email ? `, we'll be emailing ${email}` : ""}. Your
+                website order is in.
               </h1>
               <p className="start-lead">
-                We'll email you within one business day to get started. If you have a logo,
-                photos or anything you want on the site, just reply to that email and send it
-                over. Create a password below to follow your website's progress, manage your plan
-                and get your referral link. Questions in the meantime: call Colby at{" "}
-                <a href="tel:+14805360301">(480) 536-0301</a> or email hello@uptrendscaling.com.
+                Next step: create a password below, then tell us about your
+                business so we can build your site. It takes about five minutes,
+                and we also emailed you a link in case you want to do it later.
+                You will follow your website's progress, manage your plan and
+                get your referral link from your dashboard. Questions in the
+                meantime: call Colby at{" "}
+                <a href="tel:+14805360301">(480) 536-0301</a> or email
+                hello@uptrendscaling.com.
               </p>
             </>
           ) : (
             <>
               <h1 className="start-heading">
-                Thanks{email ? `, we'll be emailing ${email}` : ""}. Let's set up your dashboard.
+                Thanks{email ? `, we'll be emailing ${email}` : ""}. Let's set
+                up your dashboard.
               </h1>
               <p className="start-lead">
-                Create a password to get into your CRM, where you'll add customers and watch
-                review requests go out automatically.
+                Create a password to get into your CRM, where you'll add
+                customers and watch review requests go out automatically.
                 {hasWebsite
                   ? " We'll also email you within one business day about your website."
                   : ""}
@@ -161,40 +182,52 @@ function SuccessPage() {
             </>
           )}
 
-            <form className="start-form" style={{ textAlign: "left" }} onSubmit={handleClaim}>
-              <label>
-                <span>Create a password</span>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </label>
-              <label>
-                <span>Confirm password</span>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                  required
-                />
-              </label>
+          <form
+            className="start-form"
+            style={{ textAlign: "left" }}
+            onSubmit={handleClaim}
+          >
+            <label>
+              <span>Create a password</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
+            <label>
+              <span>Confirm password</span>
+              <input
+                type="password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                autoComplete="new-password"
+                required
+              />
+            </label>
 
-              {error && <p className="form-alert form-alert-error">{error}</p>}
-              {claimed && <p className="form-alert form-alert-notice">You're in — redirecting…</p>}
+            {error && <p className="form-alert form-alert-error">{error}</p>}
+            {claimed && (
+              <p className="form-alert form-alert-notice">
+                You're in — redirecting…
+              </p>
+            )}
 
-              <button
-                className="button button-primary start-submit"
-                type="submit"
-                disabled={submitting}
-              >
-                {submitting ? "Setting up…" : websiteOnly ? "Create my account" : "Create my dashboard"}
-                <ArrowIcon />
-              </button>
-            </form>
+            <button
+              className="button button-primary start-submit"
+              type="submit"
+              disabled={submitting}
+            >
+              {submitting
+                ? "Setting up…"
+                : websiteOnly
+                  ? "Create my account"
+                  : "Create my dashboard"}
+              <ArrowIcon />
+            </button>
+          </form>
 
           <a className="button button-ghost" href="/" style={{ marginTop: 18 }}>
             I'll do this later
