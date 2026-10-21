@@ -66,7 +66,7 @@ function badgesFor(brief: SiteBrief): string[] {
 
 function areasFrom(brief: SiteBrief): string[] {
   const parsed = brief.serviceArea
-    .split(/[,\n;]+/)
+    .split(/[,\n;]+|\s+and\s+|\s+&\s+/i)
     .map((s) => s.trim())
     .filter(Boolean)
     .slice(0, 24);
