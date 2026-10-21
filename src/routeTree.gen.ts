@@ -18,19 +18,24 @@ import { Route as GetAWebsiteBuiltForYouRouteImport } from './routes/get-a-websi
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SiteDetailsRouteImport } from './routes/site-details'
 import { Route as StartRouteImport } from './routes/start'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as WebsitesRouteImport } from './routes/websites'
+import { Route as AdminSitesRouteImport } from './routes/admin_.sites'
 import { Route as AffiliatesKitRouteImport } from './routes/affiliates_.kit'
 import { Route as CompareCompetitorRouteImport } from './routes/compare.$competitor'
 import { Route as CronGoogleSyncRouteImport } from './routes/cron.google-sync'
 import { Route as CronLeadFollowupsRouteImport } from './routes/cron.lead-followups'
 import { Route as CronRemindersRouteImport } from './routes/cron.reminders'
+import { Route as CronSiteRemindersRouteImport } from './routes/cron.site-reminders'
 import { Route as CronTrybeSyncRouteImport } from './routes/cron.trybe-sync'
 import { Route as CronWeeklySummaryRouteImport } from './routes/cron.weekly-summary'
 import { Route as QTokenRouteImport } from './routes/q.$token'
 import { Route as RTokenRouteImport } from './routes/r.$token'
+import { Route as SSlugRouteImport } from './routes/s.$slug'
+import { Route as SiteAssetsIdRouteImport } from './routes/site-assets.$id'
 import { Route as StartSuccessRouteImport } from './routes/start_.success'
 import { Route as StripeWebhookRouteImport } from './routes/stripe.webhook'
 import { Route as WebhooksJobberRouteImport } from './routes/webhooks.jobber'
@@ -38,6 +43,7 @@ import { Route as WebhooksQuickbooksRouteImport } from './routes/webhooks.quickb
 import { Route as WebhooksSquareRouteImport } from './routes/webhooks.square'
 import { Route as WebsiteForTradeRouteImport } from './routes/website-for.$trade'
 import { Route as WebsitesSlugRouteImport } from './routes/websites_.$slug'
+import { Route as AdminSiteBusinessIdRouteImport } from './routes/admin_.site.$businessId'
 import { Route as ApiV1MeRouteImport } from './routes/api.v1.me'
 import { Route as ApiV1ReviewRequestsRouteImport } from './routes/api.v1.review-requests'
 import { Route as ConnectGoogleCallbackRouteImport } from './routes/connect.google.callback'
@@ -49,6 +55,8 @@ import { Route as ConnectQuickbooksDisconnectedRouteImport } from './routes/conn
 import { Route as ConnectQuickbooksStartRouteImport } from './routes/connect.quickbooks.start'
 import { Route as ConnectSquareCallbackRouteImport } from './routes/connect.square.callback'
 import { Route as ConnectSquareStartRouteImport } from './routes/connect.square.start'
+import { Route as SSlugActRouteImport } from './routes/s.$slug.act'
+import { Route as SSlugLeadRouteImport } from './routes/s.$slug.lead'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -95,6 +103,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
   path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SiteDetailsRoute = SiteDetailsRouteImport.update({
+  id: '/site-details',
+  path: '/site-details',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StartRoute = StartRouteImport.update({
   id: '/start',
   path: '/start',
@@ -113,6 +126,11 @@ const UnsubscribeRoute = UnsubscribeRouteImport.update({
 const WebsitesRoute = WebsitesRouteImport.update({
   id: '/websites',
   path: '/websites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSitesRoute = AdminSitesRouteImport.update({
+  id: '/admin_/sites',
+  path: '/admin/sites',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AffiliatesKitRoute = AffiliatesKitRouteImport.update({
@@ -140,6 +158,11 @@ const CronRemindersRoute = CronRemindersRouteImport.update({
   path: '/cron/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CronSiteRemindersRoute = CronSiteRemindersRouteImport.update({
+  id: '/cron/site-reminders',
+  path: '/cron/site-reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CronTrybeSyncRoute = CronTrybeSyncRouteImport.update({
   id: '/cron/trybe-sync',
   path: '/cron/trybe-sync',
@@ -158,6 +181,16 @@ const QTokenRoute = QTokenRouteImport.update({
 const RTokenRoute = RTokenRouteImport.update({
   id: '/r/$token',
   path: '/r/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SSlugRoute = SSlugRouteImport.update({
+  id: '/s/$slug',
+  path: '/s/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SiteAssetsIdRoute = SiteAssetsIdRouteImport.update({
+  id: '/site-assets/$id',
+  path: '/site-assets/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StartSuccessRoute = StartSuccessRouteImport.update({
@@ -193,6 +226,11 @@ const WebsiteForTradeRoute = WebsiteForTradeRouteImport.update({
 const WebsitesSlugRoute = WebsitesSlugRouteImport.update({
   id: '/websites_/$slug',
   path: '/websites/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSiteBusinessIdRoute = AdminSiteBusinessIdRouteImport.update({
+  id: '/admin_/site/$businessId',
+  path: '/admin/site/$businessId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiV1MeRoute = ApiV1MeRouteImport.update({
@@ -252,6 +290,16 @@ const ConnectSquareStartRoute = ConnectSquareStartRouteImport.update({
   path: '/connect/square/start',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SSlugActRoute = SSlugActRouteImport.update({
+  id: '/act',
+  path: '/act',
+  getParentRoute: () => SSlugRoute,
+} as any)
+const SSlugLeadRoute = SSlugLeadRouteImport.update({
+  id: '/lead',
+  path: '/lead',
+  getParentRoute: () => SSlugRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -263,19 +311,24 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/site-details': typeof SiteDetailsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/websites': typeof WebsitesRoute
+  '/admin/sites': typeof AdminSitesRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/site-reminders': typeof CronSiteRemindersRoute
   '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
+  '/s/$slug': typeof SSlugRouteWithChildren
+  '/site-assets/$id': typeof SiteAssetsIdRoute
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
@@ -283,6 +336,7 @@ export interface FileRoutesByFullPath {
   '/webhooks/square': typeof WebhooksSquareRoute
   '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites/$slug': typeof WebsitesSlugRoute
+  '/admin/site/$businessId': typeof AdminSiteBusinessIdRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -294,6 +348,8 @@ export interface FileRoutesByFullPath {
   '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
+  '/s/$slug/act': typeof SSlugActRoute
+  '/s/$slug/lead': typeof SSlugLeadRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -305,19 +361,24 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/site-details': typeof SiteDetailsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/websites': typeof WebsitesRoute
+  '/admin/sites': typeof AdminSitesRoute
   '/affiliates/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/site-reminders': typeof CronSiteRemindersRoute
   '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
+  '/s/$slug': typeof SSlugRouteWithChildren
+  '/site-assets/$id': typeof SiteAssetsIdRoute
   '/start/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
@@ -325,6 +386,7 @@ export interface FileRoutesByTo {
   '/webhooks/square': typeof WebhooksSquareRoute
   '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites/$slug': typeof WebsitesSlugRoute
+  '/admin/site/$businessId': typeof AdminSiteBusinessIdRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -336,6 +398,8 @@ export interface FileRoutesByTo {
   '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
+  '/s/$slug/act': typeof SSlugActRoute
+  '/s/$slug/lead': typeof SSlugLeadRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -348,19 +412,24 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/site-details': typeof SiteDetailsRoute
   '/start': typeof StartRoute
   '/terms': typeof TermsRoute
   '/unsubscribe': typeof UnsubscribeRoute
   '/websites': typeof WebsitesRoute
+  '/admin_/sites': typeof AdminSitesRoute
   '/affiliates_/kit': typeof AffiliatesKitRoute
   '/compare/$competitor': typeof CompareCompetitorRoute
   '/cron/google-sync': typeof CronGoogleSyncRoute
   '/cron/lead-followups': typeof CronLeadFollowupsRoute
   '/cron/reminders': typeof CronRemindersRoute
+  '/cron/site-reminders': typeof CronSiteRemindersRoute
   '/cron/trybe-sync': typeof CronTrybeSyncRoute
   '/cron/weekly-summary': typeof CronWeeklySummaryRoute
   '/q/$token': typeof QTokenRoute
   '/r/$token': typeof RTokenRoute
+  '/s/$slug': typeof SSlugRouteWithChildren
+  '/site-assets/$id': typeof SiteAssetsIdRoute
   '/start_/success': typeof StartSuccessRoute
   '/stripe/webhook': typeof StripeWebhookRoute
   '/webhooks/jobber': typeof WebhooksJobberRoute
@@ -368,6 +437,7 @@ export interface FileRoutesById {
   '/webhooks/square': typeof WebhooksSquareRoute
   '/website-for/$trade': typeof WebsiteForTradeRoute
   '/websites_/$slug': typeof WebsitesSlugRoute
+  '/admin_/site/$businessId': typeof AdminSiteBusinessIdRoute
   '/api/v1/me': typeof ApiV1MeRoute
   '/api/v1/review-requests': typeof ApiV1ReviewRequestsRoute
   '/connect/google/callback': typeof ConnectGoogleCallbackRoute
@@ -379,6 +449,8 @@ export interface FileRoutesById {
   '/connect/quickbooks/start': typeof ConnectQuickbooksStartRoute
   '/connect/square/callback': typeof ConnectSquareCallbackRoute
   '/connect/square/start': typeof ConnectSquareStartRoute
+  '/s/$slug/act': typeof SSlugActRoute
+  '/s/$slug/lead': typeof SSlugLeadRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -392,19 +464,24 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/reset-password'
+    | '/site-details'
     | '/start'
     | '/terms'
     | '/unsubscribe'
     | '/websites'
+    | '/admin/sites'
     | '/affiliates/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/site-reminders'
     | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
+    | '/s/$slug'
+    | '/site-assets/$id'
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
@@ -412,6 +489,7 @@ export interface FileRouteTypes {
     | '/webhooks/square'
     | '/website-for/$trade'
     | '/websites/$slug'
+    | '/admin/site/$businessId'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -423,6 +501,8 @@ export interface FileRouteTypes {
     | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
+    | '/s/$slug/act'
+    | '/s/$slug/lead'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -434,19 +514,24 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/reset-password'
+    | '/site-details'
     | '/start'
     | '/terms'
     | '/unsubscribe'
     | '/websites'
+    | '/admin/sites'
     | '/affiliates/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/site-reminders'
     | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
+    | '/s/$slug'
+    | '/site-assets/$id'
     | '/start/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
@@ -454,6 +539,7 @@ export interface FileRouteTypes {
     | '/webhooks/square'
     | '/website-for/$trade'
     | '/websites/$slug'
+    | '/admin/site/$businessId'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -465,6 +551,8 @@ export interface FileRouteTypes {
     | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
+    | '/s/$slug/act'
+    | '/s/$slug/lead'
   id:
     | '__root__'
     | '/'
@@ -476,19 +564,24 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/reset-password'
+    | '/site-details'
     | '/start'
     | '/terms'
     | '/unsubscribe'
     | '/websites'
+    | '/admin_/sites'
     | '/affiliates_/kit'
     | '/compare/$competitor'
     | '/cron/google-sync'
     | '/cron/lead-followups'
     | '/cron/reminders'
+    | '/cron/site-reminders'
     | '/cron/trybe-sync'
     | '/cron/weekly-summary'
     | '/q/$token'
     | '/r/$token'
+    | '/s/$slug'
+    | '/site-assets/$id'
     | '/start_/success'
     | '/stripe/webhook'
     | '/webhooks/jobber'
@@ -496,6 +589,7 @@ export interface FileRouteTypes {
     | '/webhooks/square'
     | '/website-for/$trade'
     | '/websites_/$slug'
+    | '/admin_/site/$businessId'
     | '/api/v1/me'
     | '/api/v1/review-requests'
     | '/connect/google/callback'
@@ -507,6 +601,8 @@ export interface FileRouteTypes {
     | '/connect/quickbooks/start'
     | '/connect/square/callback'
     | '/connect/square/start'
+    | '/s/$slug/act'
+    | '/s/$slug/lead'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -519,19 +615,24 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SiteDetailsRoute: typeof SiteDetailsRoute
   StartRoute: typeof StartRoute
   TermsRoute: typeof TermsRoute
   UnsubscribeRoute: typeof UnsubscribeRoute
   WebsitesRoute: typeof WebsitesRoute
+  AdminSitesRoute: typeof AdminSitesRoute
   AffiliatesKitRoute: typeof AffiliatesKitRoute
   CompareCompetitorRoute: typeof CompareCompetitorRoute
   CronGoogleSyncRoute: typeof CronGoogleSyncRoute
   CronLeadFollowupsRoute: typeof CronLeadFollowupsRoute
   CronRemindersRoute: typeof CronRemindersRoute
+  CronSiteRemindersRoute: typeof CronSiteRemindersRoute
   CronTrybeSyncRoute: typeof CronTrybeSyncRoute
   CronWeeklySummaryRoute: typeof CronWeeklySummaryRoute
   QTokenRoute: typeof QTokenRoute
   RTokenRoute: typeof RTokenRoute
+  SSlugRoute: typeof SSlugRouteWithChildren
+  SiteAssetsIdRoute: typeof SiteAssetsIdRoute
   StartSuccessRoute: typeof StartSuccessRoute
   StripeWebhookRoute: typeof StripeWebhookRoute
   WebhooksJobberRoute: typeof WebhooksJobberRoute
@@ -539,6 +640,7 @@ export interface RootRouteChildren {
   WebhooksSquareRoute: typeof WebhooksSquareRoute
   WebsiteForTradeRoute: typeof WebsiteForTradeRoute
   WebsitesSlugRoute: typeof WebsitesSlugRoute
+  AdminSiteBusinessIdRoute: typeof AdminSiteBusinessIdRoute
   ApiV1MeRoute: typeof ApiV1MeRoute
   ApiV1ReviewRequestsRoute: typeof ApiV1ReviewRequestsRoute
   ConnectGoogleCallbackRoute: typeof ConnectGoogleCallbackRoute
@@ -617,6 +719,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/site-details': {
+      id: '/site-details'
+      path: '/site-details'
+      fullPath: '/site-details'
+      preLoaderRoute: typeof SiteDetailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/start': {
       id: '/start'
       path: '/start'
@@ -643,6 +752,13 @@ declare module '@tanstack/react-router' {
       path: '/websites'
       fullPath: '/websites'
       preLoaderRoute: typeof WebsitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/sites': {
+      id: '/admin_/sites'
+      path: '/admin/sites'
+      fullPath: '/admin/sites'
+      preLoaderRoute: typeof AdminSitesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/affiliates_/kit': {
@@ -680,6 +796,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CronRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/cron/site-reminders': {
+      id: '/cron/site-reminders'
+      path: '/cron/site-reminders'
+      fullPath: '/cron/site-reminders'
+      preLoaderRoute: typeof CronSiteRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cron/trybe-sync': {
       id: '/cron/trybe-sync'
       path: '/cron/trybe-sync'
@@ -706,6 +829,20 @@ declare module '@tanstack/react-router' {
       path: '/r/$token'
       fullPath: '/r/$token'
       preLoaderRoute: typeof RTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/s/$slug': {
+      id: '/s/$slug'
+      path: '/s/$slug'
+      fullPath: '/s/$slug'
+      preLoaderRoute: typeof SSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/site-assets/$id': {
+      id: '/site-assets/$id'
+      path: '/site-assets/$id'
+      fullPath: '/site-assets/$id'
+      preLoaderRoute: typeof SiteAssetsIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/start_/success': {
@@ -755,6 +892,13 @@ declare module '@tanstack/react-router' {
       path: '/websites/$slug'
       fullPath: '/websites/$slug'
       preLoaderRoute: typeof WebsitesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin_/site/$businessId': {
+      id: '/admin_/site/$businessId'
+      path: '/admin/site/$businessId'
+      fullPath: '/admin/site/$businessId'
+      preLoaderRoute: typeof AdminSiteBusinessIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/v1/me': {
@@ -834,8 +978,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ConnectSquareStartRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/s/$slug/act': {
+      id: '/s/$slug/act'
+      path: '/act'
+      fullPath: '/s/$slug/act'
+      preLoaderRoute: typeof SSlugActRouteImport
+      parentRoute: typeof SSlugRoute
+    }
+    '/s/$slug/lead': {
+      id: '/s/$slug/lead'
+      path: '/lead'
+      fullPath: '/s/$slug/lead'
+      preLoaderRoute: typeof SSlugLeadRouteImport
+      parentRoute: typeof SSlugRoute
+    }
   }
 }
+
+interface SSlugRouteChildren {
+  SSlugActRoute: typeof SSlugActRoute
+  SSlugLeadRoute: typeof SSlugLeadRoute
+}
+
+const SSlugRouteChildren: SSlugRouteChildren = {
+  SSlugActRoute: SSlugActRoute,
+  SSlugLeadRoute: SSlugLeadRoute,
+}
+
+const SSlugRouteWithChildren = SSlugRoute._addFileChildren(SSlugRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -847,19 +1017,24 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SiteDetailsRoute: SiteDetailsRoute,
   StartRoute: StartRoute,
   TermsRoute: TermsRoute,
   UnsubscribeRoute: UnsubscribeRoute,
   WebsitesRoute: WebsitesRoute,
+  AdminSitesRoute: AdminSitesRoute,
   AffiliatesKitRoute: AffiliatesKitRoute,
   CompareCompetitorRoute: CompareCompetitorRoute,
   CronGoogleSyncRoute: CronGoogleSyncRoute,
   CronLeadFollowupsRoute: CronLeadFollowupsRoute,
   CronRemindersRoute: CronRemindersRoute,
+  CronSiteRemindersRoute: CronSiteRemindersRoute,
   CronTrybeSyncRoute: CronTrybeSyncRoute,
   CronWeeklySummaryRoute: CronWeeklySummaryRoute,
   QTokenRoute: QTokenRoute,
   RTokenRoute: RTokenRoute,
+  SSlugRoute: SSlugRouteWithChildren,
+  SiteAssetsIdRoute: SiteAssetsIdRoute,
   StartSuccessRoute: StartSuccessRoute,
   StripeWebhookRoute: StripeWebhookRoute,
   WebhooksJobberRoute: WebhooksJobberRoute,
@@ -867,6 +1042,7 @@ const rootRouteChildren: RootRouteChildren = {
   WebhooksSquareRoute: WebhooksSquareRoute,
   WebsiteForTradeRoute: WebsiteForTradeRoute,
   WebsitesSlugRoute: WebsitesSlugRoute,
+  AdminSiteBusinessIdRoute: AdminSiteBusinessIdRoute,
   ApiV1MeRoute: ApiV1MeRoute,
   ApiV1ReviewRequestsRoute: ApiV1ReviewRequestsRoute,
   ConnectGoogleCallbackRoute: ConnectGoogleCallbackRoute,

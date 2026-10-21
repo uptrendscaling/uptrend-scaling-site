@@ -1,0 +1,52 @@
+/* Styles for the "tell us about your business" page and the website progress
+   card. Colors come only from the site's theme variables. */
+.sd { max-width: 860px; margin: 0 auto; padding: 36px 20px 90px; }
+.sd h1 { font: 700 clamp(28px, 4vw, 40px)/1.1 var(--font-sans); margin: 0 0 10px; color: var(--foreground); letter-spacing: -0.02em; }
+.sd .sd-lead { color: var(--muted-foreground); font-size: 16px; line-height: 1.6; margin: 0 0 26px; max-width: 62ch; }
+.sd-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; display: grid; gap: 14px; margin-bottom: 18px; box-shadow: var(--shadow-card); }
+.sd-card h2 { font: 700 18px/1.2 var(--font-sans); margin: 0; color: var(--foreground); }
+.sd-card p { margin: 0; color: var(--muted-foreground); font-size: 14.5px; line-height: 1.6; }
+.sd-grid { display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+.sd-field { display: grid; gap: 6px; }
+.sd-field > span, .sd-legend { font: 700 11px/1.2 var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground); }
+.sd-field small { color: var(--muted-foreground); font-size: 12.5px; }
+.sd input[type=text], .sd input[type=tel], .sd input[type=email], .sd input[type=number], .sd select, .sd textarea {
+  width: 100%; padding: 12px 13px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 6px; color: var(--foreground); font: 500 15px/1.4 var(--font-sans);
+}
+.sd textarea { min-height: 96px; resize: vertical; }
+.sd input:focus, .sd select:focus, .sd textarea:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 1px var(--ring); }
+.sd-checks { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
+.sd-check { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); font-size: 14px; cursor: pointer; color: var(--foreground); }
+.sd-check input { width: 18px; height: 18px; accent-color: var(--ring); }
+.sd-styles { display: grid; gap: 12px; grid-template-columns: repeat(3, 1fr); }
+.sd-style { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-soft); cursor: pointer; text-align: left; color: var(--foreground); font: inherit; }
+.sd-style img { width: 100%; aspect-ratio: 16/10; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+.sd-style b { font-size: 14.5px; }
+.sd-style small { color: var(--muted-foreground); font-size: 12.5px; line-height: 1.4; }
+.sd-style.on { border-color: var(--ring); box-shadow: 0 0 0 2px var(--ring); background: var(--surface-raised); }
+.sd details.sd-colors { border: 1px solid var(--border); border-radius: 8px; background: var(--surface-soft); }
+.sd-colors summary { cursor: pointer; padding: 12px 14px; display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 14.5px; color: var(--foreground); list-style: none; }
+.sd-colors summary::-webkit-details-marker { display: none; }
+.sd-dot { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--border); }
+.sd-sw { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); padding: 4px 14px 14px; }
+.sd-sw button { height: 44px; border-radius: 10px; border: 2px solid transparent; cursor: pointer; box-shadow: 0 0 0 1px var(--border); }
+.sd-sw button.on { border-color: var(--foreground); }
+.sd-custom { display: flex; gap: 10px; align-items: center; padding: 0 14px 14px; font-size: 14px; color: var(--foreground); }
+.sd-custom input[type=color] { width: 44px; height: 36px; padding: 0; border: 1px solid var(--border); border-radius: 6px; background: none; }
+.sd-up { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.sd-thumb { position: relative; width: 84px; height: 84px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); background: var(--surface-soft); }
+.sd-thumb img { width: 100%; height: 100%; object-fit: contain; }
+.sd-thumb button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: #000b; color: #fff; cursor: pointer; font-size: 13px; line-height: 1; }
+.sd-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 20px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); font: 700 14.5px/1 var(--font-sans); cursor: pointer; text-decoration: none; }
+.sd-btn.pri { background: var(--foreground); color: var(--background); border-color: var(--foreground); }
+.sd-btn[disabled] { opacity: 0.55; cursor: default; }
+.sd-note { padding: 12px 14px; border-radius: 8px; font-size: 14px; border: 1px solid var(--border); background: var(--surface-soft); color: var(--foreground); }
+.sd-note.bad { border-color: #b42318; color: #b42318; }
+.sd-note.ok { border-color: #16794a; }
+.sd-steps { display: flex; gap: 8px; flex-wrap: wrap; list-style: none; padding: 0; margin: 0; }
+.sd-steps li { padding: 7px 13px; border-radius: 999px; border: 1px solid var(--border); font-size: 13px; color: var(--muted-foreground); }
+.sd-steps li.done { color: var(--foreground); background: var(--surface-soft); }
+.sd-steps li.now { color: var(--background); background: var(--foreground); border-color: var(--foreground); font-weight: 700; }
+.sd-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.sd-row input { flex: 1 1 220px; }
+@media (max-width: 680px) { .sd-grid, .sd-checks, .sd-styles { grid-template-columns: 1fr; } .sd-style { grid-template-columns: 110px 1fr; align-items: center; } .sd-style img { grid-row: span 2; } }
