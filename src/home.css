@@ -47,8 +47,11 @@
 .uh.uh.uh .tgl .moon{display:none}
 :root[data-theme="dark"] .uh.uh.uh .tgl .sun{display:none}
 :root[data-theme="dark"] .uh.uh.uh .tgl .moon{display:block}
-.uh.uh.uh .hdr .login{display:none;padding:8px 12px;font-size:.9rem;color:var(--ink2);text-decoration:none}
+.uh.uh.uh .hdr .login{display:inline-block;padding:8px 6px;font-size:.88rem;font-weight:600;color:var(--ink);text-decoration:none;white-space:nowrap}
 .uh.uh.uh .hdr .btn{height:36px;padding:0 16px;font-size:.88rem}
+.uh.uh.uh .logo{white-space:nowrap}
+.uh.uh.uh .hdr .btn .lg{display:none}
+@media (min-width:480px){.uh.uh.uh .hdr .btn .lg{display:inline;white-space:pre}}
 .uh.uh.uh .hero{position:relative;padding:58px 0 0;overflow:hidden;text-align:center}
 .uh.uh.uh .hero::after{content:"";position:absolute;left:50%;top:-180px;width:900px;height:560px;transform:translateX(-50%);background:radial-gradient(closest-side,color-mix(in srgb,var(--blue) 22%,transparent),transparent);filter:blur(30px);pointer-events:none;opacity:.7}
 .uh.uh.uh .hero .wrap{position:relative;z-index:1}
@@ -224,7 +227,7 @@
 .uh.uh.uh .stat:last-child{border-right:0}}
 @media (min-width:960px){.uh{--gut:32px}
 .uh.uh.uh .nav{display:flex;margin-right:12px}
-.uh.uh.uh .hdr .login{display:inline-block}
+.uh.uh.uh .hdr .login{padding:8px 12px;font-weight:400;color:var(--ink2)}
 .uh.uh.uh .hero{padding-top:84px}
 .uh.uh.uh .pz{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:56px}
 .uh.uh.uh .rcpt{position:sticky;top:90px}
