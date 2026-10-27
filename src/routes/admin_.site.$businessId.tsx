@@ -5,13 +5,17 @@ import { ThemeToggle } from "../components/theme-toggle";
 import { getCurrentBusiness } from "../lib/reviews.server";
 import {
   adminGetSite,
+  adminImportSitePhotos,
   adminRegenerate,
+  adminRemoveSitePhotos,
+  adminScanSitePhotos,
   adminSaveContent,
   adminSetDomain,
   adminSiteAction,
   type AdminSiteDetail,
 } from "../lib/site-gen/sites.server";
 import {
+  MAX_SITE_PHOTOS,
   SITE_STYLES,
   SITE_STYLE_INFO,
   SITE_WIDGETS,
@@ -144,6 +148,8 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [frameKey, setFrameKey] = useState(0);
+  const [importUrl, setImportUrl] = useState("");
+  const [importNote, setImportNote] = useState("");
 
   async function refresh() {
     const r = await adminGetSite({ data: { businessId: site.businessId } });
@@ -209,6 +215,90 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
       }
       return adminSiteAction({ data: { businessId: site.businessId, action } });
     });
+  }
+
+  // Looks through the customer's current website, copies their real photos in,
+  // and turns on the scroll showcase when there are enough of them.
+  async function importPhotos() {
+    if (!content) return;
+    const url = importUrl.trim();
+    if (!url) return;
+    setBusy("import");
+    setMsg(null);
+    try {
+      setImportNote("Looking through their website...");
+      const scan = await adminScanSitePhotos({
+        data: { businessId: site.businessId, url },
+      });
+      if (!scan.ok) {
+        setMsg({ ok: false, text: scan.message });
+        return;
+      }
+      const ids: string[] = [];
+      const list = scan.candidates;
+      let tried = 0;
+      for (let i = 0; i < list.length; i += 4) {
+        if (
+          site.assets.filter((a) => a.kind === "photo").length + ids.length >=
+          MAX_SITE_PHOTOS
+        )
+          break;
+        tried = Math.min(list.length, i + 4);
+        setImportNote(
+          `Copying their photos... ${ids.length} saved so far (checked ${tried} of ${list.length})`,
+        );
+        const r = await adminImportSitePhotos({
+          data: {
+            businessId: site.businessId,
+            siteUrl: url,
+            urls: list.slice(i, i + 4),
+          },
+        });
+        if (!r.ok) {
+          setMsg({ ok: false, text: r.message });
+          break;
+        }
+        ids.push(...r.ids);
+      }
+      if (ids.length === 0) {
+        setMsg({
+          ok: false,
+          text: "Found pictures but none were big enough to use as photos. You can upload some by hand.",
+        });
+        return;
+      }
+      const hadHero = !!content.hero.imageId;
+      const next: SiteContent = {
+        ...content,
+        hero: {
+          ...content.hero,
+          imageId: content.hero.imageId ?? ids[0] ?? null,
+        },
+        gallery: [...content.gallery, ...ids.slice(hadHero ? 0 : 1)].slice(
+          0,
+          MAX_SITE_PHOTOS,
+        ),
+        galleryStyle: ids.length >= 4 ? "reel" : content.galleryStyle,
+      };
+      const saved = await adminSaveContent({
+        data: { businessId: site.businessId, content: next },
+      });
+      setMsg({
+        ok: saved.ok,
+        text: saved.ok
+          ? `Copied ${ids.length} photos from their website and turned on the scroll showcase.`
+          : (saved.message ?? "Copied the photos but could not save the page."),
+      });
+      await refresh();
+    } catch (e) {
+      setMsg({
+        ok: false,
+        text: e instanceof Error ? e.message : "Something went wrong.",
+      });
+    } finally {
+      setImportNote("");
+      setBusy(null);
+    }
   }
 
   const c = content;
@@ -404,6 +494,79 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
             </section>
 
             <section className="sd-card">
+              <h2>Photos from their website</h2>
+              <p className="sd-lead">
+                Paste the address of the business's current website. We copy
+                their real photos into this site and turn on the scroll
+                showcase, where scrolling through the photos moves the page.
+              </p>
+              <div className="sd-row">
+                <input
+                  type="text"
+                  placeholder="https://their-website.com"
+                  value={importUrl}
+                  onChange={(e) => setImportUrl(e.target.value)}
+                  style={{ flex: 1, minWidth: 220 }}
+                />
+                <button
+                  className="sd-btn pri"
+                  type="button"
+                  disabled={busy !== null || !importUrl.trim()}
+                  onClick={() => void importPhotos()}
+                >
+                  {busy === "import" ? "Importing..." : "Import their photos"}
+                </button>
+                <button
+                  className="sd-btn"
+                  type="button"
+                  disabled={busy !== null}
+                  onClick={() =>
+                    run("clearphotos", () =>
+                      adminRemoveSitePhotos({
+                        data: { businessId: site.businessId },
+                      }),
+                    )
+                  }
+                >
+                  Remove all photos
+                </button>
+              </div>
+              {importNote ? <p className="sd-lead">{importNote}</p> : null}
+              {c ? (
+                <div className="sd-grid">
+                  <Field label="Photo layout">
+                    <select
+                      value={c.galleryStyle}
+                      onChange={(e) =>
+                        upd((x) => ({
+                          ...x,
+                          galleryStyle: e.target
+                            .value as SiteContent["galleryStyle"],
+                        }))
+                      }
+                    >
+                      <option value="grid">Simple grid of thumbnails</option>
+                      <option value="reel">
+                        Scroll showcase (photos slide as you scroll)
+                      </option>
+                    </select>
+                  </Field>
+                  <Field label="Heading above the photos">
+                    <input
+                      type="text"
+                      value={c.galleryTitle}
+                      maxLength={90}
+                      placeholder="See it for yourself"
+                      onChange={(e) =>
+                        upd((x) => ({ ...x, galleryTitle: e.target.value }))
+                      }
+                    />
+                  </Field>
+                </div>
+              ) : null}
+            </section>
+
+            <section className="sd-card">
               <h2>Look</h2>
               <div className="sd-grid">
                 <Field label="Style">
@@ -513,7 +676,10 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
                               upd((x) => ({
                                 ...x,
                                 gallery: e.target.checked
-                                  ? [...x.gallery, a.id].slice(0, 8)
+                                  ? [...x.gallery, a.id].slice(
+                                      0,
+                                      MAX_SITE_PHOTOS,
+                                    )
                                   : x.gallery.filter((g) => g !== a.id),
                               }))
                             }
