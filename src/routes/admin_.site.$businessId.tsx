@@ -235,6 +235,7 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
         return;
       }
       const ids: string[] = [];
+      const why: string[] = [];
       const list = scan.candidates;
       let tried = 0;
       for (let i = 0; i < list.length; i += 4) {
@@ -259,11 +260,12 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
           break;
         }
         ids.push(...r.ids);
+        why.push(...r.reasons);
       }
       if (ids.length === 0) {
         setMsg({
           ok: false,
-          text: "Found pictures but none were big enough to use as photos. You can upload some by hand.",
+          text: `Found pictures but none could be used as photos. You can upload some by hand. Sample reasons: ${why.slice(0, 6).join("; ")}`,
         });
         return;
       }
@@ -286,7 +288,7 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
       setMsg({
         ok: saved.ok,
         text: saved.ok
-          ? `Copied ${ids.length} photos from their website and turned on the scroll showcase.`
+          ? `Copied ${ids.length} photos from their website and turned on the scroll showcase. Skipped ${why.length}. Sample reasons: ${why.slice(0, 5).join("; ")}`
           : (saved.message ?? "Copied the photos but could not save the page."),
       });
       await refresh();
