@@ -110,7 +110,7 @@ export const SHOWCASE_CSS = `
 .sc-slide .sc-open:hover img{transform:scale(1.03)}
 .sc-slide figcaption{position:absolute;left:14px;bottom:12px;font:600 12px var(--body);letter-spacing:.14em;color:#fff;text-shadow:0 1px 8px #000a;pointer-events:none}
 .sc-end{flex:none;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:16px;padding:0 clamp(24px,6vw,90px) 0 20px;min-width:min(78vw,420px)}
-.sc-end p{font:var(--hw) clamp(30px,4vw,52px)/1.05 var(--head);text-transform:var(--hc);letter-spacing:var(--ht)}
+.sc-end p{white-space:normal;max-width:9em;font:var(--hw) clamp(30px,4vw,52px)/1.05 var(--head);text-transform:var(--hc);letter-spacing:var(--ht)}
 .sc-foot{display:flex;align-items:center;gap:16px;padding:0 max(22px,calc((100vw - 1180px)/2 + 22px))}
 .sc-bar{flex:1;height:3px;background:var(--line);border-radius:3px;overflow:hidden}
 .sc-bar i{display:block;height:100%;width:100%;background:var(--a);transform:scaleX(0);transform-origin:left}
@@ -186,7 +186,7 @@ export const SHOWCASE_SCRIPT = `
     dist=Math.max(0,track.scrollWidth-vw);
     // Scrolling moves the strip a bit faster than the finger, so a long strip
     // does not take forever to get through.
-    reel.style.height=(Math.round(dist/1.35)+pin.offsetHeight)+'px';
+    reel.style.height=(Math.round(dist/1.8)+pin.offsetHeight)+'px';
     update();
   }
   function update(){
@@ -209,6 +209,7 @@ export const SHOWCASE_SCRIPT = `
   slides.forEach(function(s){var im=s.querySelector('img');im.loading='eager'});
   measure();
   addEventListener('load',measure);
+  if(d.fonts&&d.fonts.ready)d.fonts.ready.then(measure);
   // Menu links must not hide the heading under the pinned header.
   reel.style.scrollMarginTop='0px';
 })();
