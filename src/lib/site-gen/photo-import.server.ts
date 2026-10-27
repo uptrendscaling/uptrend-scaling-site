@@ -412,7 +412,7 @@ async function downloadBytes(
   referer: string,
 ): Promise<Buffer | null> {
   const res = await fetchWithTimeout(url, 9000, {
-    accept: "image/avif,image/webp,image/*,*/*;q=0.8",
+    accept: "image/jpeg,image/png,image/webp;q=0.9,*/*;q=0.5",
     referer,
   });
   if (!res || !res.ok) return null;
@@ -457,10 +457,20 @@ export async function fetchPhoto(
   if (!u) return { ok: false, reason: "bad address" };
   const referer = new URL(siteUrl).origin + "/";
   let buf = await downloadBytes(u.toString(), referer);
-  if (!buf) return { ok: false, reason: "could not download" };
-  let mime = mimeOf(buf);
-  let size = sizeOf(buf);
-  if (!mime || !size) return { ok: false, reason: "not a picture" };
+  let mime = buf ? mimeOf(buf) : null;
+  let size = buf && mime ? sizeOf(buf) : null;
+  let shrunkAlready = false;
+  if (!buf || !mime || !size) {
+    // Blocked, or a format we cannot read (like AVIF). The resizer can fetch
+    // and convert it for us.
+    const converted = await shrink(u.toString(), 1800, 80);
+    if (!converted) return { ok: false, reason: "could not download" };
+    buf = converted;
+    mime = "image/jpeg";
+    size = sizeOf(buf);
+    shrunkAlready = true;
+    if (!size) return { ok: false, reason: "not a picture" };
+  }
   const long = Math.max(size.w, size.h);
   const short = Math.min(size.w, size.h);
   const ratio = size.w / size.h;
@@ -469,7 +479,7 @@ export async function fetchPhoto(
 
   const tooBig = buf.length * 1.34 > MAX_PHOTO_BASE64 || long > 2000;
   if (tooBig) {
-    let shrunk = await shrink(u.toString(), 1800, 80);
+    let shrunk = shrunkAlready ? buf : await shrink(u.toString(), 1800, 80);
     if (!shrunk || shrunk.length * 1.34 > MAX_PHOTO_BASE64)
       shrunk = await shrink(u.toString(), 1500, 68);
     if (!shrunk || shrunk.length * 1.34 > MAX_PHOTO_BASE64)
