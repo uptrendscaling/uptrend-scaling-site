@@ -1572,7 +1572,13 @@ export const adminImportSitePhotos = createServerFn({ method: "POST" })
     async ({
       data,
     }): Promise<
-      | { ok: true; ids: string[]; skipped: number; total: number }
+      | {
+          ok: true;
+          ids: string[];
+          skipped: number;
+          total: number;
+          reasons: string[];
+        }
       | { ok: false; message: string }
     > => {
       try {
@@ -1594,9 +1600,12 @@ export const adminImportSitePhotos = createServerFn({ method: "POST" })
       );
       const ids: string[] = [];
       let skipped = 0;
-      for (const r of results) {
+      const reasons: string[] = [];
+      for (const [idx, r] of results.entries()) {
         if (!r || !r.ok || count >= MAX_SITE_PHOTOS) {
           skipped++;
+          const file = (data.urls[idx] ?? "").split("?")[0]?.split("/").pop();
+          reasons.push(`${file ?? "?"}: ${r && !r.ok ? r.reason : "failed"}`);
           continue;
         }
         const [row] = await db
@@ -1625,7 +1634,7 @@ export const adminImportSitePhotos = createServerFn({ method: "POST" })
           });
         }
       }
-      return { ok: true, ids, skipped, total: count };
+      return { ok: true, ids, skipped, total: count, reasons };
     },
   );
 
