@@ -48,9 +48,11 @@ import {
   isAiConfigured,
   writeContentWithAi,
 } from "./content.server";
+import { fetchPhoto, scanSitePhotos } from "./photo-import.server";
 import { renderNotFoundPage, renderPausedPage, renderSite } from "./render";
 import {
   DOMAIN_FREE_DAYS,
+  MAX_SITE_PHOTOS,
   briefSchema,
   cleanDomain,
   contentSchema,
@@ -1517,3 +1519,153 @@ async function runSiteRemindersNow(): Promise<SiteReminderResult> {
   }
   return { ok: true, sent };
 }
+
+// ---- Bringing in a business's real photos (admin only) ------------------------------
+
+// Step 1: look through their existing website and list the pictures on it.
+export const adminScanSitePhotos = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        businessId: z.string().uuid(),
+        url: z.string().trim().min(4).max(300),
+      })
+      .parse(input),
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      | { ok: true; candidates: string[]; pages: number }
+      | { ok: false; message: string }
+    > => {
+      try {
+        await adminOnly();
+      } catch {
+        return { ok: false, message: "Not authorized." };
+      }
+      const found = await scanSitePhotos(data.url);
+      if (found.error) return { ok: false, message: found.error };
+      if (found.candidates.length === 0)
+        return {
+          ok: false,
+          message:
+            "Opened the website but found no photos in its pages. It may load pictures with a script. You can upload photos by hand.",
+        };
+      return { ok: true, candidates: found.candidates, pages: found.pages };
+    },
+  );
+
+// Step 2: copy a few of those pictures into the site (the page calls this in
+// small batches so each call stays quick).
+export const adminImportSitePhotos = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z
+      .object({
+        businessId: z.string().uuid(),
+        siteUrl: z.string().trim().min(4).max(300),
+        urls: z.array(z.string().max(1200)).min(1).max(4),
+      })
+      .parse(input),
+  )
+  .handler(
+    async ({
+      data,
+    }): Promise<
+      | { ok: true; ids: string[]; skipped: number; total: number }
+      | { ok: false; message: string }
+    > => {
+      try {
+        await adminOnly();
+      } catch {
+        return { ok: false, message: "Not authorized." };
+      }
+      const business = await businessById(data.businessId);
+      const site = business ? await ensureSite(business) : null;
+      if (!site) return { ok: false, message: "Site not found." };
+      const db = getDb();
+      const existing = await db
+        .select({ id: websiteSiteAssets.id, kind: websiteSiteAssets.kind })
+        .from(websiteSiteAssets)
+        .where(eq(websiteSiteAssets.siteId, site.id));
+      let count = existing.filter((a) => a.kind === "photo").length;
+      const results = await Promise.all(
+        data.urls.map((u) => fetchPhoto(u, data.siteUrl).catch(() => null)),
+      );
+      const ids: string[] = [];
+      let skipped = 0;
+      for (const r of results) {
+        if (!r || !r.ok || count >= MAX_SITE_PHOTOS) {
+          skipped++;
+          continue;
+        }
+        const [row] = await db
+          .insert(websiteSiteAssets)
+          .values({
+            siteId: site.id,
+            kind: "photo",
+            mime: r.mime,
+            data: r.data,
+            bytes: Math.round((r.data.length * 3) / 4),
+          })
+          .returning({ id: websiteSiteAssets.id });
+        if (row) {
+          ids.push(row.id);
+          count++;
+        } else skipped++;
+      }
+      if (ids.length > 0) {
+        const brief = parseBrief(site.brief);
+        if (brief) {
+          await touch(site.id, {
+            brief: {
+              ...brief,
+              photoIds: [...brief.photoIds, ...ids].slice(0, MAX_SITE_PHOTOS),
+            },
+          });
+        }
+      }
+      return { ok: true, ids, skipped, total: count };
+    },
+  );
+
+// Clears every photo (not the logo), so an import can be run again cleanly.
+export const adminRemoveSitePhotos = createServerFn({ method: "POST" })
+  .validator((input: unknown) =>
+    z.object({ businessId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }): Promise<{ ok: boolean; message?: string }> => {
+    try {
+      await adminOnly();
+    } catch {
+      return { ok: false, message: "Not authorized." };
+    }
+    const business = await businessById(data.businessId);
+    const site = business ? await ensureSite(business) : null;
+    if (!site) return { ok: false, message: "Site not found." };
+    const db = getDb();
+    await db
+      .delete(websiteSiteAssets)
+      .where(
+        and(
+          eq(websiteSiteAssets.siteId, site.id),
+          eq(websiteSiteAssets.kind, "photo"),
+        ),
+      );
+    const brief = parseBrief(site.brief);
+    const content = parseContent(site.content);
+    await touch(site.id, {
+      ...(brief ? { brief: { ...brief, photoIds: [] } } : {}),
+      ...(content
+        ? {
+            content: {
+              ...content,
+              gallery: [],
+              galleryStyle: "grid" as const,
+              hero: { ...content.hero, imageId: null },
+            },
+          }
+        : {}),
+    });
+    return { ok: true };
+  });

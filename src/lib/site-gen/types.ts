@@ -50,6 +50,7 @@ export const TRADES = [
   "Painting",
   "Handyman",
   "Salon or barber",
+  "Photography",
   "Restaurant",
   "Other",
 ] as const;
@@ -76,6 +77,9 @@ export const HIGHLIGHTS = [
 ] as const;
 export type HighlightId = (typeof HIGHLIGHTS)[number]["id"];
 
+// Most pictures one site can hold.
+export const MAX_SITE_PHOTOS = 24;
+
 const hex = z
   .string()
   .trim()
@@ -98,7 +102,7 @@ export const briefSchema = z.object({
   style: z.enum(SITE_STYLES).default("warm"),
   accent: hex.default("#2457ff"),
   logoId: z.string().uuid().nullable().default(null),
-  photoIds: z.array(z.string().uuid()).max(8).default([]),
+  photoIds: z.array(z.string().uuid()).max(MAX_SITE_PHOTOS).default([]),
 });
 export type SiteBrief = z.infer<typeof briefSchema>;
 
@@ -146,7 +150,12 @@ export const contentSchema = z.object({
   about: z.object({ title: line(90), body: line(1400) }),
   areasTitle: line(90),
   areas: z.array(line(60)).max(24).default([]),
-  gallery: z.array(z.string().uuid()).max(8).default([]),
+  gallery: z.array(z.string().uuid()).max(MAX_SITE_PHOTOS).default([]),
+  // "grid" is a plain set of thumbnails. "reel" is the photo showcase: a full
+  // screen photo opening, then a strip of photos that slides sideways as the
+  // visitor scrolls down. Made for photographers.
+  galleryStyle: z.enum(["grid", "reel"]).default("grid"),
+  galleryTitle: line(90).default(""),
   faqTitle: line(90),
   faq: z
     .array(z.object({ q: line(160), a: line(600) }))

@@ -12,6 +12,7 @@
 
 import {
   HIGHLIGHTS,
+  MAX_SITE_PHOTOS,
   contentSchema,
   type SiteBrief,
   type SiteContent,
@@ -55,7 +56,13 @@ function tradeNoun(trade: string): string {
   if (t === "salon or barber") return "hair care";
   if (t === "auto services") return "auto service";
   if (t === "other") return "service";
+  if (t === "photography") return "photography";
   return t;
+}
+
+// Trades whose work is best shown as a lot of photos.
+export function isVisualTrade(trade: string): boolean {
+  return /photograph|videograph|cinemat|film/i.test(trade);
 }
 
 function badgesFor(brief: SiteBrief): string[] {
@@ -239,7 +246,17 @@ export function buildFallbackContent(brief: SiteBrief): SiteContent {
     },
     areasTitle: "Where we work",
     areas: areasFrom(brief),
-    gallery: brief.photoIds.slice(1, 7),
+    // Photographers (and anyone with a good pile of photos) get the scroll
+    // showcase, where the work is the page. Everyone else keeps a thumbnail grid.
+    gallery:
+      isVisualTrade(brief.trade) && brief.photoIds.length >= 4
+        ? brief.photoIds.slice(1, MAX_SITE_PHOTOS)
+        : brief.photoIds.slice(1, 7),
+    galleryStyle:
+      isVisualTrade(brief.trade) && brief.photoIds.length >= 4
+        ? "reel"
+        : "grid",
+    galleryTitle: "",
     faqTitle: "Questions we hear a lot",
     faq,
     cta: {

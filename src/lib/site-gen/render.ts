@@ -4,6 +4,13 @@
 
 import { buildCss, fontLink } from "./render-css";
 import { telHref, type SiteContent } from "./types";
+import {
+  SHOWCASE_CSS,
+  SHOWCASE_SCRIPT,
+  showcaseHeroHtml,
+  showcaseReelHtml,
+  usesShowcase,
+} from "./showcase";
 import { WIDGET_CSS, WIDGET_SCRIPT, widgetHtml } from "./widgets";
 
 export type RenderContext = {
@@ -78,6 +85,7 @@ function badgesHtml(c: SiteContent): string {
 }
 
 function heroHtml(c: SiteContent, ctx: RenderContext): string {
+  if (usesShowcase(c)) return showcaseHeroHtml(c, ctx.assetUrl);
   const h = c.hero;
   const tel = telHref(c.brand.phone);
   const h1 = `${esc(h.headline)}${h.headlineAccent ? ` <em>${esc(h.headlineAccent)}</em>` : ""}`;
@@ -190,7 +198,7 @@ function whyAboutHtml(c: SiteContent): string {
 }
 
 function galleryHtml(c: SiteContent, ctx: RenderContext): string {
-  if (c.gallery.length === 0) return "";
+  if (c.gallery.length === 0 || usesShowcase(c)) return "";
   return `<section class="sec" style="padding-top:0"><div class="wrap"><div class="sec-h rv"><span class="eyebrow">Our work</span><h2>See what we do</h2></div><div class="gal">${c.gallery
     .map(
       (id) =>
@@ -308,11 +316,12 @@ function jsonLd(c: SiteContent, ctx: RenderContext): string {
 
 export function renderSite(c: SiteContent, ctx: RenderContext): string {
   const tel = telHref(c.brand.phone);
+  const showcase = usesShowcase(c);
   const topbar =
     c.style === "copper"
       ? `<div class="topbar"><i></i>${esc(c.badges.slice(0, 2).join(" · ") || c.brand.tagline || c.hero.eyebrow)}</div>`
       : "";
-  const nav = `<nav class="nav" id="nav" aria-label="Main"><a href="#services">Services</a><a href="#about">About</a>${c.areas.length ? '<a href="#areas">Areas</a>' : ""}${c.faq.length ? '<a href="#faq">FAQ</a>' : ""}<a class="btn btn-a btn-sm" href="${esc(tel)}">${PHONE} ${esc(c.brand.phone)}</a></nav>`;
+  const nav = `<nav class="nav" id="nav" aria-label="Main">${showcase ? '<a href="#work">Our work</a>' : ""}<a href="#services">Services</a><a href="#about">About</a>${c.areas.length ? '<a href="#areas">Areas</a>' : ""}${c.faq.length ? '<a href="#faq">FAQ</a>' : ""}<a class="btn btn-a btn-sm" href="${esc(tel)}">${PHONE} ${esc(c.brand.phone)}</a></nav>`;
   const canonical =
     ctx.canonicalUrl && !ctx.preview
       ? `<link rel="canonical" href="${esc(ctx.canonicalUrl)}">`
@@ -333,7 +342,7 @@ ${ctx.preview ? '<meta name="robots" content="noindex,nofollow">' : ""}
 ${canonical}${og}
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="${fontLink(c.style)}">
-<style>${buildCss(c.style, c.accent)}${WIDGET_CSS}</style>
+<style>${buildCss(c.style, c.accent)}${WIDGET_CSS}${showcase ? SHOWCASE_CSS : ""}</style>
 ${ctx.preview ? "" : jsonLd(c, ctx)}
 </head>
 <body>
@@ -343,6 +352,7 @@ ${topbar}
 <header class="hdr"><div class="wrap hdr-in">${brandMark(c, ctx)}<button class="burger" type="button" aria-label="Menu" aria-expanded="false" aria-controls="nav"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>${nav}</div></header>
 <main>
 ${heroHtml(c, ctx)}
+${showcase ? showcaseReelHtml(c, ctx.assetUrl) : ""}
 ${extrasHtml(c, "after_hero")}
 ${statsHtml(c)}
 ${servicesHtml(c)}
@@ -359,7 +369,7 @@ ${extrasHtml(c, "end")}
 </main>
 ${footerHtml(c)}
 <div class="callbar"><a class="c1" href="${esc(tel)}">Call ${esc(c.brand.phone)}</a><a class="c2" href="#quote">Get a quote</a></div>
-<script>${SCRIPT}${WIDGET_SCRIPT}</script>
+<script>${SCRIPT}${WIDGET_SCRIPT}${showcase ? SHOWCASE_SCRIPT : ""}</script>
 </body>
 </html>`;
 }
