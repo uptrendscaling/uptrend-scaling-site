@@ -430,13 +430,33 @@ async function shrink(
   width: number,
   quality: number,
 ): Promise<Buffer | null> {
-  const proxy = `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&h=${width}&fit=inside&we=1&q=${quality}&output=jpg`;
-  const res = await fetchWithTimeout(proxy, 12000, {
-    accept: "image/jpeg,image/*",
-  });
-  if (!res || !res.ok) return null;
-  const buf = Buffer.from(await res.arrayBuffer());
-  return mimeOf(buf) === "image/jpeg" ? buf : null;
+  // First choice: WordPress's public image service (Photon), which can resize
+  // any public picture and is what many photographers' sites already use.
+  let photon: string | null = null;
+  try {
+    const u = new URL(url);
+    const host = /(^|\.)wp\.com$/i.test(u.hostname) ? u.hostname : "i0.wp.com";
+    const path = /(^|\.)wp\.com$/i.test(u.hostname)
+      ? u.pathname
+      : `/${u.hostname}${u.pathname}`;
+    photon = `https://${host}${path}?w=${width}&quality=${quality}&ssl=1`;
+  } catch {
+    photon = null;
+  }
+  const attempts = [
+    photon,
+    `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=${width}&h=${width}&fit=inside&we=1&q=${quality}&output=jpg`,
+  ];
+  for (const target of attempts) {
+    if (!target) continue;
+    const res = await fetchWithTimeout(target, 12000, {
+      accept: "image/jpeg,image/png;q=0.9",
+    });
+    if (!res || !res.ok) continue;
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (mimeOf(buf) && sizeOf(buf)) return buf;
+  }
+  return null;
 }
 
 export type PhotoResult =
@@ -466,7 +486,7 @@ export async function fetchPhoto(
     const converted = await shrink(u.toString(), 1800, 80);
     if (!converted) return { ok: false, reason: "could not download" };
     buf = converted;
-    mime = "image/jpeg";
+    mime = mimeOf(buf);
     size = sizeOf(buf);
     shrunkAlready = true;
     if (!size) return { ok: false, reason: "not a picture" };
@@ -487,7 +507,7 @@ export async function fetchPhoto(
     if (!shrunk || shrunk.length * 1.34 > MAX_PHOTO_BASE64)
       return { ok: false, reason: "could not shrink" };
     buf = shrunk;
-    mime = "image/jpeg";
+    mime = mimeOf(buf) ?? "image/jpeg";
     size = sizeOf(buf) ?? size;
   }
   return {
