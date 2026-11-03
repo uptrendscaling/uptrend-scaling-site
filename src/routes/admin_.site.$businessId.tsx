@@ -150,6 +150,7 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
   const [frameKey, setFrameKey] = useState(0);
   const [importUrl, setImportUrl] = useState("");
   const [importNote, setImportNote] = useState("");
+  const [pasteList, setPasteList] = useState("");
 
   async function refresh() {
     const r = await adminGetSite({ data: { businessId: site.businessId } });
@@ -221,22 +222,30 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
   // and turns on the scroll showcase when there are enough of them.
   async function importPhotos() {
     if (!content) return;
-    const url = importUrl.trim();
+    const pasted = pasteList
+      .split(/\s+/)
+      .map((u) => u.trim())
+      .filter((u) => /^https?:\/\//i.test(u));
+    const url = importUrl.trim() || pasted[0] || "";
     if (!url) return;
     setBusy("import");
     setMsg(null);
     try {
-      setImportNote("Looking through their website...");
-      const scan = await adminScanSitePhotos({
-        data: { businessId: site.businessId, url },
-      });
-      if (!scan.ok) {
-        setMsg({ ok: false, text: scan.message });
-        return;
+      let candidates: string[] = pasted;
+      if (pasted.length === 0) {
+        setImportNote("Looking through their website...");
+        const scan = await adminScanSitePhotos({
+          data: { businessId: site.businessId, url },
+        });
+        if (!scan.ok) {
+          setMsg({ ok: false, text: scan.message });
+          return;
+        }
+        candidates = scan.candidates;
       }
       const ids: string[] = [];
       const why: string[] = [];
-      const list = scan.candidates;
+      const list = candidates;
       let tried = 0;
       for (let i = 0; i < list.length; i += 4) {
         if (
@@ -513,7 +522,9 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
                 <button
                   className="sd-btn pri"
                   type="button"
-                  disabled={busy !== null || !importUrl.trim()}
+                  disabled={
+                    busy !== null || (!importUrl.trim() && !pasteList.trim())
+                  }
                   onClick={() => void importPhotos()}
                 >
                   {busy === "import" ? "Importing..." : "Import their photos"}
@@ -533,6 +544,14 @@ function Editor({ site: initial }: { site: AdminSiteDetail }) {
                   Remove all photos
                 </button>
               </div>
+              <Field label="Or paste photo links, one per line (for sites that block automatic visitors)">
+                <textarea
+                  rows={3}
+                  value={pasteList}
+                  onChange={(e) => setPasteList(e.target.value)}
+                  placeholder="https://their-website.com/photo1.jpg"
+                />
+              </Field>
               {importNote ? <p className="sd-lead">{importNote}</p> : null}
               {c ? (
                 <div className="sd-grid">
